@@ -1,0 +1,86 @@
+<%
+const pageTitle = 'Login';
+%>
+
+<script>
+if (typeof window !== 'undefined') {
+  document.body.classList.add('auth-page');
+  window.addEventListener('load', () => document.body.classList.add('auth-page'));
+}
+</script>
+
+<div class="min-h-screen flex items-center justify-center px-4 py-20" style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);">
+    <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <img src="https://z-cdn-media.chatglm.cn/files/87e4e759-3898-4bd9-93f3-42078956a794.png?auth_key=1878848442-1a65b6a56ce44d8188d26c370725de81-0-3e86df522848abe81fc556fd03a5fe98" alt="Logo" class="h-16 w-auto mx-auto mb-4 hm-logo-img">
+            <h1 class="font-orbitron text-2xl font-bold tracking-wide mb-2" style="background:linear-gradient(135deg,#7b2cbf,#9d4edd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">HERO MARKET</h1>
+            <p class="text-sm text-zinc-500">Masuk ke akun Anda</p>
+        </div>
+
+        <div class="bg-[#151520] rounded-xl border-2 border-purple-500/25 shadow-2xl overflow-hidden" style="box-shadow:0 0 30px rgba(157,78,221,.15);">
+            <div class="p-6">
+                <% if (error) { %>
+                    <div class="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center gap-2">
+                        <iconify-icon icon="mdi:alert-circle" class="text-red-400 text-lg"></iconify-icon>
+                        <span class="text-xs text-red-400"><%= error %></span>
+                    </div>
+                <% } %>
+
+                <form method="POST" action="/login" class="space-y-4">
+                    <input type="hidden" name="redirect" value="<%= redirect %>">
+
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-400 mb-2">Username</label>
+                        <div class="relative">
+                            <iconify-icon icon="mdi:account" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"></iconify-icon>
+                            <input type="text" name="username" required class="form-input pl-10" placeholder="Masukkan username" autofocus>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-400 mb-2">Password</label>
+                        <div class="relative">
+                            <iconify-icon icon="mdi:lock" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"></iconify-icon>
+                            <input type="password" name="password" id="login-password" required class="form-input pl-10 pr-10" placeholder="Masukkan password">
+                            <button type="button" onclick="togglePass('login-password','login-eye')" class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+                                <iconify-icon icon="mdi:eye-outline" id="login-eye" class="text-base"></iconify-icon>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-gaming w-full flex items-center justify-center gap-2">
+                        <iconify-icon icon="mdi:login" class="text-base"></iconify-icon>
+                        <span>Masuk</span>
+                    </button>
+                </form>
+
+                <div class="mt-6 text-center">
+                    <p class="text-xs text-zinc-500">
+                        Belum punya akun?
+                        <a href="/register" class="text-indigo-400 hover:text-indigo-300 font-semibold">Daftar sekarang</a>
+                    </p>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <a href="/" class="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
+                        <iconify-icon icon="mdi:arrow-left" class="text-xs"></iconify-icon> Kembali ke Beranda
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePass(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.setAttribute('icon', 'mdi:eye-off-outline');
+    } else {
+        input.type = 'password';
+        icon.setAttribute('icon', 'mdi:eye-outline');
+    }
+}
+</script>

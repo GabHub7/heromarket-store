@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' — ' : '' %><%= settings?.siteName || 'HERO MARKET' %></title>
+    <meta name="description" content="<%= settings?.about || 'HERO MARKET - Layanan Game Mod Menu Premium Terpercaya' %>">
+    <meta name="theme-color" content="#0b0b1a">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js" defer></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>tailwind.config={theme:{extend:{fontFamily:{inter:['Inter','sans-serif'],orbitron:['Orbitron','sans-serif']}}}}</script>
+    <style>
+        :root{--neon-purple:#7b2cbf;--neon-violet:#9d4edd;--bg-dark:#0a0a0a;--bg-card:#151520;--bg-card2:#0f0f18;}
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Inter',sans-serif;background:var(--bg-dark);color:#e0e0e0;min-height:100dvh;}
+        html{height:100%;}
+        ::-webkit-scrollbar{width:4px;} ::-webkit-scrollbar-track{background:#0a0a0a;} ::-webkit-scrollbar-thumb{background:#1a1a2e;border-radius:3px;}
+        body.auth-page{padding-bottom:0!important;}
+
+        /* page transition */
+        @keyframes pageIn{from{opacity:0;}to{opacity:1;}}
+        body{animation:pageIn .15s ease-out;}
+
+        /* keyframes */
+        @keyframes fadeInUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+        @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+        @keyframes marquee-scroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+        @keyframes logoGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(99,102,241,.4));}50%{filter:drop-shadow(0 0 14px rgba(139,92,246,.7));}}
+        @keyframes shimmer{0%{background-position:-200% center;}100%{background-position:200% center;}}
+        @keyframes ripple{to{transform:scale(4);opacity:0;}}
+        @keyframes spin{to{transform:rotate(360deg);}}
+        @keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+        @keyframes pulseGlow{0%,100%{box-shadow:0 0 8px rgba(99,102,241,.4);}50%{box-shadow:0 0 24px rgba(139,92,246,.7);}}
+        @keyframes notifSlide{from{opacity:0;transform:translateX(120%);}to{opacity:1;transform:translateX(0);}}
+        @keyframes slideInBottom{from{transform:translateY(100%);opacity:0;}to{transform:translateY(0);opacity:1;}}
+        @keyframes slideInRight{from{transform:translateX(100%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+
+        /* utility */
+        .fade-in-up{animation:fadeInUp .3s ease-out both;}
+        .animate-spin{animation:spin 1s linear infinite;}
+        .pulse-glow{animation:pulseGlow 2s ease-in-out infinite;}
+        .shimmer-text{background:linear-gradient(90deg,#818cf8,#a78bfa,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+
+        /* ── Reference UI theme classes ── */
+        .glass{background:rgba(255,255,255,0.03);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.06);}
+        .glass-strong{background:rgba(255,255,255,0.06);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.1);}
+        .font-display{font-family:'Inter',sans-serif;font-feature-settings:'cv11','ss01';}
+        .hm-logo{position:relative;}
+        .hm-logo::before{content:'';position:absolute;inset:-3px;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#a855f7,#7c3aed);filter:blur(8px);opacity:.4;z-index:-1;}
+
+        .btn-primary{background:linear-gradient(135deg,#7c3aed,#6d28d9);transition:all .2s ease;position:relative;overflow:hidden;}
+        .btn-primary::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);background-size:200% 100%;animation:shimmer 3s linear infinite;}
+        .btn-primary:hover{filter:brightness(1.15);transform:translateY(-1px);box-shadow:0 6px 20px rgba(139,92,246,0.3);}
+        .btn-primary:active{transform:scale(0.97);}
+        .btn-ghost{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);transition:all .2s ease;}
+        .btn-ghost:hover{background:rgba(255,255,255,0.08);border-color:rgba(139,92,246,0.3);}
+        .btn-green{background:linear-gradient(135deg,#16a34a,#15803d);transition:all .2s ease;position:relative;overflow:hidden;}
+        .btn-green::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);background-size:200% 100%;animation:shimmer 3s linear infinite;}
+        .btn-green:hover{filter:brightness(1.15);transform:translateY(-1px);box-shadow:0 6px 20px rgba(22,163,74,0.3);}
+
+        .badge-tag{font-size:7px;letter-spacing:.04em;font-weight:800;padding:2px 6px;border-radius:4px;line-height:1.3;text-transform:uppercase;}
+        .platform-label{font-size:7px;letter-spacing:.04em;font-weight:700;padding:2px 5px;border-radius:3px;line-height:1.3;background:rgba(109,40,217,0.6);color:#e9d5ff;border:1px solid rgba(139,92,246,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+
+        .product-card{transition:all .3s ease;position:relative;overflow:hidden;}
+        .product-card:hover{transform:translateY(-4px);border-color:rgba(139,92,246,0.3)!important;box-shadow:0 12px 30px rgba(139,92,246,0.1);}
+        .product-card:active{transform:scale(0.98);}
+
+        .popular-scroll{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:8px;touch-action:pan-x;}
+        .popular-scroll::-webkit-scrollbar{display:none;}
+        .popular-card{min-width:200px;max-width:200px;scroll-snap-align:start;transition:all .3s ease;flex-shrink:0;}
+        .popular-card:hover{transform:translateY(-4px) scale(1.02);border-color:rgba(139,92,246,0.3)!important;box-shadow:0 8px 25px rgba(139,92,246,0.15);}
+        .popular-card:active{transform:scale(0.97);}
+        @media(min-width:640px){.popular-card{min-width:220px;max-width:220px;}}
+        .popular-scroll-wrapper{position:relative;}
+        .popular-scroll-wrapper::after{content:'';position:absolute;top:0;right:0;bottom:8px;width:50px;background:linear-gradient(to left,#06050f,transparent);pointer-events:none;z-index:5;}
+
+        .filter-scroll{scrollbar-width:none;-ms-overflow-style:none;}
+        .filter-scroll::-webkit-scrollbar{display:none;}
+        .filter-sticky-left{position:sticky;left:0;z-index:10;flex-shrink:0;background-color:#06050f;padding-right:8px;display:flex;}
+        .prod-filter{transition:all .2s;}
+
+        /* Override body bg for reference theme */
+
+        /* bg grid */
+        body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(123,44,191,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(123,44,191,.015) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+        /* Hanya beri z-index pada elemen konten, bukan nav fixed */
+        body>*:not(#navbar):not(#toast-container):not(#purchase-notif-container):not(#search-panel):not(#cart-panel):not(#track-panel):not(#menu-drawer):not(#paymentModal){position:relative;z-index:1;}
+        #paymentModal{position:fixed!important;z-index:99999!important;}
+        body::after{content:'';position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;background:radial-gradient(ellipse at center,rgba(157,78,221,.05) 0%,transparent 70%);z-index:0;}
+
+        /* navbar */
+        .hm-logo-img{display:block;flex-shrink:0;}
+        .navbar-solid{background:rgba(13,13,32,.98)!important;box-shadow:0 4px 30px rgba(0,0,0,.5);}
+        .marquee-track{animation:marquee-scroll 14s linear infinite;}
+        .marquee-track:hover{animation-play-state:paused;}
+
+        /* cards */
+        .game-card{transition:transform .2s,box-shadow .2s,border-color .2s;cursor:pointer;position:relative;overflow:hidden;}
+        .game-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(99,102,241,.1),transparent 60%);opacity:0;transition:opacity .25s;z-index:1;pointer-events:none;}
+        .game-card:hover::before{opacity:1;}
+        .game-card:hover{transform:translateY(-6px) scale(1.025);box-shadow:0 0 0 1px rgba(99,102,241,.5),0 8px 30px rgba(99,102,241,.35),0 0 50px rgba(99,102,241,.12);border-color:rgba(99,102,241,.5)!important;}
+        .game-card:active{transform:translateY(-2px) scale(.99);}
+        .neon-text{background:linear-gradient(135deg,#818cf8,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 8px rgba(129,140,248,.4));}
+
+        .neon-card{background:var(--bg-card);border:2px solid rgba(123,44,191,.25);border-radius:14px;position:relative;overflow:hidden;transition:all .2s;box-shadow:0 0 20px rgba(123,44,191,.1);}
+        .neon-card::after{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(157,78,221,.08),transparent);transition:left .5s;}
+        .neon-card:hover::after{left:150%;}
+        .neon-card:hover{border-color:rgba(157,78,221,.45);box-shadow:inset 0 0 20px rgba(157,78,221,.05),0 0 40px rgba(157,78,221,.25);}
+
+        /* buttons */
+        .buy-btn{transition:all .15s;cursor:pointer;position:relative;overflow:hidden;}
+        .buy-btn:hover{filter:brightness(1.2);transform:scale(1.04);}
+        .buy-btn:active{transform:scale(.97);}
+
+        .btn-gaming{position:relative;background:linear-gradient(135deg,#7b2cbf,#9d4edd);border:2px solid rgba(157,78,221,.5);color:#fff;font-weight:700;border-radius:10px;cursor:pointer;overflow:hidden;transition:all .2s;box-shadow:0 0 20px rgba(157,78,221,.3);}
+        .btn-gaming:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(157,78,221,.6);border-color:rgba(157,78,221,.8);}
+        .btn-gaming:active{transform:translateY(0);}
+
+        /* testi */
+        .testi-card{background:rgba(139,92,246,.03);border:1px solid rgba(139,92,246,.12);border-radius:12px;transition:all .2s;}
+        .testi-card:hover{border-color:rgba(139,92,246,.35);background:rgba(139,92,246,.06);transform:translateY(-2px);}
+
+        /* status */
+        .status-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+        .status-pending{background:rgba(234,179,8,.15);color:#facc15;border:1px solid rgba(234,179,8,.3);}
+        .status-done{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3);}
+        .status-cancelled{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+
+        /* inputs */
+        .hm-input{width:100%;padding:11px 14px;border-radius:10px;background:rgba(255,255,255,.03);border:1.5px solid rgba(123,44,191,.2);color:#fff;font-size:13px;transition:all .2s;box-shadow:0 0 10px rgba(123,44,191,.1);}
+        .hm-input:focus{outline:none;border-color:rgba(157,78,221,.8);background:rgba(157,78,221,.1);box-shadow:0 0 0 3px rgba(157,78,221,.15),0 0 20px rgba(157,78,221,.25);}
+        .hm-input::placeholder{color:#52525b;}
+        .form-input{width:100%;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#fff;font-size:13px;}
+        .form-input:focus{outline:none;border-color:rgba(99,102,241,.5);}
+
+        /* toast */
+        @keyframes toastUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+        .toast-enter{animation:toastUp .25s ease-out both;}
+        #toast-container{position:fixed;bottom:calc(84px + env(safe-area-inset-bottom));left:12px;right:12px;z-index:9001;display:flex;flex-direction:column-reverse;gap:6px;pointer-events:none;}
+        #toast-container>*{pointer-events:auto;}
+
+        /* modal */
+        @keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(10px);}to{opacity:1;transform:scale(1) translateY(0);}}
+        .modal-animate-bg{animation:fadeIn .2s ease-out both;}
+        .modal-animate-content{animation:modalIn .25s ease-out both;}
+        .modal-scroll::-webkit-scrollbar{width:3px;}
+        .modal-scroll::-webkit-scrollbar-thumb{background:#2a2a4a;border-radius:2px;}
+
+        /* cat btn */
+        .cat-scroll::-webkit-scrollbar{display:none;}
+        .cat-btn{transition:all .2s;}
+        .cat-btn:hover,.cat-btn.active{background:rgba(99,102,241,.15);color:#818cf8;border-color:rgba(99,102,241,.4);box-shadow:0 0 12px rgba(99,102,241,.25);}
+        .trust-badge{transition:all .2s;}
+        .trust-badge:hover{border-color:rgba(99,102,241,.3)!important;box-shadow:0 0 20px rgba(99,102,241,.1);}
+        .testi-card{transition:all .2s;}
+        .testi-card:hover{border-color:rgba(139,92,246,.35)!important;background:rgba(139,92,246,.06)!important;transform:translateY(-2px);box-shadow:0 0 20px rgba(139,92,246,.1);}
+
+
+
+        /* panels */
+        #search-panel{position:fixed;inset:0;z-index:8000;display:none;flex-direction:column;background:rgba(8,8,22,.99);}
+        #search-panel.open{display:flex;animation:fadeIn .15s ease-out;}
+        #menu-drawer{position:fixed;inset:0;z-index:8000;display:none;}
+        #menu-drawer.open{display:block;}
+        #menu-drawer-overlay{position:absolute;inset:0;background:rgba(0,0,0,.7);animation:fadeIn .2s ease-out;}
+        #menu-drawer-content{position:absolute;right:0;top:0;bottom:0;width:285px;background:var(--bg-card);border-left:1px solid rgba(99,102,241,.15);overflow-y:auto;padding-bottom:calc(80px + env(safe-area-inset-bottom));}
+        #menu-drawer-content.menu-slide-in{animation:slideInRight .25s ease-out both;}
+        #cart-panel{position:fixed;inset:0;z-index:8000;display:none;}
+        #cart-panel.open{display:block;}
+        #cart-panel-overlay{position:absolute;inset:0;background:rgba(0,0,0,.7);animation:fadeIn .2s ease-out;}
+        #cart-panel-content{position:absolute;bottom:0;left:0;right:0;background:var(--bg-card);border-top:1px solid rgba(99,102,241,.15);border-radius:20px 20px 0 0;max-height:90dvh;overflow-y:auto;padding-bottom:calc(80px + env(safe-area-inset-bottom));}
+
+        /* AVATAR ring */
+        .user-avatar{width:100%;height:100%;border-radius:50%;object-fit:cover;}
+        .avatar-upload-wrap{position:relative;cursor:pointer;}
+        .avatar-upload-wrap:hover .avatar-overlay{opacity:1;}
+        .avatar-overlay{position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;}
+
+        /* PURCHASE NOTIF popup */
+        #purchase-notif-container{position:fixed;bottom:16px;left:12px;z-index:8500;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+        .purchase-notif{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;background:rgba(15,15,37,.95);border:1px solid rgba(99,102,241,.25);backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.4);animation:notifSlide .4s ease-out both;pointer-events:none;max-width:280px;}
+        .purchase-notif-avatar{width:36px;height:36px;border-radius:10px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff;}
+        .purchase-notif-text{flex:1;min-width:0;}
+        .purchase-notif-name{font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .purchase-notif-product{font-size:10px;color:#818cf8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .purchase-notif-price{font-size:10px;color:#34d399;font-weight:700;white-space:nowrap;}
+
+        /* profile photo menu */
+        .profile-photo-container{width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;cursor:pointer;border:3px solid rgba(99,102,241,.4);transition:border-color .2s;}
+        .profile-photo-container:hover{border-color:rgba(99,102,241,.8);}
+        .profile-photo-container img{width:100%;height:100%;object-fit:cover;}
+        .profile-photo-initial{width:100%;height:100%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:24px;color:#fff;font-family:'Orbitron',sans-serif;}
+    </style>
+    
+    <!-- Dynamic Theme Injection from Database -->
+    <style>
+        :root {
+            --neon-purple: <%= settings?.theme?.primaryColor || '#7b2cbf' %>;
+            --neon-violet: <%= settings?.theme?.secondaryColor || '#9d4edd' %>;
+            --accent-color: <%= settings?.theme?.accentColor || '#c77dff' %>;
+            --bg-dark: <%= settings?.theme?.backgroundColor || '#0a0a0a' %>;
+            --bg-card: <%= settings?.theme?.cardBackground || '#151520' %>;
+            --glow-color: <%= settings?.theme?.glowColor || 'rgba(157, 78, 221, 0.1)' %>;
+        }
+    </style>
+</head>
+<body class="font-inter">
+    <div id="toast-container"></div>
+    <div id="purchase-notif-container"></div>
+
+    <%- body %>
+
+
+    <!-- ══ SEARCH PANEL ══ -->
+    <div id="search-panel">
+        <div class="flex items-center gap-3 p-4 border-b border-white/5">
+            <button onclick="closeSearch()" class="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors flex-shrink-0">
+                <iconify-icon icon="mdi:arrow-left" class="text-lg"></iconify-icon>
+            </button>
+            <div class="flex-1 relative">
+                <iconify-icon icon="mdi:magnify" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-lg"></iconify-icon>
+                <input type="text" id="searchInput" placeholder="Cari produk game..." class="hm-input pl-10" oninput="doSearch(this.value)">
+            </div>
+        </div>
+        <div id="searchResults" class="flex-1 overflow-y-auto p-4">
+            <div class="text-center py-16 text-zinc-600">
+                <iconify-icon icon="mdi:magnify" class="text-5xl mb-3 block"></iconify-icon>
+                <p class="text-sm">Ketik untuk mencari produk...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ CART PANEL ══ -->
+    <div id="cart-panel">
+        <div id="cart-panel-overlay" onclick="closeCart()"></div>
+        <div id="cart-panel-content">
+            <div class="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-[#0f0f25]">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <iconify-icon icon="mdi:cart-variant" class="text-indigo-400 text-xl"></iconify-icon> Keranjang
+                </h3>
+                <button onclick="closeCart()" class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400">
+                    <iconify-icon icon="mdi:close"></iconify-icon>
+                </button>
+            </div>
+            <div id="cartItems" class="p-4 space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- ══ TRACK PANEL ══ -->
+    <div id="track-panel" class="fixed inset-0 hidden" style="z-index:8000;">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeTrack()"></div>
+        <div class="absolute bottom-0 left-0 right-0 bg-[#0f0f25] border-t border-indigo-500/20 rounded-t-2xl p-5" style="padding-bottom:calc(88px + env(safe-area-inset-bottom));animation:slideInBottom .25s ease-out both">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <iconify-icon icon="mdi:package-variant-closed" class="text-indigo-400"></iconify-icon> Lacak Pesanan
+                </h3>
+                <button onclick="closeTrack()" class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400">
+                    <iconify-icon icon="mdi:close"></iconify-icon>
+                </button>
+            </div>
+            <div class="space-y-3">
+                <input type="text" id="trackCode" placeholder="HM-XXXX-XXXX" class="hm-input font-mono uppercase tracking-widest" maxlength="14" oninput="this.value=this.value.toUpperCase()">
+                <button onclick="doTrack()" class="btn-gaming w-full py-3 text-sm font-bold flex items-center justify-center gap-2">
+                    <iconify-icon icon="mdi:magnify" class="text-base"></iconify-icon> Cek Status
+                </button>
+                <div id="trackResult"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ MENU DRAWER ══ -->
+    <div id="menu-drawer">
+        <div id="menu-drawer-overlay" onclick="closeMenu()"></div>
+        <div id="menu-drawer-content">
+
+            <!-- Profile section -->
+            <% if (typeof user !== 'undefined' && user) { %>
+            <div class="p-4 border-b border-white/5">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="font-orbitron text-sm font-bold shimmer-text"><%= settings?.siteName || 'HERO MARKET' %></span>
+                    <button onclick="closeMenu()" class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400">
+                        <iconify-icon icon="mdi:close"></iconify-icon>
+                    </button>
+                </div>
+                <!-- Profile card compact -->
+                <div class="flex items-center gap-3 p-3 rounded-xl <%= isAdmin ? 'bg-orange-500/8 border border-orange-500/20' : 'bg-indigo-500/8 border border-indigo-500/18' %>">
+                    <% if (!isAdmin) { %><input type="file" id="avatarInput" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="uploadAvatar(this)"><% } %>
+                    <div class="<%= isAdmin ? '' : 'avatar-upload-wrap cursor-pointer' %>" onclick="<%= isAdmin ? '' : 'document.getElementById(\'avatarInput\').click()' %>">
+                        <div class="w-10 h-10 rounded-full overflow-hidden border-2 border-white/10 flex-shrink-0" id="profilePhotoWrap">
+                            <% if (user.photo) { %>
+                                <img src="<%= user.photo %>" class="w-full h-full object-cover" id="profilePhotoImg">
+                            <% } else if (isAdmin) { %>
+                                <div class="w-full h-full flex items-center justify-center" style="background:linear-gradient(135deg,#ea580c,#f97316)"><iconify-icon icon="mdi:shield-crown" style="color:#fff;font-size:18px"></iconify-icon></div>
+                            <% } else { %>
+                                <div class="w-full h-full flex items-center justify-center font-black text-sm text-white" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)" id="profilePhotoInitial"><%= user.username.charAt(0).toUpperCase() %></div>
+                            <% } %>
+                        </div>
+                        <% if (!isAdmin) { %><div class="avatar-overlay"><iconify-icon icon="mdi:camera" class="text-white text-base"></iconify-icon></div><% } %>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <div class="text-sm font-bold text-white truncate"><%= user.username %></div>
+                            <% if (isAdmin) { %>
+                            <span class="text-[8px] font-black px-1.5 py-0.5 rounded" style="background:rgba(234,88,12,.25);color:#fb923c;border:1px solid rgba(234,88,12,.4)">ADMIN</span>
+                            <% } else if (user.is_reseller) { %>
+                            <span class="text-[8px] font-black px-1.5 py-0.5 rounded" style="background:rgba(234,179,8,.2);color:#fbbf24;border:1px solid rgba(234,179,8,.3)">VIP</span>
+                            <% } %>
+                        </div>
+                        <div class="text-[10px] mt-0.5 <%= isAdmin ? 'text-orange-400' : 'text-zinc-500' %>">
+                            <%= isAdmin ? 'Administrator' : (user.is_reseller ? 'Reseller VIP' : 'Member') %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <% } else { %>
+            <div class="p-4 border-b border-white/5 flex items-center justify-between">
+                <span class="font-orbitron text-sm font-bold shimmer-text"><%= settings?.siteName || 'HERO MARKET' %></span>
+                <button onclick="closeMenu()" class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400">
+                    <iconify-icon icon="mdi:close"></iconify-icon>
+                </button>
+            </div>
+            <% } %>
+
+            <!-- ═══ MENU ITEMS — CLEAN & MINIMAL ═══ -->
+            <div class="p-3 space-y-0.5">
+                <a href="/" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium">
+                    <iconify-icon icon="mdi:home-variant" class="text-indigo-400 text-lg"></iconify-icon> Beranda
+                </a>
+                <a href="/invoice" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium">
+                    <iconify-icon icon="mdi:package-variant-closed" class="text-emerald-400 text-lg"></iconify-icon> Cek Pesanan
+                </a>
+                <% if (typeof user !== 'undefined' && user && !isAdmin) { %>
+                <a href="/dashboard" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium">
+                    <iconify-icon icon="mdi:view-dashboard" class="text-indigo-400 text-lg"></iconify-icon> Dashboard
+                </a>
+                <% } %>
+
+                <% if (!isAdmin) { %>
+                    <% if (typeof user !== 'undefined' && user && user.is_reseller) { %>
+                    <a href="/reseller" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all" style="background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.2);color:#fbbf24;">
+                        <iconify-icon icon="mdi:crown" class="text-lg"></iconify-icon>
+                        <span class="flex-1">Status VIP</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded font-black" style="background:rgba(234,179,8,.2)">AKTIF</span>
+                    </a>
+                    <% } else if (typeof settings !== 'undefined' && settings.resellerEnabled !== false) { %>
+                    <a href="/reseller" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-zinc-400 hover:text-white hover:bg-white/5">
+                        <iconify-icon icon="mdi:crown" class="text-yellow-500 text-lg"></iconify-icon> Jadi Reseller VIP
+                    </a>
+                    <% } %>
+                <% } %>
+
+                <div class="border-t border-white/5 my-1.5"></div>
+
+                <% if (typeof user !== 'undefined' && user) { %>
+                    <a href="/logout" onclick="doLogout(event)" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all text-sm font-medium">
+                        <iconify-icon icon="mdi:logout" class="text-lg"></iconify-icon> Logout
+                    </a>
+                <% } else { %>
+                    <a href="/login" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-all text-sm font-medium">
+                        <iconify-icon icon="mdi:login" class="text-lg"></iconify-icon> Login
+                    </a>
+                    <a href="/register" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-all text-sm font-medium">
+                        <iconify-icon icon="mdi:account-plus" class="text-lg"></iconify-icon> Daftar
+                    </a>
+                <% } %>
+
+                <!-- ADMIN SHORTCUT — hanya admin -->
+                <% if (isAdmin) { %>
+                <div class="border-t border-orange-500/15 my-1.5 pt-1.5">
+                    <a href="/admin" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 transition-all text-sm font-bold">
+                        <iconify-icon icon="mdi:shield-crown" class="text-lg"></iconify-icon> Admin Panel
+                    </a>
+                </div>
+                <% } %>
+
+                <div class="border-t border-white/5 my-1.5"></div>
+                <% if (settings?.contact?.whatsapp) { %>
+                <a href="https://wa.me/<%= settings.contact.whatsapp %>" target="_blank" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 transition-all text-sm">
+                    <iconify-icon icon="mdi:whatsapp" class="text-green-400 text-lg"></iconify-icon> Hubungi CS
+                </a>
+                <% } %>
+            </div>
+            <div class="px-4 pb-4 pt-1 text-center text-[10px] text-zinc-700">
+                &copy; 2026 <%= settings?.siteName || 'HERO MARKET' %>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ═══ LOGOUT ═══
+    function doLogout(e) {
+        e.preventDefault();
+        localStorage.removeItem('hm_cart');
+        localStorage.removeItem('shownNotifs');
+        window.location.href = '/logout';
+    }
+
+    // ═══ TOAST ═══
+    function showToast(msg, type='info') {
+        const c = document.getElementById('toast-container');
+        if (!c) return;
+        const clr = {success:'border-green-500/30 bg-green-500/10',error:'border-red-500/30 bg-red-500/10',info:'border-indigo-500/30 bg-indigo-500/10'};
+        const ic  = {success:'mdi:check-circle',error:'mdi:alert-circle',info:'mdi:information'};
+        const icc = {success:'text-green-400',error:'text-red-400',info:'text-indigo-400'};
+        const t = document.createElement('div');
+        t.className = `toast-enter flex items-center gap-2 px-4 py-2.5 rounded-xl border ${clr[type]||clr.info} backdrop-blur-xl shadow-xl max-w-xs`;
+        t.innerHTML = `<iconify-icon icon="${ic[type]||ic.info}" class="${icc[type]||icc.info} text-base flex-shrink-0"></iconify-icon><span class="text-xs text-zinc-200">${msg}</span>`;
+        c.appendChild(t);
+        setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300);},3500);
+    }
+
+    // ═══ SCROLL NAVBAR ═══
+    window.addEventListener('scroll',()=>{
+        const n=document.getElementById('navbar');
+        if(n) n.classList.toggle('navbar-solid',window.scrollY>20);
+    },{passive:true});
+
+    // ═══ BOTTOM NAV ═══
+    function navTo(tab) {
+        // Close all panels without resetting active state
+        _closeSearch();_closeCart();_closeTrack();_closeMenu();
+        document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+        const nb = document.getElementById(`nav-${tab}`);
+        if(nb) nb.classList.add('active');
+        if(tab==='home')  {window.location.href='/';}
+        if(tab==='search'){openSearch();}
+        if(tab==='cart')  {openCart();}
+        if(tab==='track') {openTrack();}
+        if(tab==='menu')  {openMenu();}
+    }
+    function closeAll(){closeSearch();closeCart();closeTrack();closeMenu();}
+
+    // ═══ SEARCH ═══
+    let allProducts=[];
+    function _closeSearch(){document.getElementById('search-panel').classList.remove('open');document.body.style.overflow='';}
+    function _closeCart(){document.getElementById('cart-panel').classList.remove('open');document.body.style.overflow='';}
+    function _closeTrack(){document.getElementById('track-panel').classList.add('hidden');document.body.style.overflow='';}
+    function _closeMenu(){document.getElementById('menu-drawer').classList.remove('open');document.body.style.overflow='';}
+    function _resetNavToHome(){document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));document.getElementById('nav-home')?.classList.add('active');}
+
+    async function openSearch(){
+        document.getElementById('search-panel').classList.add('open');
+        document.body.style.overflow='hidden';
+        if(!allProducts.length){const r=await fetch('/api/products');allProducts=await r.json();}
+        setTimeout(()=>document.getElementById('searchInput')?.focus(),80);
+    }
+    function closeSearch(){_closeSearch();_resetNavToHome();}
+    function doSearch(q){
+        const rs=document.getElementById('searchResults');
+        if(!q.trim()){rs.innerHTML='<div class="text-center py-16 text-zinc-600"><iconify-icon icon="mdi:magnify" class="text-5xl mb-3 block"></iconify-icon><p class="text-sm">Ketik untuk mencari...</p></div>';return;}
+        const f=allProducts.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||(p.category||'').toLowerCase().includes(q.toLowerCase()));
+        if(!f.length){rs.innerHTML='<div class="text-center py-16 text-zinc-600"><iconify-icon icon="mdi:emoticon-sad-outline" class="text-5xl mb-3 block"></iconify-icon><p class="text-sm">Tidak ditemukan</p></div>';return;}
+        rs.innerHTML=f.map(p=>`
+            <a href="/buy/${p.id}" class="flex items-center gap-4 p-4 rounded-xl border border-white/5 hover:bg-white/5 hover:border-indigo-500/30 transition-all mb-2 block">
+                <div class="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-indigo-500/10 border border-white/10">
+                    ${p.image?`<img src="${p.image}" class="w-full h-full object-cover">`:`<div class="w-full h-full flex items-center justify-center"><iconify-icon icon="mdi:gamepad-variant" class="text-xl text-indigo-400"></iconify-icon></div>`}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-white text-sm truncate">${p.name}</div>
+                    <div class="text-xs text-zinc-500 mt-0.5">${p.category||''}</div>
+                    <div class="text-xs font-bold text-indigo-400 mt-1">${p.items?.[0]?'Rp '+p.items[0].p.toLocaleString('id-ID'):''}</div>
+                </div>
+                <iconify-icon icon="mdi:chevron-right" class="text-zinc-600 text-xl"></iconify-icon>
+            </a>`).join('');
+    }
+
+    // ═══ CART ═══
+    let cart=JSON.parse(localStorage.getItem('hm_cart')||'[]');
+    function updateCartBadge(){
+        const b=document.getElementById('cart-badge');
+        if(!b)return;
+        if(cart.length>0){b.textContent=cart.length;b.classList.remove('hidden');}
+        else b.classList.add('hidden');
+    }
+    function openCart(){
+        renderCart();
+        const panel = document.getElementById('cart-panel');
+        const content = document.getElementById('cart-panel-content');
+        panel.classList.add('open');
+        content.style.animation='none';
+        void content.offsetWidth;
+        content.style.animation='slideInBottom .25s ease-out both';
+        document.body.style.overflow='hidden';
+    }
+    function closeCart(){_closeCart();_resetNavToHome();}
+    function renderCart(){
+        const el=document.getElementById('cartItems');
+        if(!cart.length){
+            el.innerHTML='<div class="text-center py-12 text-zinc-600"><iconify-icon icon="mdi:cart-outline" class="text-6xl mb-3 block"></iconify-icon><p class="text-sm">Keranjang kosong</p><a href="/" class="text-xs text-indigo-400 mt-2 inline-block">Lihat produk</a></div>';
+            return;
+        }
+        el.innerHTML=cart.map((item,i)=>`
+            <div class="neon-card p-4 flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-indigo-500/10 border border-white/10">
+                    ${item.image?`<img src="${item.image}" class="w-full h-full object-cover">`:`<iconify-icon icon="mdi:gamepad-variant" class="text-xl text-indigo-400"></iconify-icon>`}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-white text-xs truncate">${item.name}</div>
+                    <div class="text-[11px] text-zinc-500">${item.duration}</div>
+                    <div class="text-xs font-bold text-indigo-400">Rp ${item.price.toLocaleString('id-ID')}</div>
+                </div>
+                <button onclick="removeFromCart(${i})" class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 hover:bg-red-500/20 transition-colors">
+                    <iconify-icon icon="mdi:trash-can-outline" class="text-sm"></iconify-icon>
+                </button>
+            </div>`).join('')+`
+            <a href="/buy/${cart[0]?.productId}" class="btn-gaming w-full py-3 mt-4 text-sm font-bold flex items-center justify-center gap-2">
+                <iconify-icon icon="mdi:lightning-bolt"></iconify-icon> Lanjut Beli
+            </a>`;
+    }
+    function addToCart(item){
+        cart.push(item);
+        localStorage.setItem('hm_cart',JSON.stringify(cart));
+        updateCartBadge();
+        showToast('Ditambahkan ke keranjang','success');
+    }
+    function removeFromCart(i){
+        cart.splice(i,1);
+        localStorage.setItem('hm_cart',JSON.stringify(cart));
+        updateCartBadge();
+        renderCart();
+    }
+
+    // ═══ TRACK ═══
+    function openTrack(){
+        const panel = document.getElementById('track-panel');
+        const content = panel.querySelector('.absolute.bottom-0');
+        panel.classList.remove('hidden');
+        if(content){content.style.animation='none';void content.offsetWidth;content.style.animation='slideInBottom .25s ease-out both';}
+        document.body.style.overflow='hidden';
+    }
+    function closeTrack(){_closeTrack();_resetNavToHome();}
+    async function doTrack(){
+        const code=document.getElementById('trackCode').value.trim().toUpperCase();
+        const rd=document.getElementById('trackResult');
+        if(!code){showToast('Masukkan kode pesanan','error');return;}
+        rd.innerHTML='<div class="text-center py-4"><iconify-icon icon="mdi:loading" class="text-xl text-indigo-400 animate-spin"></iconify-icon></div>';
+        try{
+            const r=await fetch('/invoice',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`code=${code}`});
+            const html=await r.text();
+            const doc=new DOMParser().parseFromString(html,'text/html');
+            const trx=doc.querySelector('.p-4.rounded-lg.bg-indigo-500\\/10');
+            if(trx){rd.innerHTML=`<div class="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 mt-3">${trx.innerHTML}</div>`;}
+            else rd.innerHTML='<div class="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400 mt-3">Kode pesanan tidak ditemukan</div>';
+        }catch(e){rd.innerHTML='<div class="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400 mt-3">Gagal mengambil data</div>';}
+    }
+
+    // ═══ MENU ═══
+    function openMenu(){
+        const drawer = document.getElementById('menu-drawer');
+        const content = document.getElementById('menu-drawer-content');
+        drawer.classList.add('open');
+        // Force reflow supaya animation replay tiap kali menu dibuka
+        content.classList.remove('menu-slide-in');
+        void content.offsetWidth;
+        content.classList.add('menu-slide-in');
+        document.body.style.overflow='hidden';
+    }
+    function closeMenu(){_closeMenu();_resetNavToHome();}
+
+    // ═══ AVATAR UPLOAD ═══
+    async function uploadAvatar(input) {
+        const file = input.files[0];
+        if (!file) return;
+        if (file.size > 2*1024*1024) { showToast('Ukuran foto maks 2MB','error'); return; }
+        const fd = new FormData();
+        fd.append('photo', file);
+        try {
+            showToast('Mengupload foto...','info');
+            const r = await fetch('/profile/photo', {method:'POST', body:fd});
+            const d = await r.json();
+            if (d.success) {
+                // Update semua tampilan avatar di halaman
+                const wrap = document.getElementById('profilePhotoWrap');
+                if (wrap) {
+                    wrap.innerHTML = `<img src="${d.photo}?t=${Date.now()}" class="user-avatar">`;
+                }
+                // Simpan ke sessionStorage biar bisa dipakai di halaman lain
+                sessionStorage.setItem('userPhoto', d.photo);
+                showToast('Foto profil berhasil diperbarui','success');
+            } else {
+                showToast(d.message || 'Gagal upload foto','error');
+            }
+        } catch(e) { showToast('Gagal upload foto','error'); }
+        input.value = '';
+    }
+
+    // ═══ PURCHASE NOTIFICATIONS ═══
+    let shownNotifIds = new Set(JSON.parse(localStorage.getItem('shownNotifs')||'[]'));
+    let notifQueue = [];
+    let notifPlaying = false;
+
+    async function loadPurchaseNotifs() {
+        try {
+            const r = await fetch('/api/notifications');
+            const notifs = await r.json();
+            // Tambahkan notif baru ke queue
+            notifs.forEach(n => {
+                if (!shownNotifIds.has(n.id)) {
+                    notifQueue.push(n);
+                    shownNotifIds.add(n.id);
+                }
+            });
+            // Simpan set yang sudah tampil (max 100)
+            const arr = [...shownNotifIds].slice(-100);
+            localStorage.setItem('shownNotifs', JSON.stringify(arr));
+            if (!notifPlaying && notifQueue.length > 0) playNextNotif();
+        } catch(e) {}
+    }
+
+    function playNextNotif() {
+        if (!notifQueue.length) { notifPlaying = false; return; }
+        notifPlaying = true;
+        const n = notifQueue.shift();
+        showPurchaseNotif(n);
+        setTimeout(playNextNotif, 4500);
+    }
+
+    function showPurchaseNotif(n) {
+        const container = document.getElementById('purchase-notif-container');
+        if (!container) return;
+
+        const colors = ['from-indigo-500 to-purple-600','from-purple-500 to-pink-500','from-blue-500 to-indigo-600','from-emerald-500 to-teal-500','from-orange-500 to-red-500'];
+        const colorIdx = n.buyerName.charCodeAt(0) % colors.length;
+        const avatarHtml = n.buyerPhoto
+            ? `<img src="${n.buyerPhoto}" class="user-avatar" style="width:36px;height:36px;border-radius:10px;">`
+            : `<div class="purchase-notif-avatar bg-gradient-to-br ${colors[colorIdx]}">${n.buyerName.charAt(0).toUpperCase()}</div>`;
+
+        const el = document.createElement('div');
+        el.className = 'purchase-notif';
+        el.innerHTML = `
+            ${avatarHtml}
+            <div class="purchase-notif-text">
+                <div class="purchase-notif-name">${n.buyerName} baru saja beli</div>
+                <div class="purchase-notif-product">${n.productName}</div>
+            </div>
+            <div class="purchase-notif-price">Rp ${n.price.toLocaleString('id-ID')}</div>
+        `;
+
+        container.appendChild(el);
+        setTimeout(() => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateX(120%)';
+            el.style.transition = 'all .4s ease';
+            setTimeout(() => el.remove(), 400);
+        }, 3800);
+    }
+
+    // ═══ INIT ═══
+    document.addEventListener('DOMContentLoaded', () => {
+        updateCartBadge();
+        // Set nav active berdasarkan path
+        const path = window.location.pathname;
+        if (!path.startsWith('/buy') && path !== '/') {
+            document.getElementById('nav-home')?.classList.remove('active');
+        }
+        // Load notif pembelian setelah 2 detik, lalu poll setiap 30 detik
+        setTimeout(() => {
+            loadPurchaseNotifs();
+            setInterval(loadPurchaseNotifs, 30000);
+        }, 2000);
+    });
+
+    document.addEventListener('keydown', e => { if(e.key==='Escape') closeAll(); });
+
+    // ═══ PAGE TRANSITION ═══
+    document.addEventListener('click', e => {
+        const a = e.target.closest('a[href]');
+        if (!a) return;
+        const href = a.getAttribute('href');
+        if (!href || href.startsWith('#') || href.startsWith('javascript') || a.target === '_blank') return;
+        if (a.getAttribute('onclick') || e.defaultPrevented) return;
+        e.preventDefault();
+        document.body.style.transition = 'opacity .15s ease';
+        document.body.style.opacity = '0';
+        setTimeout(() => { window.location.href = href; }, 150);
+    });
+    </script>
+</body>
+</html>

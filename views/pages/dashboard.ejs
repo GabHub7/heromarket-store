@@ -1,0 +1,127 @@
+<%
+const pageTitle = 'Dashboard';
+%>
+
+<nav id="navbar" class="fixed top-0 left-0 right-0 z-50 bg-[#08081a]/95 backdrop-blur-md border-b border-indigo-500/10">
+    <div class="max-w-3xl mx-auto px-4">
+        <div class="flex items-center justify-between h-14">
+            <a href="/" class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                    <iconify-icon icon="mdi:view-dashboard" class="text-white text-sm"></iconify-icon>
+                </div>
+                <span class="font-orbitron text-sm font-bold shimmer-text">Dashboard</span>
+            </a>
+            <a href="/" class="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 transition-all">
+                <iconify-icon icon="mdi:arrow-left" class="text-sm"></iconify-icon> Kembali
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="min-h-screen pt-16 pb-20 px-4">
+<div class="max-w-3xl mx-auto">
+
+    <!-- Profile Greeting -->
+    <div class="flex items-center gap-3 mt-5 mb-5 fade-in-up">
+        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-sm" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+            <%= (user?.username || 'U').charAt(0).toUpperCase() %>
+        </div>
+        <div>
+            <div class="text-sm font-bold text-white">Halo, <%= user?.username || 'Pengguna' %>!</div>
+            <div class="text-[11px] text-zinc-500">Selamat datang di dashboard kamu</div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div class="rounded-2xl p-4 text-center transition-all hover:scale-[1.02]" style="background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.06));border:1px solid rgba(99,102,241,.25);">
+            <div class="text-2xl font-black font-orbitron text-white"><%= stats.totalOrders %></div>
+            <div class="text-[10px] text-zinc-500 mt-1 flex items-center justify-center gap-1">
+                <iconify-icon icon="mdi:receipt-text" class="text-indigo-400 text-xs"></iconify-icon> Total Order
+            </div>
+        </div>
+        <div class="rounded-2xl p-4 text-center transition-all hover:scale-[1.02]" style="background:linear-gradient(135deg,rgba(16,185,129,.1),rgba(5,150,105,.05));border:1px solid rgba(16,185,129,.25);">
+            <div class="text-2xl font-black font-orbitron text-white"><%= stats.successOrders %></div>
+            <div class="text-[10px] text-zinc-500 mt-1 flex items-center justify-center gap-1">
+                <iconify-icon icon="mdi:check-circle" class="text-emerald-400 text-xs"></iconify-icon> Berhasil
+            </div>
+        </div>
+        <div class="rounded-2xl p-4 text-center transition-all hover:scale-[1.02]" style="background:linear-gradient(135deg,rgba(234,179,8,.1),rgba(245,158,11,.05));border:1px solid rgba(234,179,8,.25);">
+            <div class="text-2xl font-black font-orbitron text-white"><%= stats.pendingOrders %></div>
+            <div class="text-[10px] text-zinc-500 mt-1 flex items-center justify-center gap-1">
+                <iconify-icon icon="mdi:clock-outline" class="text-yellow-400 text-xs"></iconify-icon> Pending
+            </div>
+        </div>
+        <div class="rounded-2xl p-4 text-center transition-all hover:scale-[1.02]" style="background:linear-gradient(135deg,rgba(236,72,153,.1),rgba(244,63,94,.05));border:1px solid rgba(236,72,153,.25);">
+            <div class="text-lg font-black font-orbitron text-white">Rp <%= (stats.totalSpent/1000).toFixed(0) %>K</div>
+            <div class="text-[10px] text-zinc-500 mt-1 flex items-center justify-center gap-1">
+                <iconify-icon icon="mdi:cash-multiple" class="text-pink-400 text-xs"></iconify-icon> Total Belanja
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="rounded-2xl overflow-hidden" style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);">
+        <div class="flex items-center gap-2 px-5 py-4 border-b border-white/5">
+            <iconify-icon icon="mdi:history" class="text-indigo-400 text-base"></iconify-icon>
+            <span class="text-sm font-bold text-white">Riwayat Transaksi</span>
+            <span class="text-[10px] text-zinc-600 ml-auto"><%= transactions.length %> transaksi</span>
+        </div>
+        <div class="space-y-0">
+            <% if (transactions.length === 0) { %>
+            <div class="text-center py-12">
+                <iconify-icon icon="mdi:receipt-text-outline" class="text-4xl text-zinc-700 block mx-auto mb-3"></iconify-icon>
+                <p class="text-sm text-zinc-500">Belum ada transaksi</p>
+                <a href="/" class="text-xs text-indigo-400 mt-2 inline-block">Mulai belanja sekarang</a>
+            </div>
+            <% } else { %>
+                <% transactions.forEach(t => { %>
+                <div class="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
+                        <%= t.status === 'done' ? 'bg-emerald-500/15' : t.status === 'pending' ? 'bg-yellow-500/15' : 'bg-red-500/15' %>">
+                        <iconify-icon icon="<%= t.status === 'done' ? 'mdi:check-circle' : t.status === 'pending' ? 'mdi:clock-outline' : 'mdi:close-circle' %>"
+                            class="<%= t.status === 'done' ? 'text-emerald-400' : t.status === 'pending' ? 'text-yellow-400' : 'text-red-400' %> text-base"></iconify-icon>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-white truncate"><%= t.productName || t.type || 'Produk' %></span>
+                            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded
+                                <%= t.status === 'done' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' :
+                                   t.status === 'pending' ? 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/25' :
+                                   'bg-red-500/15 text-red-400 border border-red-500/25' %>"><%= t.status === 'done' ? 'SELESAI' : t.status === 'pending' ? 'PENDING' : 'BATAL' %></span>
+                        </div>
+                        <div class="flex items-center gap-2 text-[10px] text-zinc-500 mt-0.5">
+                            <span><%= t.code || t.orderId || '—' %></span>
+                            <span>·</span>
+                            <span><%= t.time || new Date(t.createdAt).toLocaleDateString('id-ID') %></span>
+                        </div>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <div class="text-xs font-bold <%= t.status === 'done' ? 'text-emerald-400' : 'text-white' %>">Rp <%= (t.price || 0).toLocaleString('id-ID') %></div>
+                        <% if (t.voucherDiscount) { %>
+                        <div class="text-[9px] text-emerald-500">-Rp <%= t.voucherDiscount.toLocaleString('id-ID') %></div>
+                        <% } %>
+                    </div>
+                </div>
+                <% }) %>
+                <a href="/invoice" class="flex items-center justify-center gap-2 px-5 py-3 text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors font-medium">
+                    <iconify-icon icon="mdi:magnify" class="text-sm"></iconify-icon> Cari transaksi lain via kode pesanan
+                </a>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="grid grid-cols-2 gap-3 mt-4">
+        <a href="/" class="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-bold transition-all hover:scale-[1.02]"
+           style="background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(139,92,246,.08));border:1px solid rgba(99,102,241,.3);color:#818cf8;">
+            <iconify-icon icon="mdi:shopping" class="text-base"></iconify-icon> Belanja
+        </a>
+        <a href="/activate-key" class="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-bold transition-all hover:scale-[1.02]"
+           style="background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(5,150,105,.06));border:1px solid rgba(16,185,129,.25);color:#34d399;">
+            <iconify-icon icon="mdi:key-chain" class="text-base"></iconify-icon> Aktifkan Key
+        </a>
+    </div>
+
+</div>
+</div>

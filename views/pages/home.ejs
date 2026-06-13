@@ -1,0 +1,1015 @@
+
+<%
+const pageTitle = 'Beranda';
+%>
+
+<!-- NAVBAR -->
+<nav id="navbar" class="fixed top-0 left-0 right-0 z-50 bg-[#08081a]/95 backdrop-blur-md border-b border-indigo-500/10 transition-all duration-300">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="flex items-center justify-between h-16">
+            <a href="/" class="flex items-center gap-3 flex-shrink-0">
+                <img src="https://z-cdn-media.chatglm.cn/files/87e4e759-3898-4bd9-93f3-42078956a794.png?auth_key=1878848442-1a65b6a56ce44d8188d26c370725de81-0-3e86df522848abe81fc556fd03a5fe98" alt="HM Logo" class="hm-logo-img h-12 w-auto object-contain">
+                <span class="font-orbitron text-xl font-bold tracking-wide whitespace-nowrap neon-text"><%= settings.siteName || 'HERO MARKET' %></span>
+            </a>
+            <div class="hidden md:flex items-center gap-3">
+                <a href="/invoice" class="nav-link text-xs font-medium text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5">
+                    <iconify-icon icon="mdi:package-variant-closed" class="text-sm"></iconify-icon> Cek Pesanan
+                </a>
+                <div class="w-px h-4 bg-white/10"></div>
+                <% if (isAdmin) { %>
+                    <a href="/admin" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105"
+                       style="background:linear-gradient(135deg,rgba(234,88,12,.2),rgba(249,115,22,.12));border:1px solid rgba(234,88,12,.45);color:#fb923c;">
+                        <iconify-icon icon="mdi:shield-crown" class="text-sm"></iconify-icon> Admin
+                    </a>
+                <% } else if (user && user.is_reseller) { %>
+                    <a href="/reseller" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
+                       style="background:rgba(234,179,8,.12);border:1px solid rgba(234,179,8,.3);color:#fbbf24;">
+                        <iconify-icon icon="mdi:crown" class="text-sm"></iconify-icon> VIP
+                    </a>
+                <% } else if (resellerSettings && resellerSettings.enabled) { %>
+                    <a href="/reseller" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold hover:scale-105 transition-all"
+                       style="background:linear-gradient(135deg,rgba(234,179,8,.2),rgba(251,191,36,.12));border:1px solid rgba(234,179,8,.45);color:#fbbf24;">
+                        <iconify-icon icon="mdi:crown" class="text-sm"></iconify-icon> Reseller
+                    </a>
+                <% } %>
+                <% if (user) { %>
+                    <div class="w-px h-4 bg-white/10"></div>
+                    <a href="/logout" class="nav-link text-xs font-medium text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5">
+                        <iconify-icon icon="mdi:logout" class="text-sm"></iconify-icon> Logout
+                    </a>
+                <% } else { %>
+                    <div class="w-px h-4 bg-white/10"></div>
+                    <a href="/login" class="nav-link text-xs font-medium text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5">
+                        <iconify-icon icon="mdi:login" class="text-sm"></iconify-icon> Login
+                    </a>
+                <% } %>
+            </div>
+            <div class="flex items-center gap-2">
+                <!-- CART ICON — selalu visible di header -->
+                <button onclick="openCart()" class="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+                    style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);">
+                    <iconify-icon icon="mdi:cart-variant" class="text-indigo-400 text-lg"></iconify-icon>
+                    <span id="cart-badge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full text-[9px] font-black text-white flex items-center justify-center px-1"
+                        style="background:linear-gradient(135deg,#ef4444,#dc2626);border:2px solid #08081a;box-shadow:0 0 8px rgba(239,68,68,.5);"></span>
+                </button>
+                <% if (user) { %>
+                    <button id="mobile-menu-btn" onclick="toggleMobile()" class="w-10 h-10 rounded-full overflow-hidden border border-white/10 bg-white/5 flex items-center justify-center transition-all hover:border-indigo-400 focus:outline-none">
+                        <% if (user.photo) { %>
+                            <img src="<%= user.photo %>" alt="Avatar <%= user.username %>" class="w-full h-full object-cover">
+                        <% } else { %>
+                            <div class="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold"><%= user.username.charAt(0).toUpperCase() %></div>
+                        <% } %>
+                    </button>
+                <% } else { %>
+                    <button id="mobile-menu-btn" onclick="toggleMobile()" class="md:hidden w-9 h-9 rounded-lg border border-white/10 flex items-center justify-center text-zinc-500 hover:text-white transition-all">
+                        <iconify-icon icon="mdi:menu" class="text-base" id="menu-icon"></iconify-icon>
+                    </button>
+                <% } %>
+            </div>
+        </div>
+    </div>
+    <div id="mobile-menu" class="md:hidden hidden border-t border-white/5 bg-[#08081a]">
+        <div class="px-4 py-3 flex flex-col gap-0.5">
+            <% if (user) { %>
+            <!-- User info -->
+            <div class="flex items-center gap-3 px-3 py-3 mb-1 rounded-xl" style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.15)">
+                <div class="w-9 h-9 rounded-full flex-shrink-0 overflow-hidden border border-white/15">
+                    <% if (user.photo) { %>
+                        <img src="<%= user.photo %>" class="w-full h-full object-cover">
+                    <% } else { %>
+                        <div class="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-black"><%= user.username.charAt(0).toUpperCase() %></div>
+                    <% } %>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-bold text-white truncate"><%= user.username %></div>
+                    <% if (isAdmin) { %>
+                        <div class="text-[10px] font-bold text-orange-400 flex items-center gap-1"><iconify-icon icon="mdi:shield-crown" class="text-[10px]"></iconify-icon> Administrator</div>
+                    <% } else if (user.is_reseller) { %>
+                        <div class="text-[10px] font-bold flex items-center gap-1" style="color:#fbbf24"><iconify-icon icon="mdi:crown" class="text-[10px]"></iconify-icon> Reseller VIP</div>
+                    <% } else { %>
+                        <div class="text-[10px] text-zinc-500">Member</div>
+                    <% } %>
+                </div>
+            </div>
+            <% } %>
+
+            <a href="/" onclick="closeMobile()" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-all">
+                <iconify-icon icon="mdi:home" class="text-sm"></iconify-icon> Beranda
+            </a>
+            <a href="/invoice" onclick="closeMobile()" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-all">
+                <iconify-icon icon="mdi:clipboard-text-search" class="text-sm"></iconify-icon> Cek Pesanan
+            </a>
+            <a href="/leaderboard" onclick="closeMobile()" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-all">
+                <iconify-icon icon="mdi:trophy" class="text-sm"></iconify-icon> Leaderboard
+            </a>
+
+            <% if (resellerSettings && resellerSettings.enabled) { %>
+            <% if (user && user.is_reseller) { %>
+            <a href="/reseller" onclick="closeMobile()" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold transition-all"
+               style="background:rgba(234,179,8,.1);border:1px solid rgba(234,179,8,.2);color:#fbbf24;">
+                <iconify-icon icon="mdi:crown" class="text-sm"></iconify-icon> Status VIP Aktif
+                <span class="ml-auto text-[9px] px-1.5 py-0.5 rounded" style="background:rgba(234,179,8,.2)">AKTIF</span>
+            </a>
+            <% } else { %>
+            <a href="/reseller" onclick="closeMobile()" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold transition-all"
+               style="background:linear-gradient(135deg,rgba(234,179,8,.15),rgba(251,191,36,.08));border:1px solid rgba(234,179,8,.35);color:#fbbf24;">
+                <iconify-icon icon="mdi:crown" class="text-sm"></iconify-icon> Masuk sebagai Reseller VIP
+                <span class="ml-auto text-[9px] px-1.5 py-0.5 rounded" style="background:rgba(234,179,8,.2);color:#fbbf24">-<%= resellerSettings.discount %>%</span>
+            </a>
+            <% } %>
+            <% } %>
+
+            <div class="h-px bg-white/5 my-1"></div>
+            <% if (user) { %>
+                <a href="/logout" onclick="closeMobile()" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-all">
+                    <iconify-icon icon="mdi:logout" class="text-sm"></iconify-icon> Logout
+                </a>
+            <% } else { %>
+                <a href="/login" onclick="closeMobile()" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-all">
+                    <iconify-icon icon="mdi:account-circle" class="text-sm"></iconify-icon> Login / Daftar
+                </a>
+            <% } %>
+        </div>
+    </div>
+</nav>
+
+<!-- HERO BANNER CAROUSEL -->
+<section id="home" class="pt-16">
+    <!-- Banner full-width, tidak ada px agar menempel navbar -->
+    <div id="carousel-wrap" class="relative overflow-hidden select-none"
+         style="height:clamp(168px,35vw,260px);background:#07071a;border-bottom:1px solid rgba(99,102,241,.2);box-shadow:0 8px 40px rgba(99,102,241,.12);">
+
+        <div id="carousel-track" class="flex h-full" style="transition:transform .52s cubic-bezier(.4,0,.2,1);will-change:transform;">
+
+            <!-- DEFAULT SLIDE -->
+            <div class="c-slide flex-shrink-0 relative" id="c-slide-default"
+                 style="background:linear-gradient(135deg,#07071a 0%,#130929 55%,#07071a 100%);">
+                <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 70% 60% at 15% 50%,rgba(139,92,246,.22) 0%,transparent 70%);animation:bannerPulse 4s ease-in-out infinite;z-index:1;"></div>
+                <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 50% 80% at 85% 50%,rgba(99,102,241,.12) 0%,transparent 70%);animation:bannerPulse 4s 2s ease-in-out infinite;z-index:1;"></div>
+                <div class="absolute inset-0 pointer-events-none" style="background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.04) 3px,rgba(0,0,0,.04) 4px);z-index:2;"></div>
+                <div class="relative z-10 h-full flex flex-col justify-center px-5 sm:px-10 max-w-2xl">
+                    <div class="flex items-center gap-2 mb-2.5" style="animation:slideUpIn .45s ease-out both;">
+                        <span class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black" style="background:rgba(16,185,129,.18);border:1px solid rgba(16,185,129,.45);color:#34d399;">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" style="animation:blink 1.4s infinite;"></span> LIVE
+                        </span>
+                        <span class="text-[9px] font-bold text-violet-400 tracking-[2px] uppercase">Premium Store</span>
+                    </div>
+                    <div class="font-orbitron font-black text-white leading-none mb-2"
+                         style="font-size:clamp(22px,6vw,44px);text-shadow:0 0 32px rgba(139,92,246,.65);animation:slideUpIn .45s .08s ease-out both;">
+                        <%= settings.siteName %>
+                    </div>
+                    <div class="text-violet-300 mb-4" style="font-size:clamp(10px,2vw,13px);line-height:1.5;animation:slideUpIn .45s .16s ease-out both;">
+                        <%= settings.marqueeText || 'Layanan Game Mod Menu & Key Premium Terpercaya' %>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap" style="animation:slideUpIn .45s .24s ease-out both;">
+                        <a href="#games" class="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-[11px] font-black text-white transition-all hover:scale-105 active:scale-95"
+                           style="background:linear-gradient(135deg,#7c3aed,#6366f1);box-shadow:0 3px 14px rgba(99,102,241,.45);">
+                            <iconify-icon icon="mdi:shopping" style="font-size:12px;"></iconify-icon> Lihat Produk
+                        </a>
+                        <a href="/invoice" class="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-[11px] font-bold transition-all hover:bg-white/10 active:scale-95"
+                           style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#94a3b8;">
+                            <iconify-icon icon="mdi:package-variant-closed" style="font-size:12px;"></iconify-icon> Cek Pesanan
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <!-- admin slides injected by JS -->
+        </div>
+
+        <button id="carousel-prev" onclick="carouselMove(-1)"
+            class="hidden absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full items-center justify-center z-20 transition-all hover:scale-110 active:scale-95"
+            style="background:rgba(0,0,0,.6);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);color:#fff;">
+            <iconify-icon icon="mdi:chevron-left" class="text-lg"></iconify-icon>
+        </button>
+        <button id="carousel-next" onclick="carouselMove(1)"
+            class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full items-center justify-center z-20 transition-all hover:scale-110 active:scale-95"
+            style="background:rgba(0,0,0,.6);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);color:#fff;">
+            <iconify-icon icon="mdi:chevron-right" class="text-lg"></iconify-icon>
+        </button>
+
+        <!-- Dots selalu tampil minimal 1 -->
+        <div id="carousel-dots" class="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20">
+            <div class="c-dot active"></div>
+        </div>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="flex items-center gap-2 py-2 overflow-x-auto" style="-ms-overflow-style:none;scrollbar-width:none;">
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl flex-shrink-0 text-[10px] font-bold" style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.22);color:#34d399;"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" style="animation:blink 1.4s infinite;"></span> ONLINE 24 JAM</div>
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl flex-shrink-0 text-[10px] font-bold" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);color:#4ade80;"><iconify-icon icon="mdi:android" style="font-size:12px"></iconify-icon> ANDROID</div>
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl flex-shrink-0 text-[10px] font-bold" style="background:rgba(148,163,184,.06);border:1px solid rgba(148,163,184,.18);color:#94a3b8;"><iconify-icon icon="mdi:apple" style="font-size:12px"></iconify-icon> iOS</div>
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl flex-shrink-0 text-[10px] font-bold" style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.22);color:#818cf8;"><iconify-icon icon="mdi:lightning-bolt" style="font-size:12px"></iconify-icon> PROSES INSTAN</div>
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl flex-shrink-0 text-[10px] font-bold" style="background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.22);color:#fbbf24;"><iconify-icon icon="mdi:shield-check" style="font-size:12px"></iconify-icon> 100% AMAN</div>
+        </div>
+    </div>
+</section>
+
+<!-- STATS SECTION -->
+<section class="relative py-6 sm:py-10">
+    <div class="relative max-w-7xl mx-auto px-3 sm:px-6">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <div class="stat-card rounded-3xl p-5 sm:p-7 text-center transition-all duration-300 hover:scale-[1.03] hover:brightness-110"
+                 style="background:#141428;border:1px solid rgba(255,255,255,.05);">
+                <div class="font-orbitron font-black text-3xl sm:text-4xl mb-1.5" style="color:#fff;"><span id="stat-pelanggan">980</span><span style="color:#a78bfa;">+</span></div>
+                <div class="text-white/40 text-[11px] sm:text-xs font-medium tracking-wide">Pelanggan</div>
+            </div>
+            <div class="stat-card rounded-3xl p-5 sm:p-7 text-center transition-all duration-300 hover:scale-[1.03] hover:brightness-110"
+                 style="background:#141428;border:1px solid rgba(255,255,255,.05);">
+                <div class="font-orbitron font-black text-3xl sm:text-4xl mb-1.5" style="color:#fff;">24<span style="color:#f97316;">/</span>7</div>
+                <div class="text-white/40 text-[11px] sm:text-xs font-medium tracking-wide">Support</div>
+            </div>
+            <div class="stat-card rounded-3xl p-5 sm:p-7 text-center transition-all duration-300 hover:scale-[1.03] hover:brightness-110"
+                 style="background:#141428;border:1px solid rgba(255,255,255,.05);">
+                <div class="font-orbitron font-black text-3xl sm:text-4xl mb-1.5" style="color:#fff;"><span id="stat-produk">10</span></div>
+                <div class="text-white/40 text-[11px] sm:text-xs font-medium tracking-wide">Produk</div>
+            </div>
+            <div class="stat-card rounded-3xl p-5 sm:p-7 text-center transition-all duration-300 hover:scale-[1.03] hover:brightness-110"
+                 style="background:#141428;border:1px solid rgba(255,255,255,.05);">
+                <div class="font-orbitron font-black text-3xl sm:text-4xl mb-1.5" style="color:#fff;">100<span style="color:#a78bfa;">%</span></div>
+                <div class="text-white/40 text-[11px] sm:text-xs font-medium tracking-wide">Terpercaya</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+@keyframes bannerPulse{0%,100%{opacity:.6;transform:scale(1);}50%{opacity:1;transform:scale(1.07);}}
+@keyframes slideUpIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+@keyframes dotShimmer{0%{background-position:0% 50%;}100%{background-position:200% 50%;}}
+
+#carousel-track .c-slide{flex:0 0 100%;width:100%;height:100%;position:relative;overflow:hidden;}
+#popular-track::-webkit-scrollbar,#testimonialsContainer::-webkit-scrollbar{display:none;}
+.glow-first{animation:firstGlowAura 2s ease-in-out infinite;border:3px solid rgba(255,255,255,0.7)!important;}
+@keyframes firstGlowAura{0%,100%{box-shadow:0 0 20px rgba(251,191,36,0.6),0 0 40px rgba(139,92,246,0.4),inset 0 0 10px rgba(255,255,255,0.3)}50%{box-shadow:0 0 40px rgba(251,191,36,0.9),0 0 80px rgba(139,92,246,0.7),inset 0 0 20px rgba(255,255,255,0.6)}}
+#carousel-track .c-slide>img.c-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
+#carousel-track .c-slide .c-overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(105deg,rgba(0,0,0,.82) 0%,rgba(0,0,0,.45) 45%,rgba(0,0,0,.08) 100%);}
+#carousel-track .c-slide .c-body{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;justify-content:center;padding:clamp(14px,4vw,32px) clamp(16px,6vw,48px);max-width:65%;}
+#carousel-track .c-slide .c-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;width:fit-content;background:rgba(139,92,246,.22);border:1px solid rgba(139,92,246,.5);color:#c4b5fd;}
+#carousel-track .c-slide .c-title{font-family:'Orbitron',sans-serif;font-weight:900;font-size:clamp(14px,3.5vw,30px);color:#fff;line-height:1.15;text-shadow:0 2px 20px rgba(0,0,0,.8);}
+#carousel-track .c-slide .c-sub{font-size:clamp(9px,1.6vw,13px);color:rgba(255,255,255,.72);margin-top:5px;line-height:1.4;text-shadow:0 1px 8px rgba(0,0,0,.5);}
+#carousel-track .c-slide .c-cta{display:inline-flex;align-items:center;gap:5px;margin-top:10px;padding:7px 16px;border-radius:10px;font-size:10px;font-weight:800;background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;border:none;cursor:pointer;transition:all .2s;width:fit-content;box-shadow:0 4px 14px rgba(99,102,241,.4);}
+#carousel-track .c-slide .c-cta:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(99,102,241,.6);}
+
+.c-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.32);transition:all .38s cubic-bezier(.4,0,.2,1);cursor:pointer;flex-shrink:0;}
+.c-dot.active{width:26px;border-radius:4px;background:linear-gradient(90deg,#818cf8,#c4b5fd,#818cf8);background-size:200% 100%;animation:dotShimmer 1.6s linear infinite;box-shadow:0 0 10px rgba(129,140,248,.7);}
+.c-dot:hover:not(.active){background:rgba(255,255,255,.55);}
+
+.game-card .card-img-wrap{overflow:hidden;}
+.game-card .card-img-wrap img,.game-card .card-img-wrap .card-img-placeholder{transition:transform .35s cubic-bezier(.4,0,.2,1);}
+.game-card:hover .card-img-wrap img,.game-card:hover .card-img-wrap .card-img-placeholder{transform:scale(1.1);}
+.game-card:active .card-img-wrap img,.game-card:active .card-img-wrap .card-img-placeholder{transform:scale(1.18);transition:transform .15s ease-out;}
+
+@media(max-width:640px){#carousel-track .c-slide .c-body{max-width:82%;}}
+</style>
+
+<script>
+(function(){
+    let slides=[], cur=0, total=1, timer=null;
+    const INTERVAL=4200;
+
+    async function initCarousel(){
+        try{ const r=await fetch('/api/banners'); slides=await r.json(); }catch{ slides=[]; }
+
+        const track=document.getElementById('carousel-track');
+        const dotsEl=document.getElementById('carousel-dots');
+        const prevBtn=document.getElementById('carousel-prev');
+        const nextBtn=document.getElementById('carousel-next');
+
+        if(!slides.length){ total=1; return; }
+
+        document.getElementById('c-slide-default')?.remove();
+
+        track.innerHTML=slides.map((s,i)=>{
+            const hl=s.link&&s.link!=='/';
+            return `<div class="c-slide"${hl?` onclick="window.location='${s.link}'" style="cursor:pointer"`:''}>
+                <img class="c-img" src="${s.imageUrl}" alt="${s.title||''}" loading="${i===0?'eager':'lazy'}"
+                     onerror="this.style.display='none';this.closest('.c-slide').style.background='linear-gradient(135deg,#12082a,#07071a)'">
+                <div class="c-overlay"></div>
+                <div class="c-body" style="animation:slideUpIn .45s ease-out both;">
+                    ${s.title||s.subtitle?`<div class="c-badge"><iconify-icon icon="mdi:lightning-bolt" style="font-size:8px;"></iconify-icon> PROMO</div>`:''}
+                    ${s.title?`<div class="c-title">${s.title}</div>`:''}
+                    ${s.subtitle?`<div class="c-sub">${s.subtitle}</div>`:''}
+                    ${hl?`<div class="c-cta"><iconify-icon icon="mdi:arrow-right" style="font-size:11px;"></iconify-icon> Lihat Detail</div>`:''}
+                </div>
+            </div>`;
+        }).join('');
+
+        total=slides.length;
+        dotsEl.innerHTML=slides.map((_,i)=>
+            `<div class="c-dot${i===0?' active':''}" onclick="goSlide(${i})"></div>`
+        ).join('');
+
+        if(total>1){
+            prevBtn?.classList.replace('hidden','flex');
+            nextBtn?.classList.replace('hidden','flex');
+            startAuto();
+            addSwipe();
+        }
+        goSlide(0);
+    }
+
+    window.goSlide=function(idx){
+        if(total<=1)return;
+        cur=((idx%total)+total)%total;
+        document.getElementById('carousel-track').style.transform=`translateX(-${cur*100}%)`;
+        document.querySelectorAll('.c-dot').forEach((d,i)=>d.classList.toggle('active',i===cur));
+    };
+    window.carouselMove=function(dir){ goSlide(cur+dir); resetAuto(); };
+    function startAuto(){ clearInterval(timer); timer=setInterval(()=>goSlide(cur+1),INTERVAL); }
+    function resetAuto(){ clearInterval(timer); startAuto(); }
+    function addSwipe(){
+        const w=document.getElementById('carousel-wrap');
+        w.addEventListener('mouseenter',()=>clearInterval(timer));
+        w.addEventListener('mouseleave',()=>startAuto());
+        w.addEventListener('touchstart',e=>{ clearInterval(timer); w.dataset.tx=e.touches[0].clientX; },{passive:true});
+        w.addEventListener('touchend',e=>{
+            const dx=e.changedTouches[0].clientX-(parseFloat(w.dataset.tx)||0);
+            if(Math.abs(dx)>38)goSlide(cur+(dx<0?1:-1));
+            startAuto();
+        },{passive:true});
+    }
+
+    document.addEventListener('DOMContentLoaded',initCarousel);
+})();
+</script>
+
+<!-- PRODUK POPULER CAROUSEL -->
+<section id="popular-products" class="relative py-10 sm:py-16">
+    <div class="absolute top-0 right-0 w-[300px] h-[300px] bg-violet-700/[0.03] rounded-full blur-[100px] pointer-events-none"></div>
+    <div class="relative max-w-7xl mx-auto px-3 sm:px-6">
+        <div class="mb-5 sm:mb-6">
+            <h2 class="font-display text-base sm:text-xl font-bold mb-1 text-left flex items-center gap-2">
+                <iconify-icon icon="solar:fire-bold" class="text-orange-400 text-lg sm:text-xl"></iconify-icon>Produk Populer
+            </h2>
+            <p class="text-white/25 text-[10px] sm:text-xs">Paling banyak terjual minggu ini</p>
+        </div>
+        <div class="popular-scroll-wrapper relative">
+            <div id="popular-track" class="popular-scroll flex gap-3 overflow-x-auto pb-2"
+                 style="-ms-overflow-style:none;scrollbar-width:none;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;">
+                <!-- skeletons -->
+                <div class="glass rounded-xl border border-white/[0.04] overflow-hidden animate-pulse flex-shrink-0" style="min-width:200px;max-width:200px;scroll-snap-align:start;">
+                    <div class="h-28 bg-white/[0.03]"></div>
+                    <div class="p-3 space-y-2"><div class="h-3 bg-white/[0.04] rounded-lg w-4/5"></div><div class="h-2.5 bg-white/[0.03] rounded-lg w-3/5"></div><div class="h-8 bg-white/[0.04] rounded-xl mt-2"></div></div>
+                </div>
+                <div class="glass rounded-xl border border-white/[0.04] overflow-hidden animate-pulse flex-shrink-0" style="min-width:200px;max-width:200px;scroll-snap-align:start;animation-delay:.15s">
+                    <div class="h-28 bg-white/[0.03]"></div>
+                    <div class="p-3 space-y-2"><div class="h-3 bg-white/[0.04] rounded-lg w-4/5"></div><div class="h-2.5 bg-white/[0.03] rounded-lg w-3/5"></div><div class="h-8 bg-white/[0.04] rounded-xl mt-2"></div></div>
+                </div>
+                <div class="glass rounded-xl border border-white/[0.04] overflow-hidden animate-pulse flex-shrink-0" style="min-width:200px;max-width:200px;scroll-snap-align:start;animation-delay:.3s">
+                    <div class="h-28 bg-white/[0.03]"></div>
+                    <div class="p-3 space-y-2"><div class="h-3 bg-white/[0.04] rounded-lg w-4/5"></div><div class="h-2.5 bg-white/[0.03] rounded-lg w-3/5"></div><div class="h-8 bg-white/[0.04] rounded-xl mt-2"></div></div>
+                </div>
+            </div>
+            <div class="absolute top-0 right-0 bottom-2 w-10 pointer-events-none" style="background:linear-gradient(to left,#06050f,transparent);"></div>
+        </div>
+    </div>
+</section>
+
+<!-- PRODUCTS -->
+<section id="games" class="relative py-10 sm:py-16 border-t border-white/[0.03]">
+    <div class="relative max-w-7xl mx-auto px-3 sm:px-6">
+        <div class="mb-5 sm:mb-8">
+            <h2 class="font-display text-base sm:text-xl font-bold mb-1 text-left flex items-center gap-2">
+                <iconify-icon icon="solar:widget-bold" class="text-violet-400 text-lg sm:text-xl"></iconify-icon>Semua Produk
+            </h2>
+            <p class="text-white/25 text-[10px] sm:text-xs">Filter berdasarkan game</p>
+        </div>
+
+        <% if (categories && categories.length > 0) { %>
+        <div class="filter-scroll flex gap-2 mb-6 sm:mb-8 overflow-x-auto pb-1" style="-ms-overflow-style:none;scrollbar-width:none;">
+            <div class="filter-sticky-left">
+                <button onclick="filterProducts('all')" class="prod-filter px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-semibold transition-all whitespace-nowrap bg-violet-600 text-white" data-pf="all">Semua</button>
+            </div>
+            <% categories.forEach(cat => { %>
+                <button onclick="filterProducts('<%= cat %>')" class="prod-filter flex-shrink-0 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-semibold transition-all whitespace-nowrap bg-white/5 text-white/40 hover:text-white hover:bg-white/8" data-pf="<%= cat %>">
+                    <%= categoryLabels[cat] || cat.toUpperCase() %>
+                </button>
+            <% }) %>
+        </div>
+        <% } %>
+
+        <div id="product-grid" class="grid grid-cols-3 gap-2 sm:gap-5">
+            <% products.forEach((product, pIdx) => {
+                const stock = product.keys ? product.keys.length : 0;
+                const isOut = stock === 0;
+                const isLow = stock > 0 && stock <= 5;
+                const hasAndroid = product.platforms && product.platforms.includes('android');
+                const hasIos = product.platforms && product.platforms.includes('ios');
+                const fakeStockSeeds = [48,24,67,31,55,19,42,73,28,61,35,44,52,38,29,63,47,21,58,36];
+                const fakeSoldSeeds  = [3200,2800,1900,4100,2100,3700,1500,2400,3300,1700,2600,4500,1200,2900,3800,1600,2200,3500,1100,2700];
+                const displayStock = stock > 0 ? stock : fakeStockSeeds[pIdx % fakeStockSeeds.length];
+                const displaySold  = (product.sold && product.sold > 0) ? product.sold : fakeSoldSeeds[pIdx % fakeSoldSeeds.length];
+                const soldLabel    = displaySold >= 1000 ? (displaySold/1000).toFixed(1).replace('.0','') + 'K' : String(displaySold);
+                const badgeLabels = ['BEST','HOT','TOP','NEW','SALE'];
+                const badgeColors = ['bg-red-500/80','bg-yellow-500/80 text-black','bg-blue-500/80','bg-emerald-500/80','bg-fuchsia-500/80'];
+                const autoBadge = badgeLabels[pIdx % 5];
+                const autoBadgeColor = badgeColors[pIdx % 5];
+                const productBadge = product.badge || autoBadge;
+                const productBadgeColor = product.badgeColor || autoBadgeColor;
+            %>
+                <div class="product-card glass rounded-xl sm:rounded-2xl overflow-hidden border border-white/[0.04]" data-category="<%= product.category %>">
+                    <div class="relative overflow-hidden" style="height:96px;" class="sm:h-40">
+                        <% if (product.image) { %>
+                            <img src="<%= product.image %>" alt="<%= product.name %>" class="w-full h-full object-cover" loading="lazy"
+                                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                            <div class="absolute inset-0 items-center justify-center hidden" style="background:rgba(99,102,241,.06);">
+                                <iconify-icon icon="solar:gamepad-bold" class="text-2xl text-violet-400/40"></iconify-icon>
+                            </div>
+                        <% } else { %>
+                            <div class="w-full h-full flex items-center justify-center" style="background:rgba(99,102,241,.06);">
+                                <iconify-icon icon="solar:gamepad-bold" class="text-2xl text-violet-400/40"></iconify-icon>
+                            </div>
+                        <% } %>
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none"></div>
+                        <% if (productBadge) { %>
+                            <span class="badge-tag <%= productBadgeColor %> absolute top-1.5 left-1.5 z-10"><%= productBadge %></span>
+                        <% } %>
+                        <div class="absolute top-1.5 right-1.5 z-10">
+                            <% if (hasAndroid) { %>
+                                <span class="platform-label">ANDROID</span>
+                            <% } else if (hasIos) { %>
+                                <span class="platform-label">iOS</span>
+                            <% } %>
+                        </div>
+                    </div>
+                    <div class="p-2 sm:p-3">
+                        <h3 class="font-display font-bold text-[9px] sm:text-sm truncate mb-1.5"><%= product.name %></h3>
+                        <div class="flex justify-between items-center text-[7px] sm:text-[10px] mb-2">
+                            <span class="text-white/30">Stok <span class="text-white/50 font-bold"><%= displayStock %></span></span>
+                            <span class="text-white/30">Terjual <span class="text-white/50 font-bold"><%= soldLabel %></span></span>
+                        </div>
+                        <% if (!isOut) { %>
+                            <a href="/buy/<%= product.id %>"
+                               class="btn-primary w-full py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-[9px] sm:text-xs font-bold text-white flex items-center justify-center gap-1">
+                                <iconify-icon icon="solar:cart-large-2-bold" class="text-[9px] sm:text-sm"></iconify-icon>Beli
+                            </a>
+                        <% } else { %>
+                            <button disabled class="w-full py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-[9px] sm:text-xs font-bold cursor-not-allowed flex items-center justify-center gap-1"
+                                style="background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.06);">
+                                <iconify-icon icon="solar:close-circle-bold" class="text-[9px] sm:text-sm"></iconify-icon>Habis
+                            </button>
+                        <% } %>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+
+        <% if (products.length === 0) { %>
+        <div class="col-span-3 text-center py-16">
+            <iconify-icon icon="solar:box-minimalistic-bold" class="text-3xl text-white/10 mb-3 block mx-auto"></iconify-icon>
+            <p class="text-white/15 text-xs">Belum ada produk tersedia</p>
+        </div>
+        <% } %>
+    </div>
+</section>
+
+<!-- LEADERBOARD -->
+<section id="leaderboard-home" class="relative py-12 sm:py-20 border-y border-white/[0.03]">
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-yellow-500/[0.02] rounded-full blur-[120px] pointer-events-none"></div>
+    <div class="relative max-w-3xl mx-auto px-3 sm:px-6">
+        <div class="text-center mb-8 sm:mb-14">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4">
+                <iconify-icon icon="solar:cup-star-bold" class="text-yellow-400 text-xs"></iconify-icon>
+                <span class="text-[10px] font-semibold text-white/50 tracking-wide uppercase">TOP LEADERBOARD</span>
+            </div>
+            <h2 class="font-display text-2xl sm:text-4xl font-bold mb-3">Top <span class="bg-gradient-to-r from-violet-400 to-yellow-400 bg-clip-text text-transparent">Pembeli</span></h2>
+            <p class="text-white/25 text-[10px] sm:text-xs">Pengguna paling aktif bulan ini</p>
+        </div>
+
+        <%
+        const lbEntries = typeof leaderboardEntries !== 'undefined' ? leaderboardEntries : [];
+        const avatarGrads2 = ['from-violet-400 to-purple-500','from-gray-300 to-gray-400','from-orange-400 to-orange-600','from-violet-400 to-purple-500','from-blue-400 to-cyan-500','from-green-400 to-emerald-500','from-red-400 to-rose-500','from-pink-400 to-fuchsia-500'];
+        const lbTop3 = lbEntries.slice(0,3);
+        const lbRest = lbEntries.slice(3);
+        %>
+        <div id="leaderboard-top3" class="flex items-end justify-center gap-4 sm:gap-8 mb-8">
+            <% if (lbTop3.length >= 3) {
+                // order: 2nd, 1st, 3rd
+                const ordered = [lbTop3[1], lbTop3[0], lbTop3[2]];
+                const heights2 = ['h-20 w-20 sm:h-24 sm:w-24','h-24 w-24 sm:h-28 sm:w-28','h-16 w-16 sm:h-20 sm:w-20'];
+                const rankBgs2 = ['bg-gray-400/20 text-gray-300 border-gray-400/30','bg-yellow-500/20 text-yellow-300 border-yellow-500/30','bg-orange-500/20 text-orange-300 border-orange-500/30'];
+                ordered.forEach(function(u, i) {
+                    const origIdx = [1,0,2][i];
+                    const mg2 = origIdx===0 ? '-mt-4 sm:-mt-6' : '';
+                    const initials2 = (u.username||'U').substring(0,2).toUpperCase();
+            %>
+            <div class="flex flex-col items-center <%= mg2 %> relative z-10">
+                <div class="relative flex flex-col items-center mb-2">
+                    <% if (origIdx===0) { %><div class="absolute -top-5 sm:-top-6 text-2xl sm:text-3xl" style="filter:drop-shadow(0 0 8px #fbbf24)"><iconify-icon icon="solar:crown-bold" style="color:gold"></iconify-icon></div><% } %>
+                    <div class="<%= heights2[i] %> <%= origIdx===0?'glow-first':'' %> rounded-full bg-gradient-to-br <%= avatarGrads2[origIdx] %> flex items-center justify-center font-bold text-white shadow-lg relative z-10 text-sm sm:text-base"><%= initials2 %></div>
+                </div>
+                <span class="text-white font-bold text-[10px] sm:text-sm mt-1 text-center max-w-[80px] truncate"><%= u.username %></span>
+                <span class="text-white/40 text-[9px] sm:text-xs font-medium">Rp <%= Number(u.totalSpent).toLocaleString('id-ID') %></span>
+                <span class="mt-1.5 text-[9px] font-bold px-2.5 py-0.5 rounded-md <%= rankBgs2[origIdx] %> border">#<%= origIdx+1 %></span>
+            </div>
+            <% }); } %>
+        </div>
+        <div id="leaderboard-home-list" class="glass rounded-xl sm:rounded-2xl p-3 sm:p-4 space-y-2">
+            <% if (lbRest.length > 0) {
+                lbRest.forEach(function(u, i) {
+                    const initials2 = (u.username||'U').substring(0,2).toUpperCase();
+                    const rankNum = i+4;
+            %>
+            <div class="flex items-center gap-3 p-2 sm:p-2.5 rounded-lg hover:bg-white/[0.02] transition-colors">
+                <span class="text-white/30 font-bold w-6 text-center text-xs"><%= rankNum %></span>
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br <%= avatarGrads2[(i+3)%avatarGrads2.length] %> flex items-center justify-center text-[9px] font-bold text-white"><%= initials2 %></div>
+                <div class="flex-1 min-w-0"><span class="text-white text-xs sm:text-sm font-medium block truncate"><%= u.username %></span></div>
+                <div class="text-right">
+                    <div class="text-white/40 text-[9px] sm:text-xs font-medium whitespace-nowrap"><%= u.totalTransactions %>x beli</div>
+                    <div class="text-white/25 text-[8px]">Rp <%= Number(u.totalSpent).toLocaleString('id-ID') %></div>
+                </div>
+            </div>
+            <% }); } else { %>
+            <div class="text-center py-6 text-xs text-white/20">Belum ada data leaderboard</div>
+            <% } %>
+        </div>
+        <a href="/leaderboard" class="mt-4 w-full py-3 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-white/40 hover:text-white transition-all btn-ghost">
+            <iconify-icon icon="solar:medal-ribbon-bold" class="text-sm"></iconify-icon> Lihat Papan Skor Lengkap
+        </a>
+    </div>
+</section>
+
+
+<!-- TESTIMONIALS -->
+<section id="testimonials" class="relative py-12 sm:py-20">
+    <div class="relative max-w-7xl mx-auto px-3 sm:px-6">
+        <div class="text-center mb-8 sm:mb-14">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-4">
+                <iconify-icon icon="solar:star-bold" class="text-yellow-400 text-xs"></iconify-icon>
+                <span class="text-[10px] font-semibold text-white/50 tracking-wide uppercase">Testimoni</span>
+            </div>
+            <h2 class="font-display text-2xl sm:text-4xl font-bold mb-3">Dipercaya <span class="bg-gradient-to-r from-violet-400 to-yellow-400 bg-clip-text text-transparent">Ribuan Player</span></h2>
+            <p class="text-white/25 text-[10px] sm:text-xs">Apa kata mereka tentang Hero Market</p>
+        </div>
+
+        <!-- RATING SUMMARY -->
+        <div class="flex items-center justify-center gap-4 mb-6">
+            <div class="flex items-center gap-2 px-4 py-2 rounded-xl glass">
+                <iconify-icon icon="solar:star-bold" class="text-yellow-400 text-sm"></iconify-icon>
+                <span class="text-sm font-black text-yellow-400" id="avg-rating-home">—</span>
+                <span class="text-[10px] text-white/30" id="total-reviews-home"></span>
+            </div>
+        </div>
+
+        <!-- RATING BARS -->
+        <div id="rating-bars-home" class="hidden mb-6 max-w-xs mx-auto">
+            <% for(let s=5;s>=1;s--) { %>
+            <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-[10px] text-white/30 w-2"><%= s %></span>
+                <iconify-icon icon="solar:star-bold" class="text-yellow-400" style="font-size:10px;flex-shrink:0;"></iconify-icon>
+                <div class="flex-1 h-1.5 rounded-full overflow-hidden glass">
+                    <div class="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-yellow-500 to-yellow-400" id="hbar-<%= s %>" style="width:0%"></div>
+                </div>
+                <span class="text-[10px] text-white/25 w-3 text-right" id="hcount-<%= s %>">0</span>
+            </div>
+            <% } %>
+        </div>
+
+        <!-- CAROUSEL SWIPE -->
+        <div class="relative">
+            <div id="testimonialsContainer" class="flex gap-3 overflow-x-auto pb-3"
+                 style="-ms-overflow-style:none;scrollbar-width:none;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;">
+                <div class="glass rounded-xl p-4 flex-shrink-0" style="min-width:260px;">
+                    <iconify-icon icon="mdi:loading" class="text-2xl text-violet-400 animate-spin block mx-auto mb-2"></iconify-icon>
+                    <p class="text-xs text-white/20 text-center">Memuat ulasan...</p>
+                </div>
+            </div>
+            <div class="absolute top-0 right-0 bottom-3 w-10 pointer-events-none" style="background:linear-gradient(to left,#06050f,transparent);"></div>
+        </div>
+        <div id="testi-dots" class="flex justify-center gap-1.5 mt-3 mb-1 sm:hidden"></div>
+
+
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="border-t border-white/[0.05]" style="background:rgba(6,5,15,.95);">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-8 mb-8">
+            <!-- Brand -->
+            <div class="sm:col-span-1">
+                <div class="flex items-center gap-3 mb-4">
+                    <img src="https://z-cdn-media.chatglm.cn/files/87e4e759-3898-4bd9-93f3-42078956a794.png?auth_key=1878848442-1a65b6a56ce44d8188d26c370725de81-0-3e86df522848abe81fc556fd03a5fe98" alt="Hero Market" class="h-10 w-auto" style="object-fit:contain;">
+                    <div>
+                        <div class="font-display font-black text-sm text-white leading-none"><%= settings.siteName || 'HERO MARKET' %></div>
+                        <div class="text-[9px] text-violet-400 tracking-[0.15em] uppercase mt-0.5">PREMIUM STORE</div>
+                    </div>
+                </div>
+                <p class="text-white/25 text-xs leading-relaxed mb-4">
+                    <%= settings.about ? settings.about.substring(0,100) + '...' : 'Platform kunci mod menu premium terpercaya #1 di Indonesia.' %>
+                </p>
+                <div class="flex gap-2 flex-wrap">
+                    <% if (settings.contact && settings.contact.whatsapp) { %>
+                    <a href="https://wa.me/<%= settings.contact.whatsapp %>" target="_blank" class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-green-400 hover:border-green-400/30 transition-all" aria-label="WhatsApp">
+                        <iconify-icon icon="mdi:whatsapp" class="text-sm"></iconify-icon>
+                    </a>
+                    <% } %>
+                    <% if (settings.contact && settings.contact.telegram) { %>
+                    <a href="https://t.me/<%= settings.contact.telegram %>" target="_blank" class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-blue-400 hover:border-blue-400/30 transition-all" aria-label="Telegram">
+                        <iconify-icon icon="mdi:telegram" class="text-sm"></iconify-icon>
+                    </a>
+                    <% } %>
+                    <a href="#" class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-violet-400 hover:border-violet-400/30 transition-all" aria-label="Discord">
+                        <iconify-icon icon="ic:baseline-sports-esports" class="text-sm"></iconify-icon>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Produk -->
+            <div>
+                <h4 class="text-[10px] font-bold uppercase tracking-[0.15em] text-white/50 mb-4">Produk</h4>
+                <div class="space-y-2.5">
+                    <a href="#games" class="block text-white/30 text-xs hover:text-white/70 transition-colors">Mod Free Fire</a>
+                    <a href="#games" class="block text-white/30 text-xs hover:text-white/70 transition-colors">Mod PUBG</a>
+                    <a href="#games" class="block text-white/30 text-xs hover:text-white/70 transition-colors">Mod Mobile Legends</a>
+                    <a href="#games" class="block text-white/30 text-xs hover:text-white/70 transition-colors">Semua Produk</a>
+                </div>
+            </div>
+
+            <!-- Bantuan -->
+            <div>
+                <h4 class="text-[10px] font-bold uppercase tracking-[0.15em] text-white/50 mb-4">Bantuan</h4>
+                <div class="space-y-2.5">
+                    <a href="/invoice" class="block text-white/30 text-xs hover:text-white/70 transition-colors">Cek Pesanan</a>
+                    <a href="/leaderboard" class="block text-white/30 text-xs hover:text-white/70 transition-colors">Leaderboard</a>
+                    <a href="/login" class="block text-white/30 text-xs hover:text-white/70 transition-colors">Login / Daftar</a>
+                    <% if (settings.contact && settings.contact.whatsapp) { %>
+                    <a href="https://wa.me/<%= settings.contact.whatsapp %>" class="block text-white/30 text-xs hover:text-white/70 transition-colors">Kontak CS</a>
+                    <% } %>
+                </div>
+            </div>
+
+            <!-- Pembayaran -->
+            <div>
+                <h4 class="text-[10px] font-bold uppercase tracking-[0.15em] text-white/50 mb-4">Pembayaran</h4>
+                <div class="grid grid-cols-3 gap-1.5">
+                    <div class="px-2 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.07] text-center text-[9px] text-white/30 font-semibold">GoPay</div>
+                    <div class="px-2 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.07] text-center text-[9px] text-white/30 font-semibold">OVO</div>
+                    <div class="px-2 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.07] text-center text-[9px] text-white/30 font-semibold">DANA</div>
+                    <div class="px-2 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.07] text-center text-[9px] text-white/30 font-semibold">BCA</div>
+                    <div class="px-2 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.07] text-center text-[9px] text-white/30 font-semibold">QRIS</div>
+                    <div class="px-2 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.07] text-center text-[9px] text-white/30 font-semibold">ShopeePay</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-t border-white/[0.05] pt-5 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p class="text-white/15 text-[10px] text-center sm:text-left">&copy; 2026 <%= settings.siteName || 'Hero Market' %>. All rights reserved.</p>
+            <div class="flex items-center gap-2 text-white/15 text-[10px]">
+                <span class="w-1.5 h-1.5 rounded-full" style="background:#22c55e;box-shadow:0 0 6px #22c55e;"></span>
+                Online
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- FLOATING BUTTONS -->
+<div class="hidden md:flex fixed bottom-6 right-6 z-40 flex-col gap-3">
+    <% if (settings.contact?.whatsapp) { %>
+    <a href="https://wa.me/<%= settings.contact.whatsapp %>" target="_blank"
+       class="w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-110"
+       style="background:#22c55e;box-shadow:0 4px 20px rgba(34,197,94,.4);">
+        <iconify-icon icon="mdi:whatsapp" class="text-white text-xl"></iconify-icon>
+    </a>
+    <% } %>
+    <% if (settings.contact?.telegram) { %>
+    <a href="https://t.me/<%= settings.contact.telegram %>" target="_blank"
+       class="w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-110"
+       style="background:#3b82f6;box-shadow:0 4px 20px rgba(59,130,246,.4);">
+        <iconify-icon icon="mdi:telegram" class="text-white text-xl"></iconify-icon>
+    </a>
+    <% } %>
+</div>
+
+<script>
+    function toggleMobile() {
+        const menu = document.getElementById('mobile-menu');
+        const icon = document.getElementById('menu-icon');
+        menu.classList.toggle('hidden');
+        if (icon) {
+            icon.setAttribute('icon', menu.classList.contains('hidden') ? 'mdi:menu' : 'mdi:close');
+        }
+    }
+
+    function closeMobile() {
+        document.getElementById('mobile-menu').classList.add('hidden');
+        const icon = document.getElementById('menu-icon');
+        if (icon) icon.setAttribute('icon', 'mdi:menu');
+    }
+
+    function filterProducts(category) {
+        const cards = document.querySelectorAll('[data-category]');
+        const buttons = document.querySelectorAll('.prod-filter,.cat-btn');
+
+        buttons.forEach(btn => {
+            const key = btn.dataset.pf || btn.dataset.cat;
+            const isActive = key === category;
+            btn.classList.toggle('active', isActive);
+            if (isActive) {
+                btn.classList.add('bg-violet-600','text-white');
+                btn.classList.remove('bg-white/5','text-white/40');
+                btn.style.background = '';
+                btn.style.color = '';
+            } else {
+                btn.classList.remove('bg-violet-600','text-white');
+                btn.classList.add('bg-white/5','text-white/40');
+                btn.style.background = '';
+                btn.style.color = '';
+            }
+        });
+
+        cards.forEach(card => {
+            card.style.display = (category === 'all' || card.dataset.category === category) ? '' : 'none';
+        });
+    }
+
+    async function loadTestimonials() {
+        const container = document.getElementById('testimonialsContainer');
+        try {
+            const response = await fetch('/api/testimonials?verified=true');
+            const testimonials = await response.json();
+
+            if (testimonials.length === 0) {
+                container.innerHTML = `<div class="flex-shrink-0 w-full text-center py-10">
+                    <iconify-icon icon="mdi:comment-outline" class="text-4xl text-zinc-700 block mx-auto mb-2"></iconify-icon>
+                    <p class="text-xs text-zinc-600">Belum ada ulasan. Jadilah yang pertama!</p>
+                </div>`;
+                return;
+            }
+
+            // Statistik rating
+            const total = testimonials.length;
+            const avg = (testimonials.reduce((s,t) => s + (t.rating||0), 0) / total).toFixed(1);
+            const avgEl = document.getElementById('avg-rating-home');
+            const cntEl = document.getElementById('total-reviews-home');
+            if (avgEl) avgEl.textContent = avg;
+            if (cntEl) cntEl.textContent = `(${total})`;
+
+            // Rating bars
+            const barsEl = document.getElementById('rating-bars-home');
+            if (barsEl) {
+                barsEl.classList.remove('hidden');
+                for (let s=1; s<=5; s++) {
+                    const cnt = testimonials.filter(t => t.rating === s).length;
+                    const pct = total ? (cnt/total*100).toFixed(0) : 0;
+                    const bar = document.getElementById(`hbar-${s}`);
+                    const lbl = document.getElementById(`hcount-${s}`);
+                    if (bar) setTimeout(() => bar.style.width = pct + '%', 150);
+                    if (lbl) lbl.textContent = cnt || '';
+                }
+            }
+
+            const avatarColors = ['#6366f1,#8b5cf6','#7c3aed,#a855f7','#0ea5e9,#6366f1','#10b981,#059669','#f59e0b,#d97706','#ec4899,#db2777'];
+
+            container.innerHTML = testimonials.map((t, idx) => {
+                const name = t.name || t.username || 'Pembeli';
+                const initials = name.charAt(0).toUpperCase();
+                const grad = avatarColors[idx % avatarColors.length];
+                const avatarHtml = t.photo
+                    ? `<img src="${t.photo}" class="w-9 h-9 rounded-xl object-cover flex-shrink-0" style="border:2px solid rgba(139,92,246,.3);">`
+                    : `<div class="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-black flex-shrink-0" style="background:linear-gradient(135deg,${grad});">${initials}</div>`;
+                const starsHtml = Array.from({length:5}, (_,i) =>
+                    `<iconify-icon icon="${i < t.rating ? 'mdi:star' : 'mdi:star-outline'}" style="font-size:11px;color:${i < t.rating ? '#fbbf24' : '#3f3f46'};"></iconify-icon>`
+                ).join('');
+                const date = new Date(t.date).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'});
+                const productLabel = t.productName || t.product || '';
+                return `<div class="glass rounded-xl p-4 flex-shrink-0 hover:border-violet-500/20 transition-colors fade-in-up"
+                    style="min-width:265px;width:265px;scroll-snap-align:start;animation-delay:${idx*60}ms">
+                    <div class="flex items-start justify-between gap-2 mb-2.5">
+                        <div class="flex items-center gap-2.5">
+                            ${avatarHtml}
+                            <div>
+                                <div class="text-[12px] font-bold text-white leading-tight">${name}</div>
+                                <div class="flex items-center gap-0.5 mt-0.5">
+                                    ${starsHtml}
+                                    ${t.verified ? '<iconify-icon icon="mdi:check-decagram" style="font-size:10px;color:#34d399;margin-left:3px;"></iconify-icon>' : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <span class="text-[9px] text-zinc-600 flex-shrink-0 mt-0.5">${date}</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-400 leading-relaxed mb-2">"${t.text}"</p>
+                    ${productLabel ? `<div class="flex items-center gap-1 text-[10px] text-indigo-400">
+                        <iconify-icon icon="mdi:gamepad-variant-outline" style="font-size:10px;"></iconify-icon> ${productLabel}
+                    </div>` : ''}
+                </div>`;
+            }).join('');
+
+            // Re-bind drag after cards rendered
+            enableDragScroll(container);
+
+            // Dots indicator
+            const dotsEl = document.getElementById('testi-dots');
+            if (dotsEl && testimonials.length > 1) {
+                const pageCount = Math.ceil(testimonials.length / 1);
+                const visibleCount = Math.min(pageCount, 8);
+                dotsEl.innerHTML = Array.from({length: visibleCount}, (_, i) =>
+                    `<div class="testi-dot rounded-full transition-all duration-300" data-page="${i}"
+                        style="height:5px;width:${i===0?'18px':'5px'};background:${i===0?'rgba(139,92,246,.9)':'rgba(139,92,246,.25)'};"></div>`
+                ).join('');
+                container.addEventListener('scroll', () => {
+                    const progress = container.scrollLeft / (container.scrollWidth - container.offsetWidth);
+                    const activePage = Math.round(progress * (visibleCount - 1));
+                    dotsEl.querySelectorAll('.testi-dot').forEach((d, i) => {
+                        d.style.background = i === activePage ? 'rgba(139,92,246,.9)' : 'rgba(139,92,246,.25)';
+                        d.style.width = i === activePage ? '18px' : '5px';
+                    });
+                }, {passive: true});
+            }
+        } catch (error) {
+            container.innerHTML = '<div class="flex-shrink-0 w-full text-center py-8 text-xs text-zinc-600">Gagal memuat ulasan</div>';
+        }
+    }
+
+    function loadAllTestimonials() { /* no-op, semua tampil di carousel */ }
+
+    async function loadLeaderboardHome() {
+        const list = document.getElementById('leaderboard-home-list');
+        const top3El = document.getElementById('leaderboard-top3');
+        if (!list) return;
+        try {
+            const res = await fetch('/api/leaderboard?limit=8');
+            const data = await res.json();
+            const entries = Array.isArray(data) ? data : (data.entries || data.data || []);
+            if (!entries.length) {
+                list.innerHTML = '<div class="text-center py-6 text-xs text-white/20">Belum ada data leaderboard</div>';
+                if (top3El) top3El.innerHTML = '';
+                return;
+            }
+
+            const avatarGrads = ['from-violet-400 to-purple-500','from-gray-300 to-gray-400','from-orange-400 to-orange-600','from-violet-400 to-purple-500','from-blue-400 to-cyan-500','from-green-400 to-emerald-500','from-red-400 to-rose-500','from-pink-400 to-fuchsia-500'];
+
+            // TOP 3 PODIUM
+            if (top3El && entries.length >= 3) {
+                const top3 = entries.slice(0, 3);
+                // order: 2nd, 1st, 3rd
+                const ordered = [top3[1], top3[0], top3[2]];
+                const heights = ['h-20 w-20 sm:h-24 sm:w-24','h-24 w-24 sm:h-28 sm:w-28','h-16 w-16 sm:h-20 sm:w-20'];
+                const margins = ['',''-mt-4 sm:-mt-6'',''];
+                const rankBgs = ['bg-gray-400/20 text-gray-300 border-gray-400/30','bg-yellow-500/20 text-yellow-300 border-yellow-500/30','bg-orange-500/20 text-orange-300 border-orange-500/30'];
+                top3El.innerHTML = ordered.map((u, i) => {
+                    if (!u) return '';
+                    const origIdx = [1,0,2][i];
+                    const name = u.username || u.name || 'User';
+                    const spent = u.totalSpent || u.total_spent || 0;
+                    const initials = name.substring(0,2).toUpperCase();
+                    const isFirst = origIdx === 0;
+                    const sz = heights[i];
+                    const mg = origIdx===0 ? '-mt-4 sm:-mt-6' : '';
+                    return `<div class="flex flex-col items-center ${mg} relative z-10">
+                        <div class="relative flex flex-col items-center mb-2">
+                            ${isFirst ? '<div class="absolute -top-5 sm:-top-6 text-2xl sm:text-3xl" style="filter:drop-shadow(0 0 8px #fbbf24)"><iconify-icon icon="solar:crown-bold" style="color:gold"></iconify-icon></div>' : ''}
+                            <div class="${sz} ${isFirst?'glow-first':''} rounded-full bg-gradient-to-br ${avatarGrads[origIdx]} flex items-center justify-center font-bold ${isFirst?'text-black':'text-white'} shadow-lg relative z-10 text-sm sm:text-base">${initials}</div>
+                        </div>
+                        <span class="text-white font-bold text-[10px] sm:text-sm mt-1 text-center max-w-[80px] truncate">${name}</span>
+                        <span class="text-white/40 text-[9px] sm:text-xs font-medium">Rp ${Number(spent).toLocaleString('id-ID')}</span>
+                        <span class="mt-1.5 text-[9px] font-bold px-2.5 py-0.5 rounded-md ${rankBgs[origIdx]} border">#${origIdx+1}</span>
+                    </div>`;
+                }).join('');
+            }
+
+            // REST LIST (rank 4+)
+            const rest = entries.slice(3);
+            if (!rest.length) { list.innerHTML = ''; return; }
+            list.innerHTML = rest.map((u, i) => {
+                const name = u.username || u.name || 'User';
+                const spent = u.totalSpent || u.total_spent || 0;
+                const txCount = u.totalTransactions || 0;
+                const initials = name.substring(0,2).toUpperCase();
+                return `<div class="flex items-center gap-3 p-2 sm:p-2.5 rounded-lg hover:bg-white/[0.02] transition-colors">
+                    <span class="text-white/30 font-bold w-6 text-center text-xs">${i+4}</span>
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br ${avatarGrads[(i+3)%avatarGrads.length]} flex items-center justify-center text-[9px] font-bold text-white">${initials}</div>
+                    <div class="flex-1 min-w-0"><span class="text-white text-xs sm:text-sm font-medium block truncate">${name}</span></div>
+                    <div class="text-right">
+                        <div class="text-white/40 text-[9px] sm:text-xs font-medium whitespace-nowrap">${txCount}x beli</div>
+                        <div class="text-white/25 text-[8px]">Rp ${Number(spent).toLocaleString('id-ID')}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch(e) {
+            if (list) list.innerHTML = '<div class="text-center py-6 text-xs text-white/20">Gagal memuat data</div>';
+        }
+    }
+
+    async function loadPopularProducts() {
+        const track = document.getElementById('popular-track');
+        if (!track) return;
+        try {
+            // Ambil produk populer dari server (admin bisa atur urutan via popularProductIds di settings)
+            const popularProds = <%- JSON.stringify(popularProducts) %>;
+            if (!popularProds.length) { track.innerHTML = ''; return; }
+            const badgeLabels = ['BEST','HOT','TOP','NEW','SALE'];
+            const badgeCls = ['bg-red-500/80','bg-yellow-500/80 text-black','bg-blue-500/80','bg-emerald-500/80','bg-fuchsia-500/80'];
+            track.innerHTML = popularProds.map((p, idx) => {
+                const isOut = !(p.keys && p.keys.length);
+                const price = p.items && p.items.length > 0 ? p.items[0].p : null;
+                const hasPlatform = p.platforms && p.platforms.length > 0 ? p.platforms[0].toUpperCase() : '';
+                const badge = p.badge || badgeLabels[idx % 5];
+                const bCls = p.badgeColor || badgeCls[idx % 5];
+                const soldFmt = (p.sold||0) >= 1000 ? ((p.sold||0)/1000).toFixed(1).replace('.0','')+'K' : String(p.sold||0);
+                return `<div class="popular-card glass rounded-xl overflow-hidden border border-white/[0.04] cursor-pointer" onclick="location.href='/buy/${p.id}'"
+                    style="min-width:200px;max-width:200px;scroll-snap-align:start;flex-shrink:0;">
+                    <div class="relative h-28 sm:h-36 overflow-hidden">
+                        ${badge ? `<span class="badge-tag ${bCls} absolute top-1.5 left-1.5 z-10">${badge}</span>` : ''}
+                        ${p.image ? `<img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover" loading="lazy" onerror="this.style.display='none'">` : `<div class="w-full h-full flex items-center justify-center" style="background:rgba(99,102,241,.06);"><iconify-icon icon="solar:gamepad-bold" style="font-size:32px;color:rgba(139,92,246,.4);"></iconify-icon></div>`}
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none"></div>
+                        ${hasPlatform ? `<div class="absolute top-1.5 right-1.5 z-10"><span class="platform-label">${hasPlatform}</span></div>` : ''}
+                    </div>
+                    <div class="p-2 sm:p-3">
+                        <h3 class="font-display font-bold text-[10px] sm:text-sm truncate mb-1.5">${p.name}</h3>
+                        <div class="flex justify-between items-center text-[8px] sm:text-[10px] mb-2">
+                            <span class="text-white/30">Terjual <span class="text-white/50 font-bold">${soldFmt}</span></span>
+                            ${price ? `<span class="font-bold text-violet-400 text-[10px] sm:text-xs">Rp ${Number(price).toLocaleString('id-ID')}</span>` : ''}
+                        </div>
+                        <button class="btn-primary w-full py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-[9px] sm:text-xs font-bold text-white flex items-center justify-center gap-1 ${isOut?'opacity-40 cursor-not-allowed':''}"
+                            ${isOut ? 'disabled' : ''}>
+                            <iconify-icon icon="${isOut ? 'solar:close-circle-bold' : 'solar:cart-large-2-bold'}" class="text-[9px] sm:text-sm"></iconify-icon>${isOut ? 'Habis' : 'Beli'}
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch(e) {
+            track.innerHTML = '';
+        }
+    }
+
+    // ── Drag-to-scroll: mouse drag support for horizontal scroll containers ──
+    function enableDragScroll(el) {
+        if (!el) return;
+        let isDown = false, startX, scrollLeft;
+        el.addEventListener('mousedown', e => {
+            isDown = true;
+            el.style.cursor = 'grabbing';
+            startX = e.pageX - el.offsetLeft;
+            scrollLeft = el.scrollLeft;
+            e.preventDefault();
+        });
+        el.addEventListener('mouseleave', () => { isDown = false; el.style.cursor = ''; });
+        el.addEventListener('mouseup', () => { isDown = false; el.style.cursor = ''; });
+        el.addEventListener('mousemove', e => {
+            if (!isDown) return;
+            const x = e.pageX - el.offsetLeft;
+            el.scrollLeft = scrollLeft - (x - startX) * 1.2;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadTestimonials();
+        loadFooterStats();
+        loadLeaderboardHome();
+        loadPopularProducts();
+        initCatBtn();
+        // Enable mouse drag on both scroll containers
+        enableDragScroll(document.getElementById('popular-track'));
+        enableDragScroll(document.getElementById('testimonialsContainer'));
+    });
+
+    function initCatBtn() {
+        const activeBtn = document.querySelector('.cat-btn.active');
+        if (activeBtn) {
+            activeBtn.style.background = 'rgba(99,102,241,.15)';
+            activeBtn.style.color = '#818cf8';
+            activeBtn.style.borderColor = 'rgba(99,102,241,.4)';
+            activeBtn.style.boxShadow = '0 0 12px rgba(99,102,241,.25)';
+        }
+    }
+
+    async function loadFooterStats() {
+        try {
+            const res = await fetch('/api/stats');
+            const s = await res.json();
+            animateCount('footer-stat-sold', s.totalSold, s.totalSold > 0 ? '+' : '');
+            animateCount('footer-stat-users', s.totalUsers, '+');
+            animateFloat('footer-stat-rating', s.avgRating);
+            animateCount('footer-stat-products', s.totalActiveProducts, '');
+        } catch(e) {
+            ['footer-stat-sold','footer-stat-users','footer-stat-rating','footer-stat-products']
+                .forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
+        }
+    }
+
+    function animateFloat(id, target) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        let current = 0;
+        const step = target / 40;
+        const interval = setInterval(() => {
+            current = Math.min(current + step, target);
+            el.textContent = current.toFixed(1);
+            if (current >= target) clearInterval(interval);
+        }, 40);
+    }
+
+    function animateCount(id, target, suffix = '') {
+        const el = document.getElementById(id);
+        if (!el) return;
+        let current = 0;
+        const step = Math.ceil(target / 40);
+        const interval = setInterval(() => {
+            current = Math.min(current + step, target);
+            el.textContent = current.toLocaleString('id-ID') + suffix;
+            if (current >= target) clearInterval(interval);
+        }, 40);
+    }
+</script>
