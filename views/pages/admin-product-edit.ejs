@@ -1,0 +1,881 @@
+<%
+const pageTitle = 'Edit Produk';
+%>
+<style>
+.hm-input{width:100%;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);color:#fff;font-size:13px;transition:all .2s;font-family:'Inter',sans-serif;}
+.hm-input:focus{outline:none;border-color:rgba(99,102,241,.6);background:rgba(99,102,241,.06);}
+.section-card{background:rgba(255,255,255,.02);border:1px solid rgba(123,44,191,.2);border-radius:14px;padding:20px;margin-bottom:16px;}
+.key-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:10px;font-family:monospace;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:#a5b4fc;margin:2px;}
+</style>
+
+<div class="min-h-screen pt-20 pb-24 px-4">
+<div class="max-w-2xl mx-auto">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-black text-white">Edit Produk</h1>
+      <p class="text-zinc-500 text-sm mt-0.5" id="productNameLabel">Memuat...</p>
+    </div>
+    <a href="/admin" class="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 text-xs font-bold transition-all">
+      <iconify-icon icon="mdi:arrow-left"></iconify-icon> Kembali
+    </a>
+  </div>
+
+  <!-- ── GAMBAR PRODUK ── -->
+  <div class="section-card">
+    <h2 class="text-sm font-black text-white mb-4 flex items-center gap-2">
+      <iconify-icon icon="mdi:image" class="text-purple-400 text-lg"></iconify-icon> Gambar Produk
+    </h2>
+    <div id="imgPreviewWrap" class="w-full h-44 rounded-xl border-2 border-dashed border-purple-500/30 bg-purple-500/5 flex items-center justify-center overflow-hidden mb-3">
+      <img id="imgPreview" src="" alt="" class="w-full h-full object-cover hidden">
+      <span id="imgPlaceholder" class="text-zinc-600 text-sm">Belum ada gambar</span>
+    </div>
+    <input type="file" id="imgFileInput" accept="image/*" class="hidden" onchange="uploadBanner(event)">
+    <div class="flex gap-2 mb-2">
+      <button onclick="document.getElementById('imgFileInput').click()"
+        class="flex-1 py-2 rounded-lg text-xs font-bold text-purple-400 border border-purple-500/30 hover:bg-purple-500/10 transition-all flex items-center justify-center gap-1.5">
+        <iconify-icon icon="mdi:upload" class="text-sm"></iconify-icon> Upload File
+      </button>
+    </div>
+    <input type="text" id="imgUrlInput" class="hm-input text-sm" placeholder="Atau paste URL gambar (https://...)" oninput="previewImg(this.value)">
+    <p class="text-[10px] text-zinc-600 mt-1.5">Gambar akan tampil di halaman produk pengguna</p>
+  </div>
+
+  <!-- ── DESKRIPSI ── -->
+  <div class="section-card">
+    <h2 class="text-sm font-black text-white mb-3 flex items-center gap-2">
+      <iconify-icon icon="mdi:text-box-outline" class="text-purple-400 text-lg"></iconify-icon> Deskripsi Produk
+    </h2>
+    <textarea id="prodDescInput" rows="6" class="hm-input" style="resize:vertical;" placeholder="Fitur lengkap, cara pakai, catatan penting, dll... (boleh panjang)"></textarea>
+    <p class="text-[10px] text-zinc-600 mt-1.5">Deskripsi akan tampil di halaman detail produk untuk pembeli. Bisa sepanjang yang dibutuhkan.</p>
+  </div>
+
+  <!-- ── VIDEO SHOWCASE (YOUTUBE) ── -->
+  <div class="section-card">
+    <h2 class="text-sm font-black text-white mb-3 flex items-center gap-2">
+      <iconify-icon icon="mdi:youtube" class="text-purple-400 text-lg"></iconify-icon> Video Showcase (YouTube)
+    </h2>
+    <textarea id="ytUrlsInput" rows="3" class="hm-input font-mono text-xs" style="resize:vertical;"
+      placeholder="Tempel link YouTube, 1 link per baris&#10;https://youtu.be/xxxxxxxxxxx&#10;https://www.youtube.com/watch?v=yyyyyyyyyyy"></textarea>
+    <p class="text-[10px] text-zinc-600 mt-1.5">Cukup paste link YouTube biasa. Video pertama jadi player utama; jika lebih dari 1 link, thumbnail-nya bisa dipilih pembeli. Kosongkan untuk sembunyikan section video di halaman produk.</p>
+  </div>
+
+  <!-- ── SYSTEM COMPATIBILITY ── -->
+  <div class="section-card">
+    <h2 class="text-sm font-black text-white mb-3 flex items-center gap-2">
+      <iconify-icon icon="mdi:check-decagram" class="text-purple-400 text-lg"></iconify-icon> System Compatibility
+    </h2>
+    <div id="compatRows" class="space-y-2 mb-3"></div>
+    <button type="button" onclick="addListRow('compatRows')"
+      class="w-full py-2 rounded-lg text-xs font-bold text-purple-400 border border-purple-500/30 hover:bg-purple-500/10 transition-all flex items-center justify-center gap-1.5">
+      <iconify-icon icon="mdi:plus"></iconify-icon> Tambah Poin Compatibility
+    </button>
+    <p class="text-[10px] text-zinc-600 mt-1.5">Contoh: "iOS Non Jailbreak", "Support Version Latest iOS". Kosongkan semua untuk sembunyikan tab Information (kalau Feature List juga kosong).</p>
+  </div>
+
+  <!-- ── FEATURE LIST ── -->
+  <div class="section-card">
+    <h2 class="text-sm font-black text-white mb-3 flex items-center gap-2">
+      <iconify-icon icon="mdi:format-list-checks" class="text-purple-400 text-lg"></iconify-icon> Feature List
+    </h2>
+    <div id="featureRows" class="space-y-2 mb-3"></div>
+    <button type="button" onclick="addListRow('featureRows')"
+      class="w-full py-2 rounded-lg text-xs font-bold text-purple-400 border border-purple-500/30 hover:bg-purple-500/10 transition-all flex items-center justify-center gap-1.5">
+      <iconify-icon icon="mdi:plus"></iconify-icon> Tambah Fitur
+    </button>
+    <p class="text-[10px] text-zinc-600 mt-1.5">Contoh: "ESP | Line, Box, Name, Health". Tiap baris jadi satu bullet point di halaman produk.</p>
+  </div>
+
+  <!-- ── KATEGORI ── -->
+  <div class="section-card">
+    <h2 class="text-sm font-black text-white mb-3 flex items-center gap-2">
+      <iconify-icon icon="mdi:shape" class="text-purple-400 text-lg"></iconify-icon> Kategori Game
+    </h2>
+    <select id="prodCategorySelect" class="hm-input" onchange="onCategoryChange()">
+      <% (settings.categories||[]).forEach(cat => { %>
+        <option value="<%= cat %>"><%= (settings.categoryLabels||{})[cat] || cat %></option>
+      <% }) %>
+      <option value="__new__">+ Tambah Kategori Baru...</option>
+    </select>
+    <div id="newCategoryBox" class="hidden mt-2.5 space-y-2">
+      <input type="text" id="newCategoryLabel" class="hm-input" placeholder="Nama kategori, contoh: Cheat FF">
+      <button type="button" onclick="addNewCategory()" class="btn-primary w-full justify-center py-2 text-xs">
+        <iconify-icon icon="mdi:plus-circle"></iconify-icon> Buat & Pakai Kategori Ini
+      </button>
+      <p class="text-[10px] text-zinc-600">Kategori baru otomatis muncul sebagai filter di halaman utama setelah disimpan.</p>
+    </div>
+    <p class="text-[10px] text-zinc-600 mt-1.5">Pastikan kategori sesuai dengan game produk ini, supaya filter di halaman utama akurat.</p>
+  </div>
+
+  <!-- ── STATUS ── -->
+  <div class="section-card">
+    <h2 class="text-sm font-black text-white mb-3 flex items-center gap-2">
+      <iconify-icon icon="mdi:shield-check" class="text-purple-400 text-lg"></iconify-icon> Status Produk
+    </h2>
+    <div class="flex gap-3">
+      <button id="btn-active" onclick="setStatus('active')"
+        class="flex-1 py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5">
+        <iconify-icon icon="mdi:check-circle"></iconify-icon> Aktif
+      </button>
+      <button id="btn-inactive" onclick="setStatus('inactive')"
+        class="flex-1 py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5">
+        <iconify-icon icon="mdi:close-circle"></iconify-icon> Nonaktif
+      </button>
+    </div>
+  </div>
+
+  <!-- ── PLATFORM ── -->
+  <div class="section-card">
+    <h2 class="text-sm font-black text-white mb-3 flex items-center gap-2">
+      <iconify-icon icon="mdi:cellphone" class="text-purple-400 text-lg"></iconify-icon> Platform
+    </h2>
+    <div class="flex gap-3">
+      <button id="btn-android" onclick="togglePlatform('android')"
+        class="flex-1 py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5">
+        <iconify-icon icon="mdi:android" class="text-sm"></iconify-icon> Android
+      </button>
+      <button id="btn-ios" onclick="togglePlatform('ios')"
+        class="flex-1 py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5">
+        <iconify-icon icon="mdi:apple" class="text-sm"></iconify-icon> iOS
+      </button>
+    </div>
+    <p class="text-[10px] text-zinc-600 mt-2">Pilih platform yang didukung produk ini (bisa keduanya)</p>
+  </div>
+
+  <!-- ── LINK DOWNLOAD ── -->
+  <div class="section-card">
+    <h2 class="text-sm font-black text-white mb-3 flex items-center gap-2">
+      <iconify-icon icon="mdi:download" class="text-purple-400 text-lg"></iconify-icon> Link Download
+    </h2>
+    <input type="text" id="downloadLinkInput" class="hm-input" placeholder="https://drive.google.com/... atau link APK/tool khusus produk ini">
+    <p class="text-[10px] text-zinc-600 mt-1.5">Kosongkan kalau produk ini tidak butuh tombol download. Beda produk bisa punya link download yang berbeda-beda.</p>
+  </div>
+
+  <!-- ── HARGA / PAKET & SUMBER STOK PER VARIAN ── -->
+  <!-- Ditambahkan: mapping ke Reseller API (Auto Stock), porting dari GNE
+       dengan metode yang sama persis. Tiap baris varian/paket punya toggle
+       Manual/Auto + mapping provider sendiri, supaya varian hari yang beda
+       (mis. 3/7/15/30 hari) bisa diarahkan ke product_item_id provider yang
+       berbeda-beda -- bukan dipukul rata 1 mapping untuk seluruh produk. -->
+  <div class="section-card">
+    <h2 class="text-sm font-black text-white mb-1 flex items-center gap-2">
+      <iconify-icon icon="mdi:cash-multiple" class="text-purple-400 text-lg"></iconify-icon> Harga & Sumber Stok
+    </h2>
+    <p class="text-[11px] text-zinc-500 mb-4">Atur harga dan sumber stok (Manual/Auto) untuk tiap paket. Tiap paket bisa punya sumber stok berbeda-beda.</p>
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-[10px] text-zinc-500">Daftar produk provider dimuat otomatis untuk dropdown mapping di bawah</span>
+      <button type="button" onclick="loadResellerProducts(true)" id="reloadProviderBtn" class="text-[10px] text-purple-400 hover:text-purple-300 flex items-center gap-1 shrink-0">
+        <iconify-icon icon="mdi:refresh"></iconify-icon> Muat Ulang
+      </button>
+    </div>
+    <div id="pricingRows" class="space-y-2 mb-3"></div>
+    <button type="button" onclick="addPricingRow()"
+      class="w-full py-2 rounded-lg text-xs font-bold text-purple-400 border border-purple-500/30 hover:bg-purple-500/10 transition-all flex items-center justify-center gap-1.5">
+      <iconify-icon icon="mdi:plus"></iconify-icon> Tambah Paket Harga
+    </button>
+    <p class="text-[10px] text-zinc-600 mt-2">Untuk Auto tanpa mapping manual, sistem otomatis mencocokkan by nama produk + jumlah hari ke katalog provider saat checkout.</p>
+  </div>
+
+  <!-- ── KEYS / STOK MANUAL ── -->
+  <div class="section-card">
+    <h2 class="text-sm font-black text-white mb-1 flex items-center gap-2">
+      <iconify-icon icon="mdi:key-variant" class="text-purple-400 text-lg"></iconify-icon> Keys & Stok Manual
+    </h2>
+    <p class="text-[11px] text-zinc-500 mb-4">Untuk paket yang sumber stoknya diset "Manual" di atas -- stok diambil dari keys yang kamu upload di sini.</p>
+
+    <!-- Info stok per paket -->
+    <div id="stockInfo" class="space-y-2 mb-4"></div>
+
+    <!-- Tambah keys -->
+    <div class="rounded-xl p-4" style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2)">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-bold text-indigo-300">Tambah / Ganti Keys</span>
+        <div class="flex gap-1">
+          <button id="modeAppend" onclick="setKeysMode('append')"
+            class="px-2 py-1 rounded text-[10px] font-bold transition-all">+ Tambah</button>
+          <button id="modeReplace" onclick="setKeysMode('replace')"
+            class="px-2 py-1 rounded text-[10px] font-bold transition-all">↺ Ganti Semua</button>
+        </div>
+      </div>
+      <textarea id="keysInput" class="hm-input font-mono text-xs resize-none" rows="6"
+        placeholder="Masukkan keys, satu per baris&#10;Contoh:&#10;FF7-001:7&#10;FF30-001:30&#10;ML7-001:7"></textarea>
+      <p class="text-[10px] text-zinc-600 mt-1.5">
+        Format tag durasi: <code class="text-indigo-400">KEY:HARI</code> (misal <code class="text-indigo-400">FF7-001:7</code> untuk paket 7 hari)
+      </p>
+    </div>
+
+    <!-- Preview keys existing -->
+    <div id="existingKeys" class="mt-3 hidden">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[11px] text-zinc-500" id="keyCountLabel"></span>
+        <button onclick="clearAllKeys()" class="text-[10px] text-red-400 hover:text-red-300 transition-colors">Hapus Semua Keys</button>
+      </div>
+      <div id="keyChips" class="max-h-32 overflow-y-auto"></div>
+    </div>
+  </div>
+
+  <!-- ── TOMBOL SIMPAN ── -->
+  <div class="flex gap-3 mt-2">
+    <button onclick="saveProduct()"
+      class="btn-gaming flex-1 py-3.5 text-sm font-black flex items-center justify-center gap-2">
+      <iconify-icon icon="mdi:check-circle" class="text-lg"></iconify-icon> Simpan Perubahan
+    </button>
+    <button onclick="confirmDelete()"
+      class="px-5 py-3.5 rounded-xl bg-red-500/15 text-red-400 border border-red-500/35 hover:bg-red-500/25 font-bold text-sm transition-all flex items-center gap-2">
+      <iconify-icon icon="mdi:trash"></iconify-icon>
+    </button>
+  </div>
+
+</div>
+</div>
+
+<script>
+let currentProduct = null;
+let selectedStatus = 'active';
+let keysMode = 'append';
+let selectedPlatforms = [];
+
+// ─── Load produk ───
+async function loadProduct() {
+  const id = new URLSearchParams(location.search).get('id');
+  if (!id) { showToast('ID produk tidak ditemukan', 'error'); return; }
+
+  const res = await fetch('/admin/product/' + id);
+  const data = await res.json();
+  if (!data.success) { showToast(data.message || 'Gagal memuat', 'error'); return; }
+
+  currentProduct = data.data;
+  document.getElementById('productNameLabel').textContent = currentProduct.name;
+
+  // Gambar
+  const img = currentProduct.image || currentProduct.bannerUrl || '';
+  document.getElementById('imgUrlInput').value = img;
+  previewImg(img);
+
+  // Deskripsi
+  document.getElementById('prodDescInput').value = currentProduct.description || '';
+
+  // Video Showcase (YouTube)
+  document.getElementById('ytUrlsInput').value = (currentProduct.youtubeUrls || []).join('\n');
+
+  // System Compatibility & Feature List
+  renderListRows('compatRows', currentProduct.compatibility || []);
+  renderListRows('featureRows', currentProduct.features || []);
+
+  // Link Download (khusus produk ini)
+  document.getElementById('downloadLinkInput').value = currentProduct.downloadLink || '';
+
+  // Status
+  selectedStatus = currentProduct.status || 'active';
+  updateStatusBtns();
+
+  // Kategori
+  const catSel = document.getElementById('prodCategorySelect');
+  if (catSel) catSel.value = currentProduct.category || '';
+
+  // Platforms
+  selectedPlatforms = currentProduct.platforms || [];
+  updatePlatformBtns();
+
+  // Harga / Paket -- tiap baris bawa stockSource & resellerItemId sendiri.
+  // Produk lama yang belum punya field ini di-default ke stockSource='auto'
+  // kalau product.stockMode top-level dulunya 'auto' (backward compat),
+  // kalau tidak default 'manual' (aman, tidak mengubah perilaku existing).
+  const legacyTopLevelAuto = currentProduct.stockMode === 'auto';
+  const legacyTopLevelItemId = currentProduct.resellerItemId || null;
+  const opts = currentProduct.pricingOptions || [];
+  pricingOptions = opts.map(o => ({
+    days: o.days,
+    price: o.price,
+    stockSource: o.resellerItemId != null ? 'auto' : (legacyTopLevelAuto ? 'auto' : (o.stockSource || 'manual')),
+    resellerItemId: o.resellerItemId != null ? o.resellerItemId : (legacyTopLevelAuto ? legacyTopLevelItemId : null)
+  }));
+  if (pricingOptions.length === 0) pricingOptions.push({ days: 7, price: 0, stockSource: 'auto', resellerItemId: null });
+
+  // Keys
+  renderKeyInfo();
+  setKeysMode('append');
+
+  // Muat daftar produk provider dulu (untuk dropdown mapping di tiap baris),
+  // baru render baris pricing supaya dropdown langsung terisi sejak awal.
+  await loadResellerProducts();
+}
+
+// ─── Harga / Paket (tiap baris = 1 varian hari, punya sumber stok sendiri) ───
+// Sekarang pakai array of object pricingOptions (bukan lagi DOM query
+// parallel array pricingDays/pricingPrices) supaya bisa bawa stockSource &
+// resellerItemId per baris -- pola sama seperti GNE.
+let pricingOptions = [];
+let providerProductList = []; // diisi loadResellerProducts(), dipakai isi dropdown tiap baris
+let providerLoadState = 'loading'; // 'loading' | 'loaded' | 'error' -- lihat renderProviderOptions
+let providerLoadError = ''; // pesan error ASLI dari server/provider, ditampilkan permanen di kartu (bukan cuma toast sekilas)
+
+function renderPricingRows() {
+  const container = document.getElementById('pricingRows');
+  if (pricingOptions.length === 0) {
+    container.innerHTML = '<p class="text-center text-zinc-600 text-xs py-3">Belum ada paket harga. Klik "+ Tambah Paket Harga".</p>';
+    return;
+  }
+  container.innerHTML = pricingOptions.map((opt, i) => {
+    const mode = opt.stockSource === 'manual' ? 'manual' : 'auto';
+    // FIX: bandingkan sebagai String() -- resellerItemId legacy tersimpan
+    // sebagai angka murni sebelum fix multi-provider, sementara
+    // providerProductList.id bisa string ("mp:...") atau angka (legacy baru).
+    // Perbandingan === polos gagal kalau tipe beda (12 !== "12"), membuat
+    // mapping yang sebenarnya valid tampak kosong di kotak pencarian.
+    const selectedItem = providerProductList.find(it => String(it.id) === String(opt.resellerItemId));
+    const selectedLabel = selectedItem
+      ? `#${selectedItem.id} — ${selectedItem.product_name} (${selectedItem.item_name}) — Rp ${Number(selectedItem.price).toLocaleString('id-ID')} — ${selectedItem.stock_mode === 'v2' ? 'unlimited' : 'stok ' + selectedItem.stock}`
+      : '';
+    return `
+    <div class="flex flex-col gap-2 p-3 rounded-xl relative" style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2)">
+      <div class="flex gap-2 items-center">
+        <div class="flex-1 flex gap-2">
+          <input type="number" class="hm-input text-xs" value="${opt.days}" min="1" placeholder="Hari (mis: 7)"
+            oninput="pricingOptions[${i}].days=parseInt(this.value)||0">
+          <input type="number" class="hm-input text-xs" value="${opt.price}" min="0" placeholder="Harga (Rp)"
+            oninput="pricingOptions[${i}].price=parseInt(this.value)||0">
+        </div>
+        <button type="button" onclick="removePricingRow(${i})" class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 flex-shrink-0">
+          <iconify-icon icon="mdi:minus" class="text-sm"></iconify-icon>
+        </button>
+      </div>
+
+      <!-- Sumber stok KHUSUS untuk varian/paket ini -->
+      <div class="flex gap-1.5 pt-1 border-t border-white/5 mt-0.5">
+        <button type="button" onclick="setRowStockSource(${i},'manual')"
+          class="flex-1 py-1.5 rounded-lg text-[10px] font-bold border transition-all flex items-center justify-center gap-1"
+          style="${mode === 'manual' ? 'border-color:rgba(99,102,241,.5);background:rgba(99,102,241,.15);color:#a5b4fc' : 'border-color:rgba(255,255,255,.1);color:#71717a'}">
+          <iconify-icon icon="mdi:key-variant"></iconify-icon> Manual
+        </button>
+        <button type="button" onclick="setRowStockSource(${i},'auto')"
+          class="flex-1 py-1.5 rounded-lg text-[10px] font-bold border transition-all flex items-center justify-center gap-1"
+          style="${mode === 'auto' ? 'border-color:rgba(34,211,238,.5);background:rgba(34,211,238,.15);color:#67e8f9' : 'border-color:rgba(255,255,255,.1);color:#71717a'}">
+          <iconify-icon icon="mdi:robot"></iconify-icon> Auto (API)
+        </button>
+      </div>
+      ${mode === 'auto' ? `
+      <div style="padding-left:.25rem">
+        <!-- FIX: "Auto-cocokkan by nama" (tebak otomatis tanpa mapping) DIHAPUS
+             sepenuhnya -- meskipun sistem sudah menolak menebak kalau ambigu,
+             tetap ada celah kecil salah pilih produk mirip yang lolos filter
+             hari (lihat catatan di reseller-api.js findAutoMatch). Supaya
+             0% risiko "key random" seperti yang dikhawatirkan, sekarang WAJIB
+             pilih manual persis 1 item provider.
+             FIX #2: native <datalist> HTML TIDAK RELIABLE di banyak browser
+             mobile (terutama Chrome Android) -- kebanyakan cuma match kalau
+             ketikan persis di AWAL string opsi, bukan cari di mana saja
+             dalam teks. Karena label diawali "#123 — Nama Produk...", ngetik
+             nama produk langsung (lazimnya begitu) sering TIDAK memunculkan
+             saran apa pun walau datanya ada. Diganti custom dropdown filter
+             (di-render manual pakai JS di bawah) yang match substring di
+             posisi manapun, reliable di semua browser. -->
+        <div style="position:relative">
+          <input type="text" id="provider-search-${i}" class="hm-input text-[11px] py-2"
+            placeholder="Ketik nama produk provider untuk cari..."
+            value="${selectedLabel.replace(/"/g,'&quot;')}"
+            autocomplete="off"
+            oninput="filterProviderOptions(${i}, this.value)"
+            onfocus="filterProviderOptions(${i}, this.value)"
+            onblur="setTimeout(()=>hideProviderDropdown(${i}), 200)">
+          <div id="provider-dropdown-${i}" class="hidden" style="position:absolute;left:0;right:0;top:100%;margin-top:4px;border-radius:.5rem;border:1px solid rgba(255,255,255,.15);background:#15121f;max-height:160px;overflow-y:auto;z-index:1000;box-shadow:0 20px 25px -5px rgba(0,0,0,.4)"></div>
+        </div>
+        ${providerLoadState === 'loading' ? '<p class="text-[9px] text-amber-400 mt-1">Memuat daftar produk provider...</p>' : ''}
+        ${providerLoadState === 'error' ? `<p class="text-[9px] text-red-400 mt-1">⚠ ${providerLoadError || 'Gagal memuat daftar provider'}</p>` : ''}
+        ${!opt.resellerItemId && providerLoadState === 'loaded' ? '<p class="text-[9px] text-amber-400 mt-1">⚠ Wajib pilih 1 produk provider persis — mode Auto tanpa mapping akan GAGAL saat checkout (bukan asal tebak).</p>' : ''}
+        ${opt.resellerItemId && pricingOptions.length > 1 ? `<button type="button" onclick="copyMappingToAll(${i})" class="mt-1.5 text-[9px] text-indigo-400 flex items-center gap-1" style="cursor:pointer" onmouseover="this.style.color='#a5b4fc'" onmouseout="this.style.color=''"><iconify-icon icon="mdi:content-copy"></iconify-icon> Pakai mapping ini untuk semua baris varian lain</button>` : ''}
+      </div>` : ''}
+    </div>
+  `;
+  }).join('');
+}
+
+function providerItemLabel(item) {
+  const stokLabel = item.stock_mode === 'v2' ? 'unlimited' : `stok ${item.stock}`;
+  // FIX: dulu cuma pakai item_name (nama paket/durasi, mis. "7 Day") --
+  // untuk item dari sistem multi-provider (cheatgame.online dkk), nama GAME
+  // sebenarnya ada di field category, terpisah dari nama paket. Kalau
+  // cuma tampilkan item_name, admin yang cari "migul" tidak akan pernah
+  // ketemu apa pun walau datanya ada, karena "migul" tidak pernah muncul
+  // di teks yang dicocokkan. Sekarang category ikut ditampilkan (dan ikut
+  // ke-filter) kalau ada.
+  const gameLabel = item.category ? `${item.category} — ` : '';
+  return `#${item.id} — ${gameLabel}${item.product_name} (${item.item_name}) — Rp ${Number(item.price).toLocaleString('id-ID')} — ${stokLabel}`;
+}
+
+// FIX (BUG KRITIS -- product_id salah nyasar ke varian lain saat checkout):
+// window.__providerMatches dulu 1 variabel GLOBAL dishare SEMUA baris
+// varian. Kalau admin ngetik di kotak search baris "5 Days", lalu (tanpa
+// klik pilih dulu) pindah ke baris "3 Hours" dan ngetik di situ, variabel
+// global itu KETIMPA hasil filter baris kedua. Kalau habis itu admin balik
+// klik salah satu opsi di dropdown baris PERTAMA yang masih kebuka (race
+// condition render/klik cepat), index yang dipakai merujuk ke
+// __providerMatches yang SUDAH BERISI hasil filter baris LAIN -- sehingga
+// resellerItemId yang tersimpan untuk baris "5 Days" bisa jadi produk
+// "3 Hours" yang sama sekali tidak diklik user. Ini match persis laporan
+// bug: checkout "DRAGON IOS DFM 5 DAYS" tapi API dapat product_id "KEY 3
+// HOURS". Sekarang tiap baris punya array match SENDIRI (object map by
+// row index), tidak saling menimpa.
+window.__providerMatchesByRow = {};
+
+// FIX: sebelumnya SEMUA dropdown provider (satu per baris varian) bisa
+// terbuka BERSAMAAN -- onfocus di satu input tidak menutup dropdown baris
+// lain, jadi kalau ada banyak baris (mis. 10+ varian hari), semua
+// dropdown-nya numpuk position:absolute di atas satu sama lain dan menutupi
+// seluruh isi halaman (harga, tombol Manual/Auto, dst -- persis yang
+// kelihatan di screenshot). Sekarang setiap kali 1 dropdown dibuka, SEMUA
+// dropdown baris lain otomatis ditutup dulu.
+function closeAllProviderDropdowns(exceptIndex) {
+  document.querySelectorAll('[id^="provider-dropdown-"]').forEach(el => {
+    const idx = el.id.replace('provider-dropdown-', '');
+    if (idx !== String(exceptIndex)) el.classList.add('hidden');
+  });
+}
+
+// Filter & render dropdown custom saat admin ngetik di kotak search. Match
+// substring DI MANA SAJA (bukan cuma dari awal seperti native <datalist>),
+// case-insensitive, jadi ngetik "drip" langsung ketemu meski label diawali "#123 — ...".
+function filterProviderOptions(i, typedValue) {
+  closeAllProviderDropdowns(i);
+  const dropdown = document.getElementById(`provider-dropdown-${i}`);
+  if (!dropdown) return;
+
+  const q = (typedValue || '').toLowerCase().trim();
+  const matches = providerProductList.filter(item => providerItemLabel(item).toLowerCase().includes(q)).slice(0, 30);
+
+  if (matches.length === 0) {
+    dropdown.innerHTML = `<div style="padding:8px 12px;font-size:10px;color:#71717a">${providerProductList.length === 0 ? 'Daftar provider belum termuat' : 'Tidak ada yang cocok'}</div>`;
+  } else {
+    // Simpan match list KHUSUS untuk baris ini (i), bukan variabel global
+    // yang dishare semua baris -- lihat komentar besar di atas soal bug ini.
+    window.__providerMatchesByRow[i] = matches;
+    dropdown.innerHTML = matches.map((item, idx) => {
+      const label = providerItemLabel(item);
+      const borderStyle = idx < matches.length - 1 ? 'border-bottom:1px solid rgba(255,255,255,.05);' : '';
+      return `<button type="button"
+        style="display:block;width:100%;text-align:left;padding:8px 12px;font-size:11px;color:#e4e4e7;background:transparent;border:0;${borderStyle}cursor:pointer"
+        onmouseover="this.style.background='rgba(99,102,241,.15)'" onmouseout="this.style.background='transparent'"
+        onmousedown="selectProviderOptionByIndex(${i}, ${idx})">${label}</button>`;
+    }).join('');
+  }
+  dropdown.classList.remove('hidden');
+}
+
+function hideProviderDropdown(i) {
+  const dropdown = document.getElementById(`provider-dropdown-${i}`);
+  if (dropdown) dropdown.classList.add('hidden');
+}
+
+// Dipakai tombol dropdown hasil filter (lihat filterProviderOptions) --
+// index merujuk ke window.__providerMatchesByRow[i] (snapshot hasil filter
+// TERAKHIR UNTUK BARIS INI SPESIFIK, bukan global), jadi tidak mungkin
+// kebaca hasil filter baris lain walau admin buka-tutup banyak dropdown
+// cepat-cepat.
+function selectProviderOptionByIndex(i, matchIdx) {
+  const rowMatches = window.__providerMatchesByRow?.[i] || [];
+  const item = rowMatches[matchIdx];
+  if (!item) return;
+  pricingOptions[i].resellerItemId = item.id;
+  const input = document.getElementById(`provider-search-${i}`);
+  if (input) input.value = providerItemLabel(item);
+  hideProviderDropdown(i);
+  renderPricingRows(); // re-render supaya tombol "copy ke semua" muncul
+}
+
+function selectProviderOption(i, itemId) {
+  const item = providerProductList.find(it => String(it.id) === String(itemId));
+  if (!item) return;
+  pricingOptions[i].resellerItemId = item.id;
+  const input = document.getElementById(`provider-search-${i}`);
+  if (input) input.value = providerItemLabel(item);
+  hideProviderDropdown(i);
+  renderPricingRows(); // re-render supaya tombol "copy ke semua" muncul
+}
+
+// Fallback global: klik/tap di mana saja di luar input & dropdown provider
+// akan menutup semua dropdown yang terbuka. Lebih reliable daripada
+// onblur+setTimeout doang di beberapa browser mobile.
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[id^="provider-search-"]') || e.target.closest('[id^="provider-dropdown-"]')) return;
+  closeAllProviderDropdowns(null);
+});
+
+// Percepat mapping manual: kalau semua varian hari (7/15/30 dst) sebenarnya
+// berasal dari 1 produk provider yang sama (skenario paling umum), admin
+// tidak perlu cari & pilih satu-satu di tiap baris -- cukup mapping baris
+// pertama, lalu klik ini untuk menyalin resellerItemId itu ke semua baris
+// 'auto' lain yang masih kosong. Baris yang SUDAH punya mapping sendiri
+// tidak ditimpa (jaga-jaga kalau memang sengaja beda produk per varian).
+function copyMappingToAll(sourceIndex) {
+  const sourceId = pricingOptions[sourceIndex].resellerItemId;
+  if (!sourceId) return;
+  let copiedCount = 0;
+  pricingOptions.forEach((opt, i) => {
+    if (i !== sourceIndex && opt.stockSource !== 'manual' && !opt.resellerItemId) {
+      opt.resellerItemId = sourceId;
+      copiedCount++;
+    }
+  });
+  renderPricingRows();
+  if (copiedCount > 0) showToast(`Mapping disalin ke ${copiedCount} baris lain`, 'success');
+}
+
+function setRowStockSource(i, mode) {
+  pricingOptions[i].stockSource = mode;
+  renderPricingRows();
+}
+
+function addPricingRow(days = '', price = '', stockSource = 'auto', resellerItemId = null) {
+  pricingOptions.push({ days: days ? parseInt(days) : 0, price: price ? parseInt(price) : 0, stockSource, resellerItemId });
+  renderPricingRows();
+}
+
+function removePricingRow(i) {
+  pricingOptions.splice(i, 1);
+  renderPricingRows();
+}
+
+// Muat daftar produk dari Reseller API SEKALI saat halaman dibuka, dipakai
+// untuk isi dropdown mapping di SETIAP baris varian.
+async function loadResellerProducts(forceRefresh) {
+  const btn = document.getElementById('reloadProviderBtn');
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = '<iconify-icon icon="mdi:loading" class="animate-spin"></iconify-icon> Memuat...';
+  providerLoadState = 'loading';
+  providerLoadError = '';
+
+  try {
+    // Muat awal (halaman dibuka) pakai endpoint ber-cache (hemat, tidak
+    // membebani provider). Klik tombol "Muat Ulang" manual pakai
+    // force-refresh (bypass cache) karena admin sengaja mau data terbaru.
+    // FIX: dulu cuma manggil reseller-api LAMA (vipibmstore.com) -- produk
+    // dari sistem MULTI-PROVIDER baru (cheatgame.online dkk) tidak pernah
+    // muncul di dropdown mapping ini. Sekarang pakai endpoint gabungan yang
+    // menyatukan kedua sumber (lihat /admin/providers/mapping-products di
+    // server.js). Force-refresh tetap bypass cache LEGACY saja (endpoint
+    // gabungan multi-provider selalu fresh tiap panggil).
+    const url = forceRefresh ? '/admin/reseller-api/products/force-refresh' : '/admin/providers/mapping-products';
+    const res = await fetch(url, forceRefresh ? { method: 'POST' } : {});
+    const legacyRefreshData = forceRefresh ? await res.json() : null;
+
+    if (forceRefresh) {
+      // force-refresh cuma balikin produk LEGACY -- tetap perlu ambil produk
+      // multi-provider secara terpisah supaya keduanya tetap tergabung.
+      const mpRes = await fetch('/admin/providers/mapping-products');
+      const mpData = await mpRes.json();
+      const legacyProducts = (legacyRefreshData.success ? legacyRefreshData.products || [] : [])
+        .map(item => ({ ...item, source: 'legacy', providerInstanceId: null }));
+      const multiProducts = (mpData.success ? mpData.products || [] : []).filter(p => p.source === 'multi');
+      providerProductList = [...legacyProducts, ...multiProducts];
+      providerLoadState = 'loaded';
+      if (!legacyRefreshData.success && !mpData.success) {
+        providerLoadError = legacyRefreshData.message || mpData.message || 'Gagal memuat produk provider';
+        providerLoadState = 'error';
+        showToast('✗ ' + providerLoadError, 'error');
+      }
+      btn.innerHTML = originalHtml;
+      renderPricingRows();
+      return;
+    }
+
+    const data = await res.json();
+
+    if (!data.success) {
+      providerLoadError = data.message || 'Gagal memuat produk dari Reseller API';
+      showToast('✗ ' + providerLoadError, 'error');
+      providerProductList = [];
+      providerLoadState = 'error';
+    } else {
+      providerProductList = data.products || [];
+      providerLoadState = 'loaded';
+      if (providerProductList.length === 0) {
+        showToast('Tidak ada produk ditemukan di akun reseller kamu', 'info');
+      }
+    }
+  } catch (e) {
+    providerLoadError = 'Gagal menghubungi server: ' + e.message;
+    showToast('✗ ' + providerLoadError, 'error');
+    providerProductList = [];
+    providerLoadState = 'error';
+  }
+  btn.innerHTML = originalHtml;
+  renderPricingRows();
+}
+
+// ── Kategori: tambah kategori baru langsung dari halaman edit produk ──
+function onCategoryChange() {
+  const sel = document.getElementById('prodCategorySelect');
+  const box = document.getElementById('newCategoryBox');
+  if (sel.value === '__new__') {
+    box.classList.remove('hidden');
+    document.getElementById('newCategoryLabel').focus();
+  } else {
+    box.classList.add('hidden');
+  }
+}
+
+async function addNewCategory() {
+  const labelInput = document.getElementById('newCategoryLabel');
+  const label = labelInput.value.trim();
+  if (!label) { labelInput.focus(); return; }
+
+  // Generate key dari label: lowercase, spasi jadi tanpa-spasi, hapus karakter aneh
+  const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24) || ('cat' + Date.now());
+
+  try {
+    const res = await fetch('/admin/categories/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, label })
+    });
+    const data = await res.json();
+    if (!data.success) { alert(data.message || 'Gagal menambah kategori'); return; }
+
+    // Tambahkan ke dropdown lalu pilih otomatis
+    const sel = document.getElementById('prodCategorySelect');
+    const newOpt = document.createElement('option');
+    newOpt.value = key;
+    newOpt.textContent = label.toUpperCase();
+    sel.insertBefore(newOpt, sel.querySelector('option[value="__new__"]'));
+    sel.value = key;
+    document.getElementById('newCategoryBox').classList.add('hidden');
+    labelInput.value = '';
+  } catch (e) {
+    alert('Gagal menambah kategori: ' + e.message);
+  }
+}
+
+function previewImg(url) {
+  const img = document.getElementById('imgPreview');
+  const ph  = document.getElementById('imgPlaceholder');
+  if (url && url.trim()) {
+    img.src = url.trim();
+    img.classList.remove('hidden');
+    ph.classList.add('hidden');
+    img.onerror = () => { img.classList.add('hidden'); ph.classList.remove('hidden'); };
+  } else {
+    img.classList.add('hidden');
+    ph.classList.remove('hidden');
+  }
+}
+
+async function uploadBanner(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('banner', file);
+  const res  = await fetch('/admin/upload-banner', { method: 'POST', body: fd });
+  const data = await res.json();
+  if (data.success) {
+    document.getElementById('imgUrlInput').value = data.bannerUrl;
+    previewImg(data.bannerUrl);
+    showToast('Gambar berhasil diupload', 'success');
+  } else {
+    showToast(data.message || 'Gagal upload', 'error');
+  }
+}
+
+// ─── Status ───
+function setStatus(s) {
+  selectedStatus = s;
+  updateStatusBtns();
+}
+function updateStatusBtns() {
+  const a = document.getElementById('btn-active');
+  const i = document.getElementById('btn-inactive');
+  a.className = selectedStatus === 'active'
+    ? 'flex-1 py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5 border-emerald-500/50 bg-emerald-500/15 text-emerald-400'
+    : 'flex-1 py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5 border-white/10 text-zinc-500 hover:text-white';
+  i.className = selectedStatus === 'inactive'
+    ? 'flex-1 py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5 border-red-500/50 bg-red-500/15 text-red-400'
+    : 'flex-1 py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5 border-white/10 text-zinc-500 hover:text-white';
+}
+
+// ─── Platform ───
+function togglePlatform(p) {
+  const idx = selectedPlatforms.indexOf(p);
+  if (idx === -1) selectedPlatforms.push(p); else selectedPlatforms.splice(idx, 1);
+  updatePlatformBtns();
+}
+function updatePlatformBtns() {
+  const a = document.getElementById('btn-android');
+  const i = document.getElementById('btn-ios');
+  a.className = selectedPlatforms.includes('android')
+    ? 'flex-1 py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5 border-emerald-500/50 bg-emerald-500/15 text-emerald-400'
+    : 'flex-1 py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5 border-white/10 text-zinc-500 hover:text-white';
+  i.className = selectedPlatforms.includes('ios')
+    ? 'flex-1 py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5 border-sky-400/50 bg-sky-500/15 text-sky-300'
+    : 'flex-1 py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5 border-white/10 text-zinc-500 hover:text-white';
+}
+
+// ─── Keys Mode ───
+function setKeysMode(mode) {
+  keysMode = mode;
+  const a = document.getElementById('modeAppend');
+  const r = document.getElementById('modeReplace');
+  a.className = mode === 'append'
+    ? 'px-2 py-1 rounded text-[10px] font-bold transition-all bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+    : 'px-2 py-1 rounded text-[10px] font-bold transition-all text-zinc-500 hover:text-white border border-transparent';
+  r.className = mode === 'replace'
+    ? 'px-2 py-1 rounded text-[10px] font-bold transition-all bg-orange-500/20 text-orange-300 border border-orange-500/30'
+    : 'px-2 py-1 rounded text-[10px] font-bold transition-all text-zinc-500 hover:text-white border border-transparent';
+}
+
+// ─── Render info keys/stok ───
+function renderKeyInfo() {
+  const p = currentProduct;
+  const keys = p.keys || [];
+  const totalKeys = keys.length;
+
+  // Stok per item
+  const stockHtml = (p.items || []).map(item => {
+    const m = (item.l || '').match(/(\d+)\s+DAYS/i);
+    const days = m ? parseInt(m[1]) : null;
+    let stok;
+    if (days) {
+      const tagged = keys.filter(k => { const pts = k.split(':'); return pts.length > 1 && parseInt(pts[pts.length-1]) === days; }).length;
+      const generic = keys.filter(k => !k.includes(':')).length;
+      stok = tagged > 0 ? tagged : generic;
+    } else {
+      stok = keys.filter(k => !k.includes(':')).length;
+    }
+    const color = stok === 0 ? 'text-red-400 border-red-500/30 bg-red-500/10' : stok < 5 ? 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10' : 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10';
+    return `<div class="flex items-center justify-between p-3 rounded-xl border ${color}">
+      <span class="text-xs font-bold text-white">${item.l}</span>
+      <span class="text-xs font-black">${stok} stok</span>
+    </div>`;
+  }).join('');
+  document.getElementById('stockInfo').innerHTML = stockHtml;
+
+  // Preview keys existing
+  const wrap = document.getElementById('existingKeys');
+  if (totalKeys > 0) {
+    wrap.classList.remove('hidden');
+    document.getElementById('keyCountLabel').textContent = `${totalKeys} key tersimpan`;
+    const chips = keys.slice(0, 30).map(k => `<span class="key-chip">${k}</span>`).join('');
+    document.getElementById('keyChips').innerHTML = chips + (totalKeys > 30 ? `<span class="key-chip text-zinc-500">+${totalKeys - 30} lainnya</span>` : '');
+  } else {
+    wrap.classList.add('hidden');
+  }
+}
+
+async function clearAllKeys() {
+  if (!confirm('Hapus semua keys? Stok akan menjadi 0.')) return;
+  const res = await fetch(`/admin/product/keys/${currentProduct.id}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keys: '', mode: 'replace' })
+  });
+  const data = await res.json();
+  if (data.success) {
+    currentProduct.keys = [];
+    renderKeyInfo();
+    showToast('Semua keys dihapus', 'success');
+  }
+}
+
+// ─── Simpan ───
+// Sumber stok sekarang PER-BARIS varian (pricingOptions[i].stockSource +
+// resellerItemId), dikirim sebagai array pricingOptions (bukan lagi
+// pricingDays/pricingPrices parallel array). stockMode top-level dikirim
+// sebagai ringkasan: 'auto' kalau semua baris auto, 'manual' kalau semua
+// manual, 'mixed' kalau campuran.
+// ── System Compatibility / Feature List: generic tambah/hapus baris ──
+function renderListRows(containerId, items) {
+  const wrap = document.getElementById(containerId);
+  wrap.innerHTML = '';
+  (items.length ? items : ['']).forEach(val => addListRow(containerId, val));
+}
+function addListRow(containerId, value = '') {
+  const wrap = document.getElementById(containerId);
+  const row = document.createElement('div');
+  row.className = 'flex gap-2 items-center';
+  row.innerHTML = `
+    <input type="text" class="hm-input text-xs list-row-input" value="${value.replace(/"/g,'&quot;')}" placeholder="Tulis satu poin...">
+    <button type="button" onclick="this.parentElement.remove()"
+      class="flex-shrink-0 w-9 h-9 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all flex items-center justify-center">
+      <iconify-icon icon="mdi:trash-can-outline"></iconify-icon>
+    </button>`;
+  wrap.appendChild(row);
+}
+function collectListRows(containerId) {
+  return Array.from(document.querySelectorAll(`#${containerId} .list-row-input`))
+    .map(el => el.value.trim())
+    .filter(Boolean);
+}
+
+async function saveProduct() {
+  const imgUrl  = document.getElementById('imgUrlInput').value.trim();
+  const keysRaw = document.getElementById('keysInput').value.trim();
+  const category = document.getElementById('prodCategorySelect').value;
+  const description = document.getElementById('prodDescInput').value.trim();
+  const downloadLink = document.getElementById('downloadLinkInput').value.trim();
+  const youtubeUrls = document.getElementById('ytUrlsInput').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const compatibility = collectListRows('compatRows');
+  const features = collectListRows('featureRows');
+
+  const validPricing = pricingOptions
+    .filter(o => o.days > 0)
+    .map(o => ({
+      days: o.days,
+      price: o.price,
+      stockSource: o.stockSource === 'manual' ? 'manual' : 'auto',
+      resellerItemId: (o.stockSource !== 'manual' && o.resellerItemId) ? o.resellerItemId : null
+    }));
+  if (!validPricing.length) { showToast('Tambahkan minimal 1 paket harga', 'error'); return; }
+
+  const autoCount = validPricing.filter(o => o.stockSource === 'auto').length;
+  const summaryStockMode = autoCount === validPricing.length ? 'auto' : (autoCount === 0 ? 'manual' : 'mixed');
+
+  const res = await fetch(`/admin/product/${currentProduct.id}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      bannerUrl: imgUrl,
+      status: selectedStatus,
+      category,
+      description,
+      downloadLink,
+      youtubeUrls,
+      compatibility,
+      features,
+      keys: keysRaw,
+      keysMode,
+      platforms: selectedPlatforms,
+      pricingOptions: validPricing,
+      stockMode: summaryStockMode
+    })
+  });
+  const data = await res.json();
+  if (data.success) {
+    showToast('Produk berhasil disimpan!', 'success');
+    currentProduct = data.data;
+    document.getElementById('keysInput').value = '';
+    renderKeyInfo();
+  } else {
+    showToast(data.message || 'Gagal menyimpan', 'error');
+  }
+}
+
+async function confirmDelete() {
+  if (!confirm('Hapus produk "' + currentProduct.name + '"? Tidak bisa dikembalikan.')) return;
+  const res = await fetch(`/admin/product/delete/${currentProduct.id}`, { method: 'POST' });
+  const data = await res.json();
+  if (data.success) { showToast('Produk dihapus', 'success'); setTimeout(() => location.href = '/admin', 1000); }
+  else showToast(data.message, 'error');
+}
+
+function showToast(msg, type='info') {
+  let c = document.getElementById('toast-container');
+  if (!c) { c = document.createElement('div'); c.id = 'toast-container'; document.body.appendChild(c); }
+  const t = document.createElement('div');
+  const cls = { success:'bg-emerald-500/20 border-emerald-500/40 text-emerald-300', error:'bg-red-500/20 border-red-500/40 text-red-300', info:'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' };
+  t.className = `fixed top-4 right-4 z-[99999] px-4 py-3 rounded-xl border backdrop-blur-sm text-sm font-bold ${cls[type]||cls.info} translate-x-0 transition-all`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; setTimeout(() => t.remove(), 300); }, 3000);
+}
+
+document.addEventListener('DOMContentLoaded', loadProduct);
+</script>

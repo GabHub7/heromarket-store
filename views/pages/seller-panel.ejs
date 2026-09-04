@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Seller Panel — <%= settings.siteName %></title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js" defer></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<script>tailwind.config={theme:{extend:{fontFamily:{inter:['Inter','sans-serif'],orbitron:['Orbitron','sans-serif']}}}}</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:#0a0a0f;color:#e0e0e0;min-height:100dvh;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(234,179,8,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(234,179,8,.02) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+body>*{position:relative;z-index:1;}
+@keyframes shimmerGold{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.shimmer-gold{background:linear-gradient(90deg,#fbbf24,#f59e0b,#fde68a,#f59e0b,#fbbf24);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmerGold 2.5s linear infinite;}
+.fade-in-up{animation:fadeInUp .3s ease-out both;}
+.animate-spin{animation:spin 1s linear infinite;}
+.panel-card{background:#12121a;border:1px solid rgba(234,179,8,.15);border-radius:16px;}
+.hm-input{width:100%;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);color:#fff;font-size:13px;transition:all .2s;font-family:'Inter',sans-serif;}
+.hm-input:focus{outline:none;border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.05);}
+.btn-gold{background:linear-gradient(135deg,#d97706,#fbbf24);box-shadow:0 4px 20px rgba(251,191,36,.3);color:#000;}
+.btn-gold:disabled{opacity:.5;cursor:not-allowed;}
+
+/* Sidebar */
+#sidebarOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;opacity:0;pointer-events:none;transition:opacity .25s;}
+#sidebarOverlay.open{opacity:1;pointer-events:auto;}
+#sidebar{position:fixed;top:0;left:0;bottom:0;width:280px;background:#0d0d13;border-right:1px solid rgba(234,179,8,.15);z-index:50;transform:translateX(-100%);transition:transform .3s ease;overflow-y:auto;}
+#sidebar.open{transform:translateX(0);}
+.menu-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;color:#a1a1aa;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
+.menu-item:hover{background:rgba(255,255,255,.04);color:#fff;}
+.menu-item.active{background:rgba(234,179,8,.12);color:#fbbf24;border:1px solid rgba(234,179,8,.25);}
+.menu-icon-wrap{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.menu-item.active .menu-icon-wrap{background:rgba(234,179,8,.18);}
+
+/* Panels */
+.panel-pane{display:none;}
+.panel-pane.active{display:block;}
+
+/* Topup package card */
+.pkg-card{background:#12121a;border:1px solid rgba(59,130,246,.2);border-radius:16px;padding:16px;transition:all .15s;}
+.pkg-card:hover{border-color:rgba(59,130,246,.4);}
+
+/* Toast */
+#toast-wrap{position:fixed;top:66px;right:14px;left:14px;z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none;}
+.toast-item{pointer-events:auto;padding:10px 14px;border-radius:12px;background:#151520;font-size:12px;max-width:320px;border:1px solid;animation:fadeInUp .3s ease-out both;}
+.toast-success{border-color:rgba(16,185,129,.4);color:#34d399;}
+.toast-error{border-color:rgba(239,68,68,.4);color:#f87171;}
+
+/* Payment modal */
+#payModal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:60;display:flex;align-items:flex-end;justify-content:center;}
+#payModal.hidden{display:none;}
+#payModalBox{background:#12121a;border-top:1px solid rgba(234,179,8,.25);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:20px;}
+</style>
+</head>
+<body>
+
+<div id="toast-wrap"></div>
+
+<!-- TOP BAR -->
+<div class="fixed top-0 left-0 right-0 z-30 bg-[#0a0a0f]/95 backdrop-blur-md border-b border-white/5">
+    <div class="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
+        <button onclick="toggleSidebar(true)" class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(255,255,255,.05)">
+            <iconify-icon icon="mdi:menu" class="text-lg text-white"></iconify-icon>
+        </button>
+        <div>
+            <div class="text-[9px] font-bold uppercase tracking-[0.15em] text-yellow-500/70">Seller Panel</div>
+            <div class="text-sm font-bold text-white" id="panelTitle">Generate Key</div>
+        </div>
+        <a href="/" class="ml-auto text-[10px] text-zinc-500 flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-white/10">
+            <iconify-icon icon="mdi:storefront-outline"></iconify-icon> Toko
+        </a>
+    </div>
+</div>
+
+<!-- SIDEBAR -->
+<div id="sidebarOverlay" onclick="toggleSidebar(false)"></div>
+<div id="sidebar">
+    <div class="p-4 flex items-center gap-2 border-b border-white/5">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#d97706,#fbbf24)">
+            <iconify-icon icon="mdi:lightning-bolt" class="text-black text-base"></iconify-icon>
+        </div>
+        <span class="font-orbitron text-sm font-black text-white">Seller<span class="shimmer-gold">Panel</span></span>
+    </div>
+
+    <div class="p-4">
+        <div class="panel-card p-4 mb-4">
+            <div class="flex items-center gap-3 mb-3">
+                <% if(user.photo){ %>
+                    <img src="<%= user.photo %>" class="w-11 h-11 rounded-full object-cover border border-white/10">
+                <% } else { %>
+                    <div class="w-11 h-11 rounded-full flex items-center justify-center text-black font-black text-sm" style="background:linear-gradient(135deg,#d97706,#fbbf24)"><%= user.username.charAt(0).toUpperCase() %></div>
+                <% } %>
+                <div class="min-w-0">
+                    <div class="text-sm font-bold text-white truncate">@<%= user.username %></div>
+                    <div class="text-[10px] text-yellow-500 flex items-center gap-1"><iconify-icon icon="mdi:cart"></iconify-icon> Reseller</div>
+                </div>
+            </div>
+            <div class="rounded-xl p-3" style="background:rgba(234,179,8,.06);border:1px solid rgba(234,179,8,.15)">
+                <div class="text-[9px] font-bold uppercase tracking-wide text-zinc-500 mb-1">Saldo</div>
+                <div class="font-orbitron text-lg font-black shimmer-gold" id="sidebarBalance">Rp <%= (user.balance||0).toLocaleString('id-ID') %></div>
+            </div>
+        </div>
+
+        <div class="text-[9px] font-bold uppercase tracking-wide text-zinc-600 mb-2 px-1">Seller</div>
+        <div class="space-y-1.5">
+            <div class="menu-item active" data-panel="generate" onclick="switchPanel('generate','Generate Key')">
+                <div class="menu-icon-wrap"><iconify-icon icon="mdi:key-plus"></iconify-icon></div> Generate Key
+            </div>
+            <div class="menu-item" data-panel="breakdown" onclick="switchPanel('breakdown','Breakdown Keys')">
+                <div class="menu-icon-wrap"><iconify-icon icon="mdi:chart-bar"></iconify-icon></div> Breakdown Keys
+            </div>
+            <div class="menu-item" data-panel="riwayat" onclick="switchPanel('riwayat','Riwayat Keys')">
+                <div class="menu-icon-wrap"><iconify-icon icon="mdi:history"></iconify-icon></div> Riwayat Keys
+            </div>
+            <div class="menu-item" data-panel="mutasi" onclick="switchPanel('mutasi','Mutasi Saldo')">
+                <div class="menu-icon-wrap"><iconify-icon icon="mdi:swap-vertical"></iconify-icon></div> Mutasi Saldo
+            </div>
+            <div class="menu-item" data-panel="topup" onclick="switchPanel('topup','Topup Saldo')">
+                <div class="menu-icon-wrap"><iconify-icon icon="mdi:cash-plus"></iconify-icon></div> Topup Saldo
+            </div>
+        </div>
+    </div>
+
+    <div class="p-4 mt-auto text-center text-[9px] text-zinc-700">HeroMarket Seller Panel</div>
+</div>
+
+<!-- CONTENT -->
+<div class="pt-16 pb-24 px-4 max-w-lg mx-auto">
+
+    <!-- ── GENERATE KEY ── -->
+    <div id="panel-generate" class="panel-pane active">
+        <div class="panel-card p-4 mb-4 flex items-center justify-between">
+            <div>
+                <div class="text-[10px] text-zinc-500 uppercase tracking-wide">Saldo Kamu</div>
+                <div class="font-orbitron text-xl font-black shimmer-gold" id="genBalance">Rp <%= (user.balance||0).toLocaleString('id-ID') %></div>
+            </div>
+            <iconify-icon icon="mdi:wallet" class="text-3xl text-yellow-500/40"></iconify-icon>
+        </div>
+        <p class="text-[11px] text-zinc-500 mb-3">Pilih produk & paket, key langsung keluar begitu saldo dipotong — tanpa QRIS.</p>
+        <div class="space-y-3">
+            <% products.forEach(p => { %>
+            <% if (p.pricingOptions?.length) { %>
+            <div class="panel-card p-4">
+                <div class="text-sm font-bold text-white mb-2.5"><%= p.name %></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <% p.pricingOptions.forEach((o, idx) => {
+                        const rp = o.resellerPrice !== undefined ? o.resellerPrice : Math.round(o.price * (1 - (settings.resellerDiscount||20)/100));
+                        const label = p.items?.[idx]?.l || (p.name.toUpperCase() + ' ' + o.days + ' DAYS');
+                    %>
+                    <button onclick='generateKey("<%= p.id %>", <%- JSON.stringify(label) %>, <%= rp %>, <%- JSON.stringify(p.name) %>)'
+                        class="text-left p-2.5 rounded-xl" style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
+                        <div class="text-[11px] text-zinc-400"><%= o.days %> Hari</div>
+                        <div class="text-xs font-black text-yellow-400">Rp <%= rp.toLocaleString('id-ID') %></div>
+                    </button>
+                    <% }) %>
+                </div>
+            </div>
+            <% } }) %>
+            <% if(!products.filter(p=>p.pricingOptions?.length).length){ %>
+            <div class="text-center py-10 text-zinc-600 text-xs">Belum ada produk tersedia</div>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- ── BREAKDOWN KEYS ── -->
+    <div id="panel-breakdown" class="panel-pane">
+        <div class="space-y-2.5">
+            <% breakdown.forEach(b => { %>
+            <div class="panel-card p-4 flex items-center justify-between">
+                <div>
+                    <div class="text-sm font-bold text-white"><%= b.name %></div>
+                    <div class="text-[10px] text-zinc-500"><%= b.count %> key dibuat</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-xs font-black text-yellow-400">Rp <%= b.total.toLocaleString('id-ID') %></div>
+                    <div class="text-[9px] text-zinc-600">total belanja</div>
+                </div>
+            </div>
+            <% }) %>
+            <% if(!breakdown.length){ %>
+            <div class="text-center py-10 text-zinc-600 text-xs">Belum ada key yang di-generate</div>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- ── RIWAYAT KEYS ── -->
+    <div id="panel-riwayat" class="panel-pane">
+        <div class="space-y-2.5">
+            <% keyTx.forEach(t => { %>
+            <div class="panel-card p-3.5">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-bold text-white truncate"><%= t.productName %></span>
+                    <span class="text-[9px] text-zinc-500"><%= t.time || new Date(t.createdAt).toLocaleDateString('id-ID') %></span>
+                </div>
+                <div class="flex items-center gap-2 text-[10px] text-zinc-500 mb-2">
+                    <span><%= t.code %></span> · <span>Rp <%= (t.price||0).toLocaleString('id-ID') %></span>
+                    <% if (t.selectedDays) { %> · <span><%= t.selectedDays %> Hari</span><% } %>
+                </div>
+                <button onclick="toggleKey('<%= t.id %>')" class="text-[10px] font-semibold text-yellow-400 flex items-center gap-1">
+                    <iconify-icon icon="mdi:key-variant" class="text-xs"></iconify-icon> <span id="key-toggle-label-<%= t.id %>">Lihat Key</span>
+                </button>
+                <div id="key-box-<%= t.id %>" class="hidden mt-2 p-2.5 rounded-lg bg-black/30 border border-yellow-500/25">
+                    <div class="flex items-center gap-2">
+                        <code class="text-[11px] text-yellow-400 font-mono break-all font-black flex-1" id="key-display-<%= t.id %>"><%= t.key %></code>
+                        <button onclick="copyKey('<%= t.id %>')" style="flex-shrink:0;padding:5px 8px;border-radius:8px;background:rgba(234,179,8,.15);border:1px solid rgba(234,179,8,.35);color:#fbbf24;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                            <span id="copy-label-<%= t.id %>">📋 Salin</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <% }) %>
+            <% if(!keyTx.length){ %>
+            <div class="text-center py-10 text-zinc-600 text-xs">Belum ada riwayat key</div>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- ── MUTASI SALDO ── -->
+    <div id="panel-mutasi" class="panel-pane">
+        <div class="space-y-2">
+            <% saldoMutations.forEach(m => { %>
+            <div class="panel-card p-3.5 flex items-center justify-between">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background:<%= m.arah==='masuk' ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.12)' %>">
+                        <iconify-icon icon="<%= m.arah==='masuk' ? 'mdi:arrow-down' : 'mdi:arrow-up' %>" style="color:<%= m.arah==='masuk' ? '#34d399' : '#f87171' %>"></iconify-icon>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-xs font-semibold text-white truncate"><%= m.label %></div>
+                        <div class="text-[9px] text-zinc-500"><%= m.code %> · <%= new Date(m.createdAt).toLocaleString('id-ID') %></div>
+                    </div>
+                </div>
+                <div class="text-xs font-black flex-shrink-0" style="color:<%= m.arah==='masuk' ? '#34d399' : '#f87171' %>">
+                    <%= m.arah==='masuk' ? '+' : '-' %>Rp <%= m.amount.toLocaleString('id-ID') %>
+                </div>
+            </div>
+            <% }) %>
+            <% if(!saldoMutations.length){ %>
+            <div class="text-center py-10 text-zinc-600 text-xs">Belum ada mutasi saldo</div>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- ── TOPUP SALDO ── -->
+    <div id="panel-topup" class="panel-pane">
+        <div class="panel-card p-4 mb-4 flex items-start gap-3">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(59,130,246,.15)">
+                <iconify-icon icon="mdi:currency-usd" class="text-xl" style="color:#60a5fa"></iconify-icon>
+            </div>
+            <div class="flex-1">
+                <div class="text-sm font-bold text-white mb-0.5">Topup Saldo</div>
+                <p class="text-[11px] text-zinc-500">Pilih paket lalu lanjutkan pembayaran QRIS.</p>
+            </div>
+            <button onclick="switchPanel('mutasi','Mutasi Saldo')" class="flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex-shrink-0" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#a1a1aa">
+                <iconify-icon icon="mdi:history"></iconify-icon> History
+            </button>
+        </div>
+
+        <% if (topupPackages.length) { %>
+        <div class="grid grid-cols-2 gap-2.5 mb-4">
+            <% topupPackages.forEach(pk => { %>
+            <div class="pkg-card">
+                <div class="text-[11px] text-zinc-400 mb-1.5 leading-tight">Rp <%= pk.nominal.toLocaleString('id-ID') %><% if(pk.bonus>0){ %> &rarr; Rp <%= (pk.nominal+pk.bonus).toLocaleString('id-ID') %><% } %></div>
+                <div class="text-xl font-black mb-1" style="color:#60a5fa">Rp <%= (pk.nominal+pk.bonus).toLocaleString('id-ID') %></div>
+                <% if (pk.bonus > 0) { %><div class="text-[11px] font-semibold text-emerald-400 mb-3">Extra +Rp<%= pk.bonus.toLocaleString('id-ID') %></div><% } else { %><div class="mb-3 text-[11px] text-zinc-600">Tanpa bonus</div><% } %>
+                <button onclick="handleTopup(<%= pk.nominal %>)" class="w-full py-2.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5" style="background:#2563eb">
+                    <iconify-icon icon="mdi:check-bold"></iconify-icon> Bayar
+                </button>
+            </div>
+            <% }) %>
+        </div>
+        <% } %>
+
+        <div class="panel-card p-4 mb-4">
+            <label class="text-[10px] font-bold uppercase tracking-wide text-zinc-500 mb-2 block">Metode Pembayaran</label>
+            <div class="grid grid-cols-2 gap-2">
+                <button type="button" id="topupMethodQris" onclick="selectTopupMethod('qris')"
+                    class="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all border"
+                    style="background:rgba(234,179,8,.15);border-color:rgba(234,179,8,.4);color:#fbbf24;">
+                    <iconify-icon icon="mdi:qrcode-scan" class="text-base"></iconify-icon> QRIS
+                </button>
+                <button type="button" id="topupMethodCrypto" onclick="selectTopupMethod('crypto')"
+                    class="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all border"
+                    style="background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);color:#a1a1aa;">
+                    <iconify-icon icon="mdi:currency-usd" class="text-base"></iconify-icon> Crypto USDT
+                </button>
+            </div>
+            <p class="text-[10px] text-zinc-600 mt-2">Crypto USDT (TRC20) cocok untuk pembayaran dari luar negeri.</p>
+        </div>
+
+        <div class="panel-card p-4">
+            <label class="text-[10px] font-bold uppercase tracking-wide text-zinc-500 mb-2 block">Nominal Custom</label>
+            <input type="number" id="customTopupInput" class="hm-input mb-3" placeholder="Min Rp<%= topupMin.toLocaleString('id-ID') %>" min="<%= topupMin %>" step="1000">
+            <button onclick="handleTopup()" id="customTopupBtn" class="w-full py-3 rounded-xl text-sm font-black text-white flex items-center justify-center gap-2" style="background:#2563eb">
+                <iconify-icon icon="mdi:plus-circle"></iconify-icon> Topup Sekarang
+            </button>
+            <p class="text-[10px] text-zinc-600 mt-2 text-center">Minimal topup Rp<%= topupMin.toLocaleString('id-ID') %></p>
+        </div>
+    </div>
+
+</div>
+
+<!-- PAYMENT MODAL -->
+<div id="payModal" class="hidden">
+    <div id="payModalBox">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <iconify-icon icon="mdi:wallet" class="text-yellow-400"></iconify-icon> Pembayaran Topup Saldo
+            </h3>
+            <button onclick="closePayment()" class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:rgba(255,255,255,.05)">
+                <iconify-icon icon="mdi:close" class="text-zinc-400"></iconify-icon>
+            </button>
+        </div>
+        <div class="text-center mb-3">
+            <div class="text-[10px] text-zinc-500">Kode Order</div>
+            <div class="text-sm font-mono font-bold text-yellow-400" id="orderCodeShow">-</div>
+            <div class="text-xs text-zinc-400 mt-1" id="payAmountShow">Total: Rp 0</div>
+        </div>
+        <div id="qrCodeWrap" class="flex justify-center mb-4"></div>
+        <div id="cryptoSection" class="hidden flex flex-col items-center mb-4">
+            <div id="cryptoWrap" class="w-full" style="min-height:50px;"></div>
+            <div id="cryptoUnavailable" class="hidden text-center py-4">
+                <iconify-icon icon="mdi:currency-usd-off" class="text-4xl text-zinc-700 block mb-2"></iconify-icon>
+                <p class="text-xs text-zinc-500">Pembayaran crypto belum dikonfigurasi.<br>Hubungi admin.</p>
+            </div>
+        </div>
+        <div id="payStatusRow" class="flex items-center justify-center gap-2 mb-2">
+            <iconify-icon icon="mdi:clock-outline" class="text-yellow-400 animate-spin text-lg"></iconify-icon>
+            <span class="text-xs text-zinc-400">Menunggu pembayaran...</span>
+        </div>
+        <p class="text-[10px] text-zinc-600 text-center">Saldo otomatis masuk begitu pembayaran terverifikasi.</p>
+    </div>
+</div>
+
+<script>
+function toggleSidebar(open) {
+    document.getElementById('sidebar').classList.toggle('open', open);
+    document.getElementById('sidebarOverlay').classList.toggle('open', open);
+}
+
+function switchPanel(name, title) {
+    document.querySelectorAll('.panel-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    document.querySelector(`.menu-item[data-panel="${name}"]`).classList.add('active');
+    document.getElementById('panelTitle').textContent = title;
+    toggleSidebar(false);
+    window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function showToast(msg, type='info') {
+    const wrap = document.getElementById('toast-wrap');
+    const el = document.createElement('div');
+    el.className = 'toast-item toast-' + type;
+    el.textContent = msg;
+    wrap.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+}
+
+function updateBalanceDisplays(bal) {
+    const fmt = 'Rp ' + bal.toLocaleString('id-ID');
+    document.getElementById('sidebarBalance').textContent = fmt;
+    document.getElementById('genBalance').textContent = fmt;
+}
+
+// ── GENERATE KEY (bayar pakai saldo, key langsung keluar) ──
+async function generateKey(productId, duration, price, productName) {
+    if (!confirm(`Generate key "${productName}" (${duration}) seharga Rp${price.toLocaleString('id-ID')} pakai saldo?`)) return;
+    try {
+        const res = await fetch('/create-order', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                productId, duration,
+                customerName: '<%= user.username %>',
+                wa: '<%= user.wa || "" %>',
+                paymentMethod: 'balance'
+            })
+        });
+        const data = await res.json();
+        if (data.success && data.paidWithBalance) {
+            updateBalanceDisplays(data.balance);
+            showToast('Key berhasil dibuat!', 'success');
+            alert(`✅ Key kamu:\n\n${data.key}\n\nKode: ${data.orderCode || ''}`);
+        } else {
+            showToast(data.message || 'Gagal generate key', 'error');
+        }
+    } catch(e) {
+        showToast('Koneksi error', 'error');
+    }
+}
+
+// ── RIWAYAT KEY: toggle & copy ──
+function toggleKey(id) {
+    const box = document.getElementById('key-box-' + id);
+    const label = document.getElementById('key-toggle-label-' + id);
+    if (!box) return;
+    const hidden = box.classList.toggle('hidden');
+    label.textContent = hidden ? 'Lihat Key' : 'Sembunyikan Key';
+}
+function copyKey(id) {
+    const el = document.getElementById('key-display-' + id);
+    const label = document.getElementById('copy-label-' + id);
+    if (!el) return;
+    const text = el.textContent.trim();
+    const done = () => { label.textContent = '✓ Tersalin!'; setTimeout(() => { label.textContent = '📋 Salin'; }, 2000); };
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, label));
+    else fallbackCopy(text, label);
+}
+function fallbackCopy(text, label) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); label.textContent = '✓ Tersalin!'; setTimeout(() => { label.textContent = '📋 Salin'; }, 2000); } catch(e) {}
+    document.body.removeChild(ta);
+}
+
+// ── TOPUP SALDO ──
+let payInterval = null;
+let selectedTopupMethod = 'qris';
+const CRYPTO_CONFIGURED = <%= nowpaymentsConfigured ? 'true' : 'false' %>;
+
+function selectTopupMethod(method) {
+    selectedTopupMethod = method;
+    const qBtn = document.getElementById('topupMethodQris');
+    const pBtn = document.getElementById('topupMethodCrypto');
+    if (method === 'qris') {
+        qBtn.style.background = 'rgba(234,179,8,.15)'; qBtn.style.borderColor = 'rgba(234,179,8,.4)'; qBtn.style.color = '#fbbf24';
+        pBtn.style.background = 'rgba(255,255,255,.05)'; pBtn.style.borderColor = 'rgba(255,255,255,.1)'; pBtn.style.color = '#a1a1aa';
+    } else {
+        pBtn.style.background = 'rgba(234,179,8,.15)'; pBtn.style.borderColor = 'rgba(234,179,8,.4)'; pBtn.style.color = '#fbbf24';
+        qBtn.style.background = 'rgba(255,255,255,.05)'; qBtn.style.borderColor = 'rgba(255,255,255,.1)'; qBtn.style.color = '#a1a1aa';
+    }
+}
+
+async function handleTopup(fixedNominal) {
+    const nominal = fixedNominal || parseInt(document.getElementById('customTopupInput').value);
+    const minTopup = <%= topupMin %>;
+    if (!nominal || nominal < minTopup) { showToast(`Minimal topup Rp${minTopup.toLocaleString('id-ID')}`, 'error'); return; }
+    try {
+        const res = await fetch('/reseller/topup', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ nominal })
+        });
+        const data = await res.json();
+        if (data.success) {
+            const totalAmount = nominal + (data.bonus||0);
+            if (selectedTopupMethod === 'crypto') {
+                showCryptoTopupModal(data.refId, data.orderCode, totalAmount);
+            } else {
+                showPaymentModal(data.qrString, data.orderCode, data.refId, data.isStatic, data.qrisStaticImage, totalAmount);
+            }
+        } else {
+            showToast(data.message || 'Gagal membuat pesanan topup', 'error');
+        }
+    } catch(e) {
+        showToast('Koneksi error', 'error');
+    }
+}
+
+function showPaymentModal(qrString, code, refId, isStatic, staticImg, amount) {
+    document.getElementById('payModal').classList.remove('hidden');
+    document.getElementById('cryptoSection').classList.add('hidden');
+    document.getElementById('qrCodeWrap').classList.remove('hidden');
+    document.getElementById('orderCodeShow').textContent = code;
+    document.getElementById('payAmountShow').textContent = 'Total masuk: Rp ' + (amount||0).toLocaleString('id-ID');
+    document.getElementById('payStatusRow').innerHTML = '<iconify-icon icon="mdi:clock-outline" class="text-yellow-400 animate-spin text-lg"></iconify-icon><span class="text-xs text-zinc-400">Menunggu pembayaran...</span>';
+
+    const wrap = document.getElementById('qrCodeWrap');
+    if (isStatic && staticImg) {
+        wrap.innerHTML = `<img src="${staticImg}" class="w-56 h-56 rounded-xl border border-yellow-500/25 object-contain bg-white p-2">`;
+    } else if (qrString) {
+        wrap.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=210x210&color=000000&bgcolor=ffffff&qzone=1&data=${encodeURIComponent(qrString)}" class="w-56 h-56 rounded-xl border border-yellow-500/25 bg-white p-2">`;
+    } else {
+        wrap.innerHTML = `<div class="text-xs text-zinc-500 text-center py-6">QRIS belum dikonfigurasi. Hubungi admin.</div>`;
+    }
+
+    if (payInterval) clearInterval(payInterval);
+    if (refId && !isStatic) {
+        payInterval = setInterval(() => checkTopupPay(refId), 6000);
+    } else if (refId) {
+        payInterval = setInterval(() => checkTopupPay(refId), 6000);
+    }
+}
+
+// ── NOWPayments: tampilkan section crypto (USDT) untuk topup saldo ──
+async function showCryptoTopupModal(refId, code, amountIdr) {
+    document.getElementById('payModal').classList.remove('hidden');
+    document.getElementById('qrCodeWrap').classList.add('hidden');
+    document.getElementById('cryptoSection').classList.remove('hidden');
+    document.getElementById('orderCodeShow').textContent = code;
+    document.getElementById('payAmountShow').textContent = 'Total masuk: Rp ' + (amountIdr||0).toLocaleString('id-ID');
+    document.getElementById('payStatusRow').innerHTML = '<iconify-icon icon="mdi:clock-outline" class="text-yellow-400 animate-spin text-lg"></iconify-icon><span class="text-xs text-zinc-400">Menunggu pembayaran...</span>';
+    if (payInterval) clearInterval(payInterval);
+
+    const wrap = document.getElementById('cryptoWrap');
+    wrap.innerHTML = '<div class="flex justify-center"><iconify-icon icon="mdi:loading" class="text-3xl text-indigo-400 animate-spin"></iconify-icon></div>';
+
+    if (!CRYPTO_CONFIGURED) {
+        wrap.innerHTML = '';
+        document.getElementById('cryptoUnavailable').classList.remove('hidden');
+        return;
+    }
+    document.getElementById('cryptoUnavailable').classList.add('hidden');
+
+    try {
+        const res = await fetch('/nowpayments/create-payment', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refId })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            wrap.innerHTML = `<p class="text-xs text-red-400 text-center py-4">${data.message || 'Gagal membuat transaksi crypto'}</p>`;
+            return;
+        }
+        document.getElementById('payAmountShow').textContent = data.payAmount + ' ' + (data.payCurrency || 'USDT').toUpperCase();
+
+        wrap.innerHTML = `
+            <div class="w-full space-y-2">
+                <p class="text-[10px] text-zinc-500 text-center">Kirim tepat jumlah di bawah ini (jaringan TRC20) ke alamat berikut:</p>
+                <div class="flex items-center gap-2 bg-black/30 rounded-xl p-2.5">
+                    <code id="cryptoAddress" class="text-[11px] text-emerald-400 font-mono break-all flex-1">${data.payAddress || '—'}</code>
+                    <button type="button" onclick="copyCryptoAddress()" style="flex-shrink:0;padding:6px 10px;border-radius:8px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);color:#34d399;font-size:10px;font-weight:700;cursor:pointer;">
+                        <span id="cryptoCopyLabel">📋 Salin</span>
+                    </button>
+                </div>
+                <p class="text-center text-sm font-bold text-white">${data.payAmount} ${(data.payCurrency || 'USDT').toUpperCase()}</p>
+                <p class="text-[10px] text-zinc-600 text-center">Status akan otomatis terupdate setelah pembayaran terkonfirmasi di jaringan blockchain.</p>
+            </div>`;
+
+        if (payInterval) clearInterval(payInterval);
+        if (refId) payInterval = setInterval(() => checkTopupPay(refId), 6000);
+    } catch (e) {
+        wrap.innerHTML = `<p class="text-xs text-red-400 text-center py-4">Gagal memuat pembayaran crypto: ${e.message}</p>`;
+    }
+}
+
+function copyCryptoAddress() {
+    const addr = document.getElementById('cryptoAddress')?.textContent;
+    if (!addr) return;
+    navigator.clipboard.writeText(addr).then(() => {
+        const lbl = document.getElementById('cryptoCopyLabel');
+        if (lbl) { lbl.textContent = '✅ Tersalin'; setTimeout(() => lbl.textContent = '📋 Salin', 1500); }
+    });
+}
+
+function closePayment() {
+    document.getElementById('payModal').classList.add('hidden');
+    if (payInterval) clearInterval(payInterval);
+}
+
+async function checkTopupPay(refId) {
+    try {
+        const r = await fetch(`/check-payment/${refId}`);
+        const d = await r.json();
+        if (d.success && d.status === 'done') {
+            clearInterval(payInterval);
+            document.getElementById('payStatusRow').innerHTML = '<iconify-icon icon="mdi:check-circle" class="text-emerald-400 text-xl"></iconify-icon><span class="text-sm font-bold text-emerald-400">Topup berhasil!</span>';
+            showToast('💰 Saldo berhasil ditambahkan!', 'success');
+            setTimeout(() => { closePayment(); window.location.reload(); }, 1800);
+        }
+    } catch(e) {}
+}
+</script>
+</body>
+</html>

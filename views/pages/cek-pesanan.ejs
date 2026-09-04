@@ -1,0 +1,182 @@
+<%
+const pageTitle = 'Cek Pesanan';
+%>
+
+<nav id="navbar" class="fixed top-0 left-0 right-0 z-50 bg-[#08081a]/95 backdrop-blur-md border-b border-indigo-500/10">
+    <div class="max-w-3xl mx-auto px-4">
+        <div class="flex items-center justify-between h-14">
+            <a href="/dashboard" class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                    <iconify-icon icon="mdi:receipt-text-check" class="text-white text-sm"></iconify-icon>
+                </div>
+                <span class="font-orbitron text-sm font-bold shimmer-text">Cek Pesanan</span>
+            </a>
+            <a href="/dashboard" class="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 transition-all">
+                <iconify-icon icon="mdi:arrow-left" class="text-sm"></iconify-icon> Kembali
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="min-h-screen pt-16 pb-20 px-4">
+<div class="max-w-3xl mx-auto">
+
+    <!-- Search + Filter -->
+    <div class="mt-5 mb-4 space-y-2.5">
+        <div class="relative">
+            <iconify-icon icon="mdi:magnify" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-base"></iconify-icon>
+            <input id="orderSearch" type="text" placeholder="Cari produk atau kode order..."
+                class="w-full pl-10 pr-3.5 py-2.5 rounded-xl text-xs text-white placeholder-zinc-500 outline-none transition-all"
+                style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);"
+                oninput="filterOrders()">
+        </div>
+        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar" id="statusFilters">
+            <button data-status="all" onclick="setFilter('all')" class="filter-chip active-chip flex-shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full transition-all">Semua</button>
+            <button data-status="done" onclick="setFilter('done')" class="filter-chip flex-shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full transition-all">Selesai</button>
+            <button data-status="pending" onclick="setFilter('pending')" class="filter-chip flex-shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full transition-all">Pending</button>
+            <button data-status="failed" onclick="setFilter('failed')" class="filter-chip flex-shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full transition-all">Batal</button>
+        </div>
+    </div>
+
+    <!-- Orders List -->
+    <div class="rounded-2xl overflow-hidden" style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);">
+        <div class="flex items-center gap-2 px-5 py-4 border-b border-white/5">
+            <iconify-icon icon="mdi:receipt-text-check" class="text-indigo-400 text-base"></iconify-icon>
+            <span class="text-sm font-bold text-white">Daftar Pesanan</span>
+            <span class="text-[10px] text-zinc-600 ml-auto"><%= transactions.length %> pesanan</span>
+        </div>
+        <div class="space-y-0" id="orderList">
+            <% if (transactions.length === 0) { %>
+            <div class="text-center py-12" id="emptyState">
+                <iconify-icon icon="mdi:receipt-text-outline" class="text-4xl text-zinc-700 block mx-auto mb-3"></iconify-icon>
+                <p class="text-sm text-zinc-500">Belum ada pesanan</p>
+                <a href="/" class="text-xs text-indigo-400 mt-2 inline-block">Mulai belanja sekarang</a>
+            </div>
+            <% } else { %>
+                <% transactions.forEach(t => { %>
+                <div class="order-row px-5 py-3.5 border-b border-white/5 hover:bg-white/[0.02] transition-colors"
+                     data-status="<%= t.status %>"
+                     data-search="<%= ((t.productName || t.type || '') + ' ' + (t.code || t.orderId || '')).toLowerCase() %>">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
+                            <%= t.status === 'done' ? 'bg-emerald-500/15' : t.status === 'pending' ? 'bg-yellow-500/15' : 'bg-red-500/15' %>">
+                            <iconify-icon icon="<%= t.status === 'done' ? 'mdi:check-circle' : t.status === 'pending' ? 'mdi:clock-outline' : 'mdi:close-circle' %>"
+                                class="<%= t.status === 'done' ? 'text-emerald-400' : t.status === 'pending' ? 'text-yellow-400' : 'text-red-400' %> text-base"></iconify-icon>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-semibold text-white truncate"><%= t.productName || t.type || 'Produk' %></span>
+                                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0
+                                    <%= t.status === 'done' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' :
+                                       t.status === 'pending' ? 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/25' :
+                                       'bg-red-500/15 text-red-400 border border-red-500/25' %>"><%= t.status === 'done' ? 'SELESAI' : t.status === 'pending' ? 'PENDING' : 'BATAL' %></span>
+                            </div>
+                            <div class="flex items-center gap-2 text-[10px] text-zinc-500 mt-0.5">
+                                <span><%= t.code || t.orderId || '—' %></span>
+                                <span>·</span>
+                                <span><%= t.time || new Date(t.createdAt).toLocaleDateString('id-ID') %></span>
+                            </div>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <div class="text-xs font-bold <%= t.status === 'done' ? 'text-emerald-400' : 'text-white' %>">Rp <%= (t.price || 0).toLocaleString('id-ID') %></div>
+                            <% if (t.voucherDiscount) { %>
+                            <div class="text-[9px] text-emerald-500">-Rp <%= t.voucherDiscount.toLocaleString('id-ID') %></div>
+                            <% } %>
+                        </div>
+                    </div>
+                    <% if (t.status === 'done' && t.key) { %>
+                    <div class="mt-2 pl-11">
+                        <button onclick="toggleKey('<%= t.id %>')" class="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                            <iconify-icon icon="mdi:key-variant" class="text-xs"></iconify-icon> <span id="key-toggle-label-<%= t.id %>">Lihat Key</span>
+                        </button>
+                        <div id="key-box-<%= t.id %>" class="hidden mt-2 p-3 rounded-lg bg-black/30 border border-emerald-500/30">
+                            <div class="flex items-center gap-2">
+                                <code class="text-xs text-emerald-400 font-mono break-all font-black flex-1" id="key-display-<%= t.id %>"><%= t.key %><% if (t.selectedDays) { %> — <%= t.selectedDays %> Hari<% } %></code>
+                                <button onclick="copyKey('<%= t.id %>')"
+                                    style="flex-shrink:0;padding:5px 8px;border-radius:8px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);color:#34d399;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                                    <span id="copy-label-<%= t.id %>">📋 Salin</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <% } else if (t.status === 'pending') { %>
+                    <div class="mt-2 pl-11 text-[10px] text-yellow-500/80 flex items-center gap-1">
+                        <iconify-icon icon="mdi:information-outline" class="text-xs"></iconify-icon> Menunggu konfirmasi pembayaran
+                    </div>
+                    <% } %>
+                </div>
+                <% }) %>
+            <% } %>
+            <div id="noResults" class="hidden text-center py-12">
+                <iconify-icon icon="mdi:file-search-outline" class="text-4xl text-zinc-700 block mx-auto mb-3"></iconify-icon>
+                <p class="text-sm text-zinc-500">Pesanan tidak ditemukan</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<style>
+.filter-chip{ background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); color:#a1a1aa; }
+.filter-chip.active-chip{ background:rgba(99,102,241,.15); border-color:rgba(99,102,241,.4); color:#a5b4fc; }
+.no-scrollbar::-webkit-scrollbar{ display:none; }
+.no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
+</style>
+
+<script>
+let currentFilter = 'all';
+
+function setFilter(status) {
+    currentFilter = status;
+    document.querySelectorAll('.filter-chip').forEach(btn => {
+        btn.classList.toggle('active-chip', btn.dataset.status === status);
+    });
+    filterOrders();
+}
+
+function filterOrders() {
+    const q = (document.getElementById('orderSearch')?.value || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('.order-row');
+    let visibleCount = 0;
+    rows.forEach(row => {
+        const matchesStatus = currentFilter === 'all' || row.dataset.status === currentFilter;
+        const matchesSearch = !q || row.dataset.search.includes(q);
+        const show = matchesStatus && matchesSearch;
+        row.style.display = show ? '' : 'none';
+        if (show) visibleCount++;
+    });
+    const noResults = document.getElementById('noResults');
+    if (noResults) noResults.classList.toggle('hidden', visibleCount !== 0 || rows.length === 0);
+}
+
+function toggleKey(id) {
+    const box = document.getElementById('key-box-' + id);
+    const label = document.getElementById('key-toggle-label-' + id);
+    if (!box) return;
+    const hidden = box.classList.toggle('hidden');
+    label.textContent = hidden ? 'Lihat Key' : 'Sembunyikan Key';
+}
+function copyKey(id) {
+    const el = document.getElementById('key-display-' + id);
+    const label = document.getElementById('copy-label-' + id);
+    if (!el) return;
+    const text = el.textContent.trim();
+    const done = () => { label.textContent = '✓ Tersalin!'; setTimeout(() => { label.textContent = '📋 Salin'; }, 2000); };
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopyKey(text, label));
+    } else {
+        fallbackCopyKey(text, label);
+    }
+}
+function fallbackCopyKey(text, label) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); label.textContent = '✓ Tersalin!'; setTimeout(() => { label.textContent = '📋 Salin'; }, 2000); } catch(e) {}
+    document.body.removeChild(ta);
+}
+</script>
