@@ -331,24 +331,29 @@ const pageTitle = 'Beranda';
                                 <iconify-icon icon="solar:gamepad-bold" class="text-2xl text-violet-400/40"></iconify-icon>
                             </div>
                         <% } %>
-                        <% if (product.safetyStatus) { %>
+                        <% if (product.safetyStatus === 'safe' || product.safetyStatus === 'maintenance') { %>
                         <div class="absolute top-0 left-0 z-10">
                             <% if (product.safetyStatus === 'safe') { %>
                                 <span class="safety-label safe"><iconify-icon icon="mdi:shield-check" style="font-size:8px;"></iconify-icon> Safe to Use</span>
-                            <% } else if (product.safetyStatus === 'risk') { %>
-                                <span class="safety-label risk"><iconify-icon icon="mdi:alert" style="font-size:8px;"></iconify-icon> Use at Your Own Risk</span>
-                            <% } else if (product.safetyStatus === 'maintenance') { %>
+                            <% } else { %>
                                 <span class="safety-label maintenance"><iconify-icon icon="mdi:wrench" style="font-size:8px;"></iconify-icon> Maintenance</span>
                             <% } %>
                         </div>
                         <% } %>
-                        <div class="absolute top-1 right-1 z-10">
+                        <% if (product.safetyStatus === 'risk') { %>
+                        <div class="absolute bottom-0 left-0 z-10">
+                            <span class="safety-label risk safety-label-bottom"><iconify-icon icon="mdi:alert" style="font-size:8px;"></iconify-icon> Use at Your Own Risk</span>
+                        </div>
+                        <% } %>
+                        <% if (hasAndroid || hasIos) { %>
+                        <div class="absolute left-0 z-10 <%= (product.safetyStatus === 'safe' || product.safetyStatus === 'maintenance') ? 'top-6' : 'top-0' %>">
                             <% if (hasAndroid) { %>
                                 <span class="platform-label">ANDROID</span>
                             <% } else if (hasIos) { %>
                                 <span class="platform-label">iOS</span>
                             <% } %>
                         </div>
+                        <% } %>
                     </div>
                     <div class="p-2.5 sm:p-3.5">
                         <h3 class="font-display font-bold text-[11px] sm:text-sm truncate mb-1.5 text-white"><%= product.name %></h3>
@@ -930,8 +935,7 @@ const pageTitle = 'Beranda';
                 return `<div class="popular-card glass rounded-xl overflow-hidden border border-white/[0.06] cursor-pointer" onclick="location.href='/buy/${p.id}'">
                     <div class="relative overflow-hidden" style="height:clamp(80px,20vw,120px);">
                         ${p.image ? `<img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover" loading="lazy" onerror="this.style.display='none'">` : `<div class="w-full h-full flex items-center justify-center" style="background:rgba(99,102,241,.06);"><iconify-icon icon="solar:gamepad-bold" style="font-size:28px;color:rgba(139,92,246,.4);"></iconify-icon></div>`}
-                        ${p.safetyStatus ? `<div class="absolute top-0 left-0 z-10">${renderSafetyBadge(p.safetyStatus)}</div>` : ''}
-                        ${hasPlatform ? `<div class="absolute top-1 right-1 z-10"><span class="platform-label">${hasPlatform}</span></div>` : ''}
+                        ${renderProductBadges(p.safetyStatus, hasPlatform)}
                     </div>
                     <div class="p-2">
                         <h3 class="font-display font-bold text-[10px] sm:text-xs truncate mb-1">${p.name}</h3>

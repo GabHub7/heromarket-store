@@ -69,11 +69,11 @@ const pageTitle = 'Beli ' + product.name;
                     <span class="badge-tag bg-yellow-500/80 text-black"><%= product.badge || product.category.toUpperCase() %></span>
                     <% } %>
                     <% if (product.safetyStatus === 'safe') { %>
-                        <span class="safety-label safe"><iconify-icon icon="mdi:shield-check" style="font-size:8px;"></iconify-icon> Safe to Use</span>
+                        <span class="safety-label safety-label-inline safe"><iconify-icon icon="mdi:shield-check" style="font-size:8px;"></iconify-icon> Safe to Use</span>
                     <% } else if (product.safetyStatus === 'risk') { %>
-                        <span class="safety-label risk"><iconify-icon icon="mdi:alert" style="font-size:8px;"></iconify-icon> Use at Your Own Risk</span>
+                        <span class="safety-label safety-label-inline risk"><iconify-icon icon="mdi:alert" style="font-size:8px;"></iconify-icon> Use at Your Own Risk</span>
                     <% } else if (product.safetyStatus === 'maintenance') { %>
-                        <span class="safety-label maintenance"><iconify-icon icon="mdi:wrench" style="font-size:8px;"></iconify-icon> Maintenance</span>
+                        <span class="safety-label safety-label-inline maintenance"><iconify-icon icon="mdi:wrench" style="font-size:8px;"></iconify-icon> Maintenance</span>
                     <% } %>
                     <% if ((product.platforms||[]).includes('android') && (product.platforms||[]).includes('ios')) { %>
                         <span class="platform-label">ANDROID</span>

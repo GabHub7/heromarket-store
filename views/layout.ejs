@@ -116,6 +116,8 @@
         .badge-tag{font-size:7px;letter-spacing:.04em;font-weight:800;padding:2px 6px;border-radius:4px;line-height:1.3;text-transform:uppercase;}
         .platform-label{font-size:7px;letter-spacing:.04em;font-weight:700;padding:2px 5px;border-radius:3px;line-height:1.3;background:rgba(109,40,217,0.6);color:#e9d5ff;border:1px solid rgba(139,92,246,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
         .safety-label{font-size:9px;letter-spacing:.02em;font-weight:800;padding:5px 9px;border-radius:0 0 8px 0;line-height:1.3;text-transform:uppercase;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:inline-flex;align-items:center;gap:3px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.35);}
+        .safety-label.safety-label-inline{border-radius:6px;padding:3px 8px;font-size:8px;box-shadow:none;}
+        .safety-label.safety-label-bottom{border-radius:0 8px 0 0;}
         .safety-label.safe{background:#10b981;color:#fff;}
         .safety-label.risk{background:#f59e0b;color:#1a1a1a;}
         .safety-label.maintenance{background:#ef4444;color:#fff;}
@@ -461,6 +463,9 @@
     // ═══ SAFETY BADGE (Safe to Use / Use at Your Own Risk / Maintenance) ═══
     // Dipakai bareng di home.ejs (grid statis & dinamis) dan buy.ejs supaya
     // label & warnanya konsisten di semua tempat card produk muncul.
+    // Posisi: safe/maintenance nempel kiri-atas (ditumpuk sama platform badge
+    // di bawahnya kalau ada), risk nempel kiri-BAWAH (biar gak numpuk sama
+    // platform yang tetap di kiri-atas).
     function renderSafetyBadge(safetyStatus) {
         const map = {
             safe: { icon: 'mdi:shield-check', text: 'Safe to Use' },
@@ -469,7 +474,24 @@
         };
         const cfg = map[safetyStatus];
         if (!cfg) return '';
-        return `<span class="safety-label ${safetyStatus}"><iconify-icon icon="${cfg.icon}" style="font-size:8px;"></iconify-icon> ${cfg.text}</span>`;
+        const bottomClass = safetyStatus === 'risk' ? ' safety-label-bottom' : '';
+        return `<span class="safety-label ${safetyStatus}${bottomClass}"><iconify-icon icon="${cfg.icon}" style="font-size:8px;"></iconify-icon> ${cfg.text}</span>`;
+    }
+
+    // Generate wrapper lengkap (safety badge + platform badge) dengan posisi
+    // yang sudah diatur otomatis -- dipakai di card produk dinamis (JS).
+    function renderProductBadges(safetyStatus, platformLabel) {
+        let html = '';
+        if (safetyStatus === 'safe' || safetyStatus === 'maintenance') {
+            html += `<div class="absolute top-0 left-0 z-10">${renderSafetyBadge(safetyStatus)}</div>`;
+        } else if (safetyStatus === 'risk') {
+            html += `<div class="absolute bottom-0 left-0 z-10">${renderSafetyBadge(safetyStatus)}</div>`;
+        }
+        if (platformLabel) {
+            const topClass = (safetyStatus === 'safe' || safetyStatus === 'maintenance') ? 'top-6' : 'top-0';
+            html += `<div class="absolute left-0 z-10 ${topClass}"><span class="platform-label">${platformLabel}</span></div>`;
+        }
+        return html;
     }
 
     // ═══ TOAST ═══
