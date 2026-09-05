@@ -143,6 +143,32 @@ const pageTitle = 'Edit Produk';
     <p class="text-[10px] text-zinc-600 mt-2">Pilih platform yang didukung produk ini (bisa keduanya)</p>
   </div>
 
+  <!-- ── STATUS KEAMANAN (badge yang tampil di card produk) ── -->
+  <div class="section-card">
+    <h2 class="text-sm font-black text-white mb-3 flex items-center gap-2">
+      <iconify-icon icon="mdi:shield-alert" class="text-purple-400 text-lg"></iconify-icon> Status Keamanan
+    </h2>
+    <div class="flex flex-col gap-2">
+      <button id="btn-safety-safe" onclick="setSafetyStatus('safe')"
+        class="w-full py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5">
+        <iconify-icon icon="mdi:shield-check"></iconify-icon> Safe to Use
+      </button>
+      <button id="btn-safety-risk" onclick="setSafetyStatus('risk')"
+        class="w-full py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5">
+        <iconify-icon icon="mdi:alert"></iconify-icon> Use at Your Own Risk
+      </button>
+      <button id="btn-safety-maintenance" onclick="setSafetyStatus('maintenance')"
+        class="w-full py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5">
+        <iconify-icon icon="mdi:wrench"></iconify-icon> Maintenance
+      </button>
+      <button id="btn-safety-none" onclick="setSafetyStatus('')"
+        class="w-full py-2 rounded-xl text-[11px] font-bold border transition-all flex items-center justify-center gap-1.5 text-zinc-500">
+        <iconify-icon icon="mdi:close"></iconify-icon> Tidak Ada Label
+      </button>
+    </div>
+    <p class="text-[10px] text-zinc-600 mt-2">Badge ini tampil di pojok kiri atas card produk, di halaman utama &amp; detail produk.</p>
+  </div>
+
   <!-- ── LINK DOWNLOAD ── -->
   <div class="section-card">
     <h2 class="text-sm font-black text-white mb-3 flex items-center gap-2">
@@ -233,6 +259,7 @@ const pageTitle = 'Edit Produk';
 <script>
 let currentProduct = null;
 let selectedStatus = 'active';
+let selectedSafetyStatus = '';
 let keysMode = 'append';
 let selectedPlatforms = [];
 
@@ -269,6 +296,10 @@ async function loadProduct() {
   // Status
   selectedStatus = currentProduct.status || 'active';
   updateStatusBtns();
+
+  // Status Keamanan (safety badge)
+  selectedSafetyStatus = currentProduct.safetyStatus || '';
+  updateSafetyBtns();
 
   // Kategori
   const catSel = document.getElementById('prodCategorySelect');
@@ -709,6 +740,27 @@ function updatePlatformBtns() {
     : 'flex-1 py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5 border-white/10 text-zinc-500 hover:text-white';
 }
 
+// ─── Status Keamanan (safety badge) ───
+function setSafetyStatus(s) {
+  selectedSafetyStatus = s;
+  updateSafetyBtns();
+}
+function updateSafetyBtns() {
+  const activeBase = 'w-full py-2.5 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5';
+  const noneBase = 'w-full py-2 rounded-xl text-[11px] font-bold border transition-all flex items-center justify-center gap-1.5';
+  const inactive = activeBase + ' border-white/10 text-zinc-500 hover:text-white';
+  const inactiveNone = noneBase + ' border-white/10 text-zinc-500 hover:text-white';
+
+  document.getElementById('btn-safety-safe').className = selectedSafetyStatus === 'safe'
+    ? activeBase + ' border-emerald-500/50 bg-emerald-500/15 text-emerald-400' : inactive;
+  document.getElementById('btn-safety-risk').className = selectedSafetyStatus === 'risk'
+    ? activeBase + ' border-amber-500/50 bg-amber-500/15 text-amber-400' : inactive;
+  document.getElementById('btn-safety-maintenance').className = selectedSafetyStatus === 'maintenance'
+    ? activeBase + ' border-red-500/50 bg-red-500/15 text-red-400' : inactive;
+  document.getElementById('btn-safety-none').className = (!selectedSafetyStatus)
+    ? noneBase + ' border-white/20 bg-white/10 text-white' : inactiveNone;
+}
+
 // ─── Keys Mode ───
 function setKeysMode(mode) {
   keysMode = mode;
@@ -834,6 +886,7 @@ async function saveProduct() {
     body: JSON.stringify({
       bannerUrl: imgUrl,
       status: selectedStatus,
+      safetyStatus: selectedSafetyStatus,
       category,
       description,
       downloadLink,

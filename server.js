@@ -3363,7 +3363,7 @@ app.post('/admin/product/edit/:id', requireAdmin, (req, res, next) => {
   });
 }, async (req, res) => {
   try {
-    const { name, category, description, bannerUrl, imageUrl, pricingDays, pricingPrices, keys, keysMode, status, platforms, downloadLink } = req.body;
+    const { name, category, description, bannerUrl, imageUrl, pricingDays, pricingPrices, keys, keysMode, status, safetyStatus, platforms, downloadLink } = req.body;
     const imgUrl = bannerUrl || imageUrl;
     const products = await readFresh('products.json');
     const product = products.find(p => p.id === req.params.id);
@@ -3374,6 +3374,7 @@ app.post('/admin/product/edit/:id', requireAdmin, (req, res, next) => {
     if (category) product.category = category;
     if (description !== undefined) product.description = description;
     if (status) product.status = status;
+    if (['safe', 'risk', 'maintenance', ''].includes(safetyStatus)) product.safetyStatus = safetyStatus;
     if (Array.isArray(platforms)) product.platforms = platforms;
     if (downloadLink !== undefined) product.downloadLink = downloadLink.trim();
     if (pricingDays) {
@@ -3461,7 +3462,7 @@ app.post('/admin/product/bulk-set-auto', requireAdmin, async (req, res) => {
 
 app.post('/admin/product/:id', requireAdmin, async (req, res) => {
   try {
-    const { name, category, description, bannerUrl, imageUrl, pricingDays, pricingPrices, pricingOptions: pricingOptionsInput, keys, keysMode, status, platforms, stockMode, downloadLink, youtubeUrls, compatibility, features } = req.body;
+    const { name, category, description, bannerUrl, imageUrl, pricingDays, pricingPrices, pricingOptions: pricingOptionsInput, keys, keysMode, status, safetyStatus, platforms, stockMode, downloadLink, youtubeUrls, compatibility, features } = req.body;
     const imgUrl = bannerUrl || imageUrl;
     const products = await readFresh('products.json');
     const product = products.find(p => p.id === req.params.id);
@@ -3472,6 +3473,10 @@ app.post('/admin/product/:id', requireAdmin, async (req, res) => {
     if (category) product.category = category;
     if (description !== undefined) product.description = description;
     if (status) product.status = status;
+    // Badge status keamanan yang tampil di pojok card produk (frontend).
+    // '' (string kosong) = sengaja hapus label, jadi dicek eksplisit lewat
+    // whitelist, bukan cuma truthy check spt field lain di atas.
+    if (['safe', 'risk', 'maintenance', ''].includes(safetyStatus)) product.safetyStatus = safetyStatus;
     if (Array.isArray(platforms)) product.platforms = platforms;
     if (downloadLink !== undefined) product.downloadLink = String(downloadLink).trim();
     // Link YouTube showcase (bisa lebih dari 1) -- section video di halaman
