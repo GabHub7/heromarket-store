@@ -332,13 +332,13 @@ const pageTitle = 'Beranda';
                             </div>
                         <% } %>
                         <% if (product.safetyStatus) { %>
-                        <div class="absolute bottom-0 left-0 z-10">
+                        <div class="absolute bottom-0 left-0 z-10" style="max-width:100%;">
                             <% if (product.safetyStatus === 'safe') { %>
-                                <span class="safety-label safe safety-label-bottom"><iconify-icon icon="mdi:shield-check" style="font-size:8px;"></iconify-icon> Safe to Use</span>
+                                <span class="safety-label safe safety-label-bottom safety-label-compact"><iconify-icon icon="mdi:shield-check"></iconify-icon> Safe</span>
                             <% } else if (product.safetyStatus === 'risk') { %>
-                                <span class="safety-label risk safety-label-bottom"><iconify-icon icon="mdi:alert" style="font-size:8px;"></iconify-icon> Use at Your Own Risk</span>
+                                <span class="safety-label risk safety-label-bottom safety-label-compact"><iconify-icon icon="mdi:alert"></iconify-icon> Risk</span>
                             <% } else if (product.safetyStatus === 'maintenance') { %>
-                                <span class="safety-label maintenance safety-label-bottom"><iconify-icon icon="mdi:wrench" style="font-size:8px;"></iconify-icon> Maintenance</span>
+                                <span class="safety-label maintenance safety-label-bottom safety-label-compact"><iconify-icon icon="mdi:wrench"></iconify-icon> Maintenance</span>
                             <% } %>
                         </div>
                         <% } %>
@@ -932,7 +932,7 @@ const pageTitle = 'Beranda';
                 return `<div class="popular-card glass rounded-xl overflow-hidden border border-white/[0.06] cursor-pointer" onclick="location.href='/buy/${p.id}'">
                     <div class="relative overflow-hidden" style="height:clamp(80px,20vw,120px);">
                         ${p.image ? `<img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover" loading="lazy" onerror="this.style.display='none'">` : `<div class="w-full h-full flex items-center justify-center" style="background:rgba(99,102,241,.06);"><iconify-icon icon="solar:gamepad-bold" style="font-size:28px;color:rgba(139,92,246,.4);"></iconify-icon></div>`}
-                        ${renderProductBadges(p.safetyStatus, hasPlatform)}
+                        ${renderProductBadges(p.safetyStatus, hasPlatform, true)}
                     </div>
                     <div class="p-2">
                         <h3 class="font-display font-bold text-[10px] sm:text-xs truncate mb-1">${p.name}</h3>
