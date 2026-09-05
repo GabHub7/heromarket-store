@@ -463,9 +463,9 @@
     // ═══ SAFETY BADGE (Safe to Use / Use at Your Own Risk / Maintenance) ═══
     // Dipakai bareng di home.ejs (grid statis & dinamis) dan buy.ejs supaya
     // label & warnanya konsisten di semua tempat card produk muncul.
-    // Posisi: safe/maintenance nempel kiri-atas (ditumpuk sama platform badge
-    // di bawahnya kalau ada), risk nempel kiri-BAWAH (biar gak numpuk sama
-    // platform yang tetap di kiri-atas).
+    // Posisi: safety badge (safe/risk/maintenance) SELALU nempel kiri-BAWAH.
+    // Platform badge (iOS/Android) SELALU nempel kiri-ATAS, sendirian (gak
+    // pernah numpuk sama safety badge karena beda sisi).
     function renderSafetyBadge(safetyStatus) {
         const map = {
             safe: { icon: 'mdi:shield-check', text: 'Safe to Use' },
@@ -474,22 +474,18 @@
         };
         const cfg = map[safetyStatus];
         if (!cfg) return '';
-        const bottomClass = safetyStatus === 'risk' ? ' safety-label-bottom' : '';
-        return `<span class="safety-label ${safetyStatus}${bottomClass}"><iconify-icon icon="${cfg.icon}" style="font-size:8px;"></iconify-icon> ${cfg.text}</span>`;
+        return `<span class="safety-label ${safetyStatus} safety-label-bottom"><iconify-icon icon="${cfg.icon}" style="font-size:8px;"></iconify-icon> ${cfg.text}</span>`;
     }
 
     // Generate wrapper lengkap (safety badge + platform badge) dengan posisi
     // yang sudah diatur otomatis -- dipakai di card produk dinamis (JS).
     function renderProductBadges(safetyStatus, platformLabel) {
         let html = '';
-        if (safetyStatus === 'safe' || safetyStatus === 'maintenance') {
-            html += `<div class="absolute top-0 left-0 z-10">${renderSafetyBadge(safetyStatus)}</div>`;
-        } else if (safetyStatus === 'risk') {
+        if (safetyStatus) {
             html += `<div class="absolute bottom-0 left-0 z-10">${renderSafetyBadge(safetyStatus)}</div>`;
         }
         if (platformLabel) {
-            const topClass = (safetyStatus === 'safe' || safetyStatus === 'maintenance') ? 'top-6' : 'top-0';
-            html += `<div class="absolute left-0 z-10 ${topClass}"><span class="platform-label">${platformLabel}</span></div>`;
+            html += `<div class="absolute top-0 left-0 z-10"><span class="platform-label">${platformLabel}</span></div>`;
         }
         return html;
     }

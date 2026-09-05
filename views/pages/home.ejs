@@ -331,22 +331,19 @@ const pageTitle = 'Beranda';
                                 <iconify-icon icon="solar:gamepad-bold" class="text-2xl text-violet-400/40"></iconify-icon>
                             </div>
                         <% } %>
-                        <% if (product.safetyStatus === 'safe' || product.safetyStatus === 'maintenance') { %>
-                        <div class="absolute top-0 left-0 z-10">
+                        <% if (product.safetyStatus) { %>
+                        <div class="absolute bottom-0 left-0 z-10">
                             <% if (product.safetyStatus === 'safe') { %>
-                                <span class="safety-label safe"><iconify-icon icon="mdi:shield-check" style="font-size:8px;"></iconify-icon> Safe to Use</span>
-                            <% } else { %>
-                                <span class="safety-label maintenance"><iconify-icon icon="mdi:wrench" style="font-size:8px;"></iconify-icon> Maintenance</span>
+                                <span class="safety-label safe safety-label-bottom"><iconify-icon icon="mdi:shield-check" style="font-size:8px;"></iconify-icon> Safe to Use</span>
+                            <% } else if (product.safetyStatus === 'risk') { %>
+                                <span class="safety-label risk safety-label-bottom"><iconify-icon icon="mdi:alert" style="font-size:8px;"></iconify-icon> Use at Your Own Risk</span>
+                            <% } else if (product.safetyStatus === 'maintenance') { %>
+                                <span class="safety-label maintenance safety-label-bottom"><iconify-icon icon="mdi:wrench" style="font-size:8px;"></iconify-icon> Maintenance</span>
                             <% } %>
                         </div>
                         <% } %>
-                        <% if (product.safetyStatus === 'risk') { %>
-                        <div class="absolute bottom-0 left-0 z-10">
-                            <span class="safety-label risk safety-label-bottom"><iconify-icon icon="mdi:alert" style="font-size:8px;"></iconify-icon> Use at Your Own Risk</span>
-                        </div>
-                        <% } %>
                         <% if (hasAndroid || hasIos) { %>
-                        <div class="absolute left-0 z-10 <%= (product.safetyStatus === 'safe' || product.safetyStatus === 'maintenance') ? 'top-6' : 'top-0' %>">
+                        <div class="absolute top-0 left-0 z-10">
                             <% if (hasAndroid) { %>
                                 <span class="platform-label">ANDROID</span>
                             <% } else if (hasIos) { %>
