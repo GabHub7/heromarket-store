@@ -3,26 +3,74 @@ const pageTitle = 'Beli ' + product.name;
 %>
 
 <style>
-    .pkg-option-label { display:block; cursor:pointer; }
+    .pkg-option-label { display:block; cursor:pointer; position:relative; }
     .pkg-option input[type=radio] { display:none !important; appearance:none !important; -webkit-appearance:none !important; width:0;height:0;position:absolute;opacity:0; }
-    .pkg-option input[type=radio]:checked + .pkg-card {
-        border-color: rgba(139,92,246,0.6) !important;
-        background: rgba(139,92,246,0.1) !important;
+    .pkg-card {
+        background: rgba(15,17,35,0.75);
+        border: 1.5px solid rgba(255,255,255,0.08);
+        border-radius: 20px;
+        padding: 20px 18px;
+        transition: all .2s;
+        position: relative;
+        min-height: 118px;
     }
+    .pkg-card:hover { border-color: rgba(99,102,241,0.4); }
+    .pkg-card .pkg-label {
+        font-style: italic;
+        font-weight: 800;
+        font-size: 13px;
+        letter-spacing: 0.02em;
+        color: rgba(147,163,255,0.95);
+        text-transform: uppercase;
+        margin-bottom: 14px;
+    }
+    .pkg-card .pkg-price {
+        font-weight: 900;
+        font-size: 22px;
+        color: #fff;
+        margin-bottom: 12px;
+        line-height: 1;
+    }
+    .pkg-card .pkg-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.4);
+    }
+    .pkg-card .pkg-status-dot {
+        width: 7px; height: 7px; border-radius: 999px;
+        background: #3b82f6; /* biru = tersedia (stok terbatas) */
+        flex-shrink: 0;
+    }
+    .pkg-card .pkg-status-dot.unlimited { background: #f59e0b; } /* kuning = stok unlimited/auto, sesuai referensi */
+    .pkg-card .pkg-status-dot.out { background: #52525b; }
+    .pkg-card .pkg-checkmark {
+        position: absolute;
+        top: 14px; right: 14px;
+        width: 22px; height: 22px;
+        border-radius: 999px;
+        background: #3b82f6;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 0 4px rgba(59,130,246,0.15);
+    }
+    .pkg-option input[type=radio]:checked + .pkg-card {
+        border-color: #3b82f6 !important;
+        background: rgba(59,130,246,0.08) !important;
+        box-shadow: 0 0 0 1px rgba(59,130,246,0.3);
+    }
+    .pkg-option input[type=radio]:checked + .pkg-card .pkg-checkmark { display: flex; }
     #payMethodQris, #payMethodBalance, #payMethodUsdtManual {
         background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5);
     }
     #payMethodQris.active, #payMethodBalance.active, #payMethodUsdtManual.active {
         background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.5); color: #fff;
     }
-    .pkg-card {
-        background:rgba(255,255,255,0.03);
-        border:1px solid rgba(255,255,255,0.08);
-        border-radius:16px;
-        padding:12px 14px;
-        transition:all .2s;
-    }
-    .pkg-card:hover { border-color:rgba(139,92,246,0.4); }
     @keyframes countUp { from { opacity:0;transform:translateY(8px); } to { opacity:1;transform:translateY(0); } }
     .count-up { animation:countUp .4s ease-out both; }
 </style>
@@ -217,7 +265,7 @@ const pageTitle = 'Beli ' + product.name;
         <div class="mb-3">
             <p class="text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">PILIH DURASI</p>
         </div>
-        <div class="grid grid-cols-2 gap-2" id="pkg-grid">
+        <div class="grid grid-cols-2 gap-3" id="pkg-grid">
             <% if (product.items && product.items.length > 0) { %>
                 <% product.items.forEach((item, idx) => { %>
                 <% const itemStock = (item.stok || 0); %>
@@ -233,16 +281,19 @@ const pageTitle = 'Beli ' + product.name;
                            onchange="selectPkg('<%= item.l %>', <%= displayPrice %>, <%= isUnlimitedStock ? 999999 : itemStock %>)"
                            <%= idx===0 && !isOutOfStock ? 'checked' : '' %>
                            <%= isOutOfStock ? 'disabled' : '' %>>
-                    <div class="pkg-card rounded-2xl p-3">
-                        <div class="text-xs font-semibold text-white/70 mb-0.5">
-                            <%= item.l %> <span class="text-white/25 font-normal text-[10px]">(<%= isUnlimitedStock ? 'Tersedia' : `Stok: ${itemStock}` %>)</span>
+                    <div class="pkg-card">
+                        <div class="pkg-checkmark">
+                            <iconify-icon icon="mdi:check" style="color:#fff;font-size:14px;"></iconify-icon>
                         </div>
-                        <div class="text-sm font-black <%= isReseller && item.reseller_price ? 'text-yellow-400' : 'text-white' %>">
-                            Rp <%= displayPrice.toLocaleString('id-ID') %>
-                        </div>
+                        <div class="pkg-label"><%= item.l %></div>
+                        <div class="pkg-price <%= isReseller && item.reseller_price ? 'text-yellow-400' : '' %>">Rp<%= displayPrice.toLocaleString('id-ID') %></div>
                         <% if (isReseller && item.reseller_price) { %>
-                            <div class="text-[9px] text-zinc-500 line-through">Rp <%= item.p.toLocaleString('id-ID') %></div>
+                            <div class="text-[9px] text-zinc-500 line-through -mt-2 mb-2">Rp <%= item.p.toLocaleString('id-ID') %></div>
                         <% } %>
+                        <div class="pkg-status">
+                            <span class="pkg-status-dot <%= isOutOfStock ? 'out' : (isUnlimitedStock ? 'unlimited' : '') %>"></span>
+                            <%= isOutOfStock ? 'Habis' : (isUnlimitedStock ? 'Tersedia' : `Tersedia (${itemStock})`) %>
+                        </div>
                     </div>
                 </label>
                 <% }) %>
@@ -587,6 +638,20 @@ const pageTitle = 'Beli ' + product.name;
 
 <script>
     const USDT_MANUAL_CONFIGURED = <%= usdtManualConfigured ? 'true' : 'false' %>;
+
+    // `selectedDays` yang dikirim backend SEKARANG BERISI MENIT (bukan
+    // hari) -- lihat catatan durasi menit/jam di server.js. Helper ini
+    // format angka menit itu jadi label yang enak dibaca ("1 Hari", "3
+    // Jam", "45 Menit") -- JANGAN pernah tampilkan mentah + " Hari" lagi,
+    // itu penyebab bug "1440 Hari" utk key yang sebenarnya cuma 1 hari.
+    function formatMinutesLabel(minutes) {
+        const m = parseInt(minutes) || 0;
+        if (m <= 0) return '';
+        if (m % 1440 === 0) return (m / 1440) + ' Hari';
+        if (m % 60 === 0) return (m / 60) + ' Jam';
+        return m + ' Menit';
+    }
+
     let selPkg = { label:'<%= (product.items?.[0]?.l||"") %>', price:<%= (isReseller && product.items?.[0]?.reseller_price) ? product.items[0].reseller_price : (product.items?.[0]?.p||0) %> };
     let myRating = 0;
     let payInterval = null;
@@ -947,7 +1012,7 @@ const pageTitle = 'Beli ' + product.name;
             const keySection = document.getElementById('keyResultSection');
             keySection.classList.remove('hidden');
             keySection.classList.add('flex');
-            document.getElementById('keyResultText').textContent = d.key ? (d.key + (d.selectedDays ? ' — ' + d.selectedDays + ' Hari' : '')) : 'Hubungi admin untuk key kamu';
+            document.getElementById('keyResultText').textContent = d.key ? (d.key + (d.selectedDays ? ' — ' + formatMinutesLabel(d.selectedDays) : '')) : 'Hubungi admin untuk key kamu';
             document.getElementById('keyResultCode').textContent = d.code || '—';
         }, 1200);
     }

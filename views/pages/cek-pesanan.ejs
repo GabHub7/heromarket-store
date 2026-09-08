@@ -91,7 +91,12 @@ const pageTitle = 'Cek Pesanan';
                         </button>
                         <div id="key-box-<%= t.id %>" class="hidden mt-2 p-3 rounded-lg bg-black/30 border border-emerald-500/30">
                             <div class="flex items-center gap-2">
-                                <code class="text-xs text-emerald-400 font-mono break-all font-black flex-1" id="key-display-<%= t.id %>"><%= t.key %><% if (t.selectedDays) { %> — <%= t.selectedDays %> Hari<% } %></code>
+                                <code class="text-xs text-emerald-400 font-mono break-all font-black flex-1" id="key-display-<%= t.id %>"><%= t.key %><% if (t.selectedDays) {
+                                    // t.selectedDays berbasis MENIT (lihat catatan durasi jam/menit) --
+                                    // konversi ke label yang benar, jangan tempel mentah + " Hari".
+                                    const sd = t.selectedDays;
+                                    const durLabel = sd % 1440 === 0 ? (sd/1440) + ' Hari' : (sd % 60 === 0 ? (sd/60) + ' Jam' : sd + ' Menit');
+                                %> — <%= durLabel %><% } %></code>
                                 <button onclick="copyKey('<%= t.id %>')"
                                     style="flex-shrink:0;padding:5px 8px;border-radius:8px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);color:#34d399;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">
                                     <span id="copy-label-<%= t.id %>">📋 Salin</span>

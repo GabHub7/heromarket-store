@@ -198,7 +198,14 @@ body>*{position:relative;z-index:1;}
                 </div>
                 <div class="flex items-center gap-2 text-[10px] text-zinc-500 mb-2">
                     <span><%= t.code %></span> · <span>Rp <%= (t.price||0).toLocaleString('id-ID') %></span>
-                    <% if (t.selectedDays) { %> · <span><%= t.selectedDays %> Hari</span><% } %>
+                    <% if (t.selectedDays) {
+                        // t.selectedDays SEKARANG BERISI MENIT (bukan hari) sejak
+                        // fitur durasi jam/menit ditambahkan -- tampilkan hasil
+                        // konversi yang benar, JANGAN pernah tempel mentah + " Hari"
+                        // lagi (itu penyebab bug "1440 Hari" utk transaksi 1 hari).
+                        const sd = t.selectedDays;
+                        const durLabel = sd % 1440 === 0 ? (sd/1440) + ' Hari' : (sd % 60 === 0 ? (sd/60) + ' Jam' : sd + ' Menit');
+                    %> · <span><%= durLabel %></span><% } %>
                 </div>
                 <button onclick="toggleKey('<%= t.id %>')" class="text-[10px] font-semibold text-yellow-400 flex items-center gap-1">
                     <iconify-icon icon="mdi:key-variant" class="text-xs"></iconify-icon> <span id="key-toggle-label-<%= t.id %>">Lihat Key</span>

@@ -562,9 +562,18 @@ textarea.hm-input{resize:vertical;min-height:80px;}
             <div class="space-y-2 mb-2.5">
                 <% p.pricingOptions.forEach(o => {
                     const globalCalc = Math.round(o.price * (1 - (settings.resellerDiscount || 20) / 100));
+                    // o.days untuk opsi durasi JAM/MENIT adalah HASIL PEMBULATAN
+                    // ke atas (mis. 3 jam -> days=1) -- tampilkan label presisi
+                    // dari durationMinutes kalau ada, jangan pakai o.days mentah
+                    // di sini supaya admin tidak salah kira opsi 3 jam itu "1 Hari".
+                    let durLabel = o.days + ' Hari';
+                    if (o.durationMinutes != null) {
+                      const dm = o.durationMinutes;
+                      durLabel = dm % 1440 === 0 ? (dm/1440) + ' Hari' : (dm % 60 === 0 ? (dm/60) + ' Jam' : dm + ' Menit');
+                    }
                 %>
                 <div class="flex items-center gap-2 text-xs" data-days="<%= o.days %>">
-                    <span class="text-zinc-400 w-16 flex-shrink-0"><%= o.days %> Hari</span>
+                    <span class="text-zinc-400 w-16 flex-shrink-0"><%= durLabel %></span>
                     <span class="text-zinc-600 w-24 flex-shrink-0 line-through">Rp<%= o.price.toLocaleString('id-ID') %></span>
                     <input type="number" class="hm-input flex-1 text-xs py-1.5 rprice-input" style="padding:6px 10px;"
                            placeholder="Rp<%= globalCalc.toLocaleString('id-ID') %> (default)"

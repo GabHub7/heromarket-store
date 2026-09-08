@@ -126,13 +126,43 @@ function getOptionDurationMinutes(opt) {
 // internal, tapi TIDAK didokumentasikan ke admin di form -- cukup
 // "angka polos = hari" atau "angka + m = menit", sesuai keputusan
 // supaya form & format key tetap sederhana.
+//
+// DIPERKUAT: admin di lapangan ternyata sering ngetik kata bahasa
+// Indonesia/Inggris penuh langsung di key (mis. "1jam", "7hari", "30
+// menit") alih-alih format "180m" yang didokumentasikan -- daripada
+// keukeuh maksa satu format dan bikin data admin "keliatan salah" (kayak
+// "1440 hari" yang muncul dari "1hari" ke-parse asal-asalan oleh kode
+// versi sebelumnya), parser ini SEKARANG toleran ke berbagai variasi
+// penulisan yang wajar. Prioritas match dari yang paling spesifik dulu.
 function parseKeyDurationMinutes(rawTag) {
-  const match = String(rawTag).trim().match(/^(\d+)\s*(m|h|d)?$/i);
-  if (!match) return null;
-  const value = parseInt(match[1], 10);
-  const unitChar = (match[2] || 'd').toLowerCase(); // tanpa suffix = hari (legacy, tidak berubah)
-  const unit = unitChar === 'm' ? 'minutes' : unitChar === 'h' ? 'hours' : 'days';
-  return durationToMinutes(value, unit);
+  const str = String(rawTag).trim().toLowerCase().replace(/\s+/g, ''); // buang semua spasi: "1 jam" -> "1jam"
+  if (!str) return null;
+
+  // Kata bahasa Indonesia/Inggris penuh -- dicek DULU sebelum kode
+  // singkat huruf, supaya "menit"/"jam"/"hari" tidak salah ke-match
+  // sebagai kode 'm'/'h'/'d' oleh regex yang lebih longgar di bawahnya.
+  const wordMatch = str.match(/^(\d+)(menit|minutes?|min|jam|hours?|hr|hari|days?|d)$/i);
+  if (wordMatch) {
+    const value = parseInt(wordMatch[1], 10);
+    const word = wordMatch[2];
+    const unit = /^(menit|minutes?|min)$/.test(word) ? 'minutes'
+      : /^(jam|hours?|hr)$/.test(word) ? 'hours'
+      : 'days';
+    return durationToMinutes(value, unit);
+  }
+
+  // Format singkat resmi: "180m" (menit), "12h" (jam), "7d" (hari), atau
+  // "7" tanpa suffix sama sekali (LEGACY, artinya HARI -- tidak berubah,
+  // ini yang menjaga kompatibilitas seluruh key lama yang sudah beredar).
+  const shortMatch = str.match(/^(\d+)(m|h|d)?$/i);
+  if (shortMatch) {
+    const value = parseInt(shortMatch[1], 10);
+    const unitChar = (shortMatch[2] || 'd').toLowerCase();
+    const unit = unitChar === 'm' ? 'minutes' : unitChar === 'h' ? 'hours' : 'days';
+    return durationToMinutes(value, unit);
+  }
+
+  return null; // format sama sekali tidak dikenali
 }
 
 // Label durasi yang ditampilkan ke customer di product.items[].l (mis.
@@ -3788,7 +3818,12 @@ app.post('/admin/transaction/delete/:id', requireAdmin, async (req, res) => {
       if (pRefund) {
         if (trx.key && trx.paymentMethod !== 'auto') {
           pRefund.keys = pRefund.keys || [];
-          const suffix = trx.selectedDays ? ':' + trx.selectedDays : '';
+          // trx.selectedDays SUDAH dalam basis MENIT -- suffix key HARUS
+          // eksplisit "m" (mis. ":180m") supaya nanti dibaca ulang benar
+          // oleh parseKeyDurationMinutes. TANPA suffix huruf, angka akan
+          // diinterpretasikan sebagai HARI (legacy), yang SALAH di sini
+          // karena nilainya sudah menit, bukan hari.
+          const suffix = trx.selectedDays ? ':' + trx.selectedDays + 'm' : '';
           pRefund.keys.push(trx.key + suffix);
         }
         pRefund.sold = Math.max(0, (pRefund.sold || 0) - 1);
@@ -3848,7 +3883,10 @@ app.post('/admin/transaction/status/:id', requireAdmin, async (req, res) => {
           // Kembalikan key ke array (bisa manual key yang sudah di-splice)
           if (trx.key && trx.paymentMethod !== 'auto') {
             pRefund.keys = pRefund.keys || [];
-            const suffix = trx.selectedDays ? ':' + trx.selectedDays : '';
+            // Sama seperti path refund tunggal di atas: trx.selectedDays
+            // berbasis MENIT, suffix WAJIB pakai 'm' eksplisit supaya tidak
+            // salah dibaca sebagai hari saat di-parse ulang nanti.
+            const suffix = trx.selectedDays ? ':' + trx.selectedDays + 'm' : '';
             pRefund.keys.push(trx.key + suffix);
           }
           // Kurangi sold count
@@ -4848,7 +4886,13 @@ app.post('/api/reseller/order', partnerAuth, async (req, res) => {
         customerReference: qty > 1 ? `${customerReference || txId}-${i + 1}` : (customerReference || txId),
         productId: product.id,
         productName: product.name,
-        selectedDays: opt.days,
+        // PENTING: selectedDays di SELURUH sistem (resolveStockSourceForDays,
+        // allocateKeyAndCompleteTransaction, dst) sekarang berbasis MENIT --
+        // opt di titik ini sudah dijamin lolos guard "hanya varian hari genap"
+        // di atas, tapi TETAP wajib dikonversi ke menit di sini (bukan opt.days
+        // mentah), supaya transaksi partner-order konsisten dengan basis yang
+        // dipakai fungsi alokasi key di bawah (allocateKeyAndCompleteTransaction).
+        selectedDays: getOptionDurationMinutes(opt),
         price: unitPrice,
         totalPayment: unitPrice,
         status: 'pending',
