@@ -93,7 +93,89 @@ function ensureDummySold(products) {
 // varian tersedia (manual dengan key tersisa, ATAU auto dengan stok real
 // > 0 / unlimited) -- konsisten dengan logic per-varian yang sudah benar
 // di halaman /buy/:id (lihat variantStockSource di route itu).
+// ═══════════════════════════════════════════════════════════════════════
+// HELPER DURASI: dukungan menit/jam/hari untuk pricingOptions & tag keys.
+//
+// Basis internal SELALU menit -- supaya menit/jam/hari bisa dibandingkan
+// apple-to-apple tanpa ambiguitas (mis. "12 jam" vs "0.5 hari" harus
+// dianggap SAMA, bukan dua varian berbeda kalau kebetulan tercampur).
+//
+// Format tag key: "KEY:7d" (7 hari), "KEY:12h" (12 jam), "KEY:30m" (30
+// menit). Tanpa suffix satuan, "KEY:7" TETAP dianggap HARI -- demi
+// kompatibilitas mundur dengan seluruh data key yang sudah diupload
+// sebelum fitur durasi jam/menit ini ada.
+// ═══════════════════════════════════════════════════════════════════════
+function durationToMinutes(value, unit) {
+  const v = Number(value) || 0;
+  if (unit === 'minutes') return v;
+  if (unit === 'hours') return v * 60;
+  return v * 1440; // 'days' atau default
+}
+
+// Ambil durasi opsi pricing dalam basis menit -- pakai durationMinutes
+// kalau ada (opsi baru, dari form yang sudah disederhanakan jadi 1
+// kolom angka menit), fallback ke `days` legacy (x1440) kalau tidak ada.
+function getOptionDurationMinutes(opt) {
+  if (opt.durationMinutes != null) return Number(opt.durationMinutes) || 0;
+  return durationToMinutes(opt.days, 'days');
+}
+
+// Parse suffix tag key "180m" (menit, WAJIB suffix 'm') atau "7" (tanpa
+// suffix = HARI, format lama, TIDAK BERUBAH demi kompatibilitas data
+// yang sudah ada). 'h' dan 'd' tetap didukung untuk fleksibilitas
+// internal, tapi TIDAK didokumentasikan ke admin di form -- cukup
+// "angka polos = hari" atau "angka + m = menit", sesuai keputusan
+// supaya form & format key tetap sederhana.
+function parseKeyDurationMinutes(rawTag) {
+  const match = String(rawTag).trim().match(/^(\d+)\s*(m|h|d)?$/i);
+  if (!match) return null;
+  const value = parseInt(match[1], 10);
+  const unitChar = (match[2] || 'd').toLowerCase(); // tanpa suffix = hari (legacy, tidak berubah)
+  const unit = unitChar === 'm' ? 'minutes' : unitChar === 'h' ? 'hours' : 'days';
+  return durationToMinutes(value, unit);
+}
+
+// Label durasi yang ditampilkan ke customer di product.items[].l (mis.
+// "PRODUK 7 DAYS", "PRODUK 180 MINUTES") -- dipakai di SEMUA tempat yang
+// men-generate items dari pricingOptions. Durasi genap hari (kelipatan
+// 1440 menit) ditampilkan sebagai "X DAYS" biar rapi dibaca customer
+// (bukan "10080 MINUTES"); sisanya ditampilkan sebagai menit apa adanya.
+function formatDurationLabel(opt) {
+  if (opt.durationMinutes != null) {
+    const mins = Number(opt.durationMinutes) || 0;
+    if (mins > 0 && mins % 1440 === 0) return `${mins / 1440} DAYS`;
+    return `${mins} MINUTES`;
+  }
+  return `${opt.days} DAYS`; // legacy, opsi lama tanpa durationMinutes
+}
+
+// Parse string `duration` yang dikirim dari frontend saat checkout --
+// bisa berupa label lengkap ("PRODUK 30 DAYS", "PRODUK 180 MINUTES")
+// atau angka mentah tanpa satuan ("30", yang berarti HARI demi
+// kompatibilitas dengan pengiriman lama). SELALU return dalam basis
+// MENIT. Dipakai di app.post('/create-order') menggantikan ekstraksi
+// "angka pertama" polos yang salah kaprah kalau labelnya "MINUTES".
+function parseDurationLabelToMinutes(duration) {
+  if (duration == null) return null;
+  const str = String(duration).trim();
+
+  const withUnit = str.match(/(\d+)\s*(DAYS?|HOURS?|MINUTES?)/i);
+  if (withUnit) {
+    const value = parseInt(withUnit[1], 10);
+    const unitWord = withUnit[2].toUpperCase();
+    const unit = unitWord.startsWith('MIN') ? 'minutes' : unitWord.startsWith('HOUR') ? 'hours' : 'days';
+    return durationToMinutes(value, unit);
+  }
+
+  // Tidak ada kata satuan sama sekali -- fallback ekstrak angka mentah,
+  // dianggap HARI (perilaku lama, dipertahankan untuk kompatibilitas
+  // pengiriman `duration` sebagai angka polos seperti "30").
+  const plain = str.match(/(\d+)/);
+  return plain ? durationToMinutes(parseInt(plain[1], 10), 'days') : null;
+}
+
 async function computeProductCardStock(settings, product) {
+
   const opts = Array.isArray(product.pricingOptions) && product.pricingOptions.length > 0
     ? product.pricingOptions
     : [{ days: null, stockSource: product.stockMode === 'auto' ? 'auto' : 'manual' }];
@@ -109,8 +191,9 @@ async function computeProductCardStock(settings, product) {
       // -- fallback aman, jangan salah tampil "Habis" karena masalah sementara.
       if (realStock.stockMode !== 'limited' || realStock.stock > 0) anyAvailable = true;
     } else {
-      const dayKeys = opt.days
-        ? keys.filter(k => { const parts = k.split(':'); return parts.length > 1 && parseInt(parts[parts.length - 1]) === opt.days; })
+      const optMinutes = getOptionDurationMinutes(opt);
+      const dayKeys = optMinutes > 0
+        ? keys.filter(k => { const parts = k.split(':'); return parts.length > 1 && parseKeyDurationMinutes(parts[parts.length - 1]) === optMinutes; })
         : [];
       const genericCount = keys.filter(k => !k.includes(':')).length;
       const count = dayKeys.length > 0 ? dayKeys.length : genericCount;
@@ -1999,30 +2082,43 @@ app.get('/buy/:id', async (req, res) => {
   const genericKeys = allKeys.filter(k => !k.includes(':'));
   if (product.items) {
     product.items = product.items.map(item => {
-      const m = (item.l || '').match(/(\d+)\s+DAYS/i);
-      const days = m ? parseInt(m[1]) : null;
+      // Parse label "X DAYS" / "X HOURS" / "X MINUTES" jadi total menit --
+      // basis yang sama dengan getOptionDurationMinutes/parseKeyDurationMinutes,
+      // supaya varian jam/menit bisa dicocokkan dengan benar (bukan cuma
+      // asumsi semua label pasti "DAYS" seperti sebelumnya).
+      const m = (item.l || '').match(/(\d+)\s+(DAYS?|HOURS?|MINUTES?)/i);
+      const labelValue = m ? parseInt(m[1]) : null;
+      const labelUnitWord = m ? m[2].toUpperCase() : null;
+      const labelMinutes = labelValue == null ? null : durationToMinutes(
+        labelValue,
+        labelUnitWord.startsWith('MIN') ? 'minutes' : labelUnitWord.startsWith('HOUR') ? 'hours' : 'days'
+      );
       // BUG FIX: varian dengan stockSource 'auto' (Reseller API, unlimited
       // di provider) tidak pakai product.keys sama sekali -- sebelumnya
       // selalu kehitung stok=0 (disabled di halaman beli) walau kredensial
       // & mapping API sudah benar. Cek stockSource per-varian dulu (fallback
       // ke stockMode top-level untuk produk lama, sama seperti
       // resolveStockSourceForDays di allocateKeyAndCompleteTransaction).
-      const matchedOptForStock = days ? (product.pricingOptions || []).find(o => o.days === days) : null;
+      const matchedOptForStock = labelMinutes != null
+        ? (product.pricingOptions || []).find(o => getOptionDurationMinutes(o) === labelMinutes)
+        : null;
       const variantStockSource = matchedOptForStock?.stockSource || (product.stockMode === 'auto' ? 'auto' : 'manual');
       let stok;
       if (variantStockSource === 'auto') {
         stok = Infinity;
-      } else if (days) {
+      } else if (labelMinutes != null) {
         const tagged = allKeys.filter(k => {
           const parts = k.split(':');
-          return parts.length > 1 && parseInt(parts[parts.length - 1]) === days;
+          return parts.length > 1 && parseKeyDurationMinutes(parts[parts.length - 1]) === labelMinutes;
         }).length;
         stok = tagged > 0 ? tagged : genericKeys.length;
       } else {
         stok = genericKeys.length;
       }
       // Harga reseller: pakai harga custom per-paket kalau admin sudah set, kalau belum fallback ke diskon global
-      const matchedOpt = days ? (product.pricingOptions || []).find(o => o.days === days) : null;
+      const matchedOpt = labelMinutes != null
+        ? (product.pricingOptions || []).find(o => getOptionDurationMinutes(o) === labelMinutes)
+        : null;
       const customResellerPrice = matchedOpt && matchedOpt.resellerPrice !== undefined ? matchedOpt.resellerPrice : null;
       return {
         ...item,
@@ -2062,29 +2158,40 @@ app.post('/create-order', requireAuth, async (req, res) => {
     // selectedDays diketahui (lihat resolveStockSourceForDays).
 
     // Support pricingOptions (deem style: {days,price}) dan items (lama: {l,p})
+    // CATATAN PENTING: variabel `selectedDays` di bawah ini (dan di seluruh
+    // fungsi turunannya seperti resolveStockSourceForDays, generateAutoKey,
+    // allocateKeyAndCompleteTransaction) SEKARANG BERISI MENIT, bukan hari
+    // -- nama variabel/field dipertahankan "selectedDays" demi kompatibilitas
+    // dengan data transaksi lama di database, tapi maknanya sudah berubah
+    // sejak fitur durasi menit/jam ditambahkan. Lihat getOptionDurationMinutes
+    // & parseKeyDurationMinutes untuk basis konversinya.
     let price = 0, selectedDays = null;
     if (product.pricingOptions?.length) {
-      // duration bisa berupa label teks ("PRODUK 30 DAYS") atau angka ("30")
-      // Coba match by label dulu via items, lalu fallback ke ekstrak angka
+      // duration bisa berupa label teks ("PRODUK 30 DAYS" / "PRODUK 180
+      // MINUTES") atau angka mentah ("30"). Coba match by label dulu via
+      // items, lalu fallback ke ekstrak angka+satuan dari teks label --
+      // JANGAN sekadar ambil "angka pertama" dari string, karena itu akan
+      // salah kaprah menganggap "180 MINUTES" sebagai "180 hari".
       let opt = null;
       const itemMatch = product.items?.find(i => i.l === duration || i.l.includes(duration));
       if (itemMatch) {
         // Cari pricingOptions yang cocok dengan price dari items
         opt = product.pricingOptions.find(o => o.price === itemMatch.p);
-        if (!opt) { price = itemMatch.p; const m = duration.match(/(\d+)/); selectedDays = m ? parseInt(m[1]) : null; }
-        else { price = opt.price; selectedDays = opt.days; }
+        if (!opt) { price = itemMatch.p; selectedDays = parseDurationLabelToMinutes(duration); }
+        else { price = opt.price; selectedDays = getOptionDurationMinutes(opt); }
       } else {
-        // Fallback: parseInt langsung (untuk case duration dikirim sebagai angka)
-        const days = parseInt(duration);
-        opt = product.pricingOptions.find(o => o.days === days);
+        // Fallback: duration dikirim sebagai angka/label mentah tanpa match
+        // ke items -- parse dengan parser yang sama (sadar satuan).
+        const parsedMinutes = parseDurationLabelToMinutes(duration);
+        opt = parsedMinutes != null ? product.pricingOptions.find(o => getOptionDurationMinutes(o) === parsedMinutes) : null;
         if (!opt) return res.json({ success: false, message: 'Durasi tidak valid' });
-        price = opt.price; selectedDays = days;
+        price = opt.price; selectedDays = parsedMinutes;
       }
     } else {
       const opt = product.items?.find(i => i.l.includes(duration));
       if (!opt) return res.json({ success: false, message: 'Durasi tidak valid' });
       price = opt.p;
-      const m = duration.match(/(\d+)/); selectedDays = m ? parseInt(m[1]) : null;
+      selectedDays = parseDurationLabelToMinutes(duration);
     }
 
     // Pengecekan stok yang benar: cek sumber stok VARIAN yang dipilih.
@@ -2100,7 +2207,7 @@ app.post('/create-order', requireAuth, async (req, res) => {
     // Terapkan harga reseller: pakai harga custom per-paket kalau admin sudah set, kalau belum fallback ke diskon global
     const orderUser = getSessionUser(req);
     if (orderUser?.is_reseller) {
-      const matchedOpt = selectedDays ? product.pricingOptions?.find(o => o.days === selectedDays) : null;
+      const matchedOpt = selectedDays ? product.pricingOptions?.find(o => getOptionDurationMinutes(o) === selectedDays) : null;
       if (matchedOpt && matchedOpt.resellerPrice !== undefined) {
         price = matchedOpt.resellerPrice;
       } else {
@@ -2279,9 +2386,15 @@ app.post('/create-order', requireAuth, async (req, res) => {
 //   1. pricingOptions[i].stockSource -- per-varian eksplisit.
 //   2. Fallback ke product.stockMode top-level (produk lama / belum
 //      dimigrasi ke skema per-varian).
-function resolveStockSourceForDays(product, selectedDays) {
-  if (selectedDays && Array.isArray(product.pricingOptions)) {
-    const opt = product.pricingOptions.find(o => o.days === selectedDays);
+// NAMA PARAMETER: `selectedMinutes` -- ini SELALU dalam basis MENIT
+// (bukan hari), termasuk untuk produk lama yang durasinya dalam hari
+// (dikonversi x1440 sebelum sampai ke sini). Field yang tersimpan di
+// database transaksi tetap bernama `selectedDays` (demi kompatibilitas
+// dengan data transaksi lama), tapi ISINYA sekarang menit -- lihat
+// pemanggil fungsi ini di app.post('/create-order', ...).
+function resolveStockSourceForDays(product, selectedMinutes) {
+  if (selectedMinutes && Array.isArray(product.pricingOptions)) {
+    const opt = product.pricingOptions.find(o => getOptionDurationMinutes(o) === selectedMinutes);
     if (opt && opt.stockSource) return opt.stockSource;
     // BUG FIX: kalau opt ketemu tapi stockSource-nya kosong/undefined (produk
     // lama sebelum field ini ada, atau data korup), JANGAN langsung jatuh ke
@@ -2536,11 +2649,19 @@ const allocateKeyAndCompleteTransaction = async (transaction, transactions) => {
       allocationError = genResult.error || 'Gagal generate key dari Reseller API';
     }
   } else if (product?.keys?.length > 0) {
-    const days = transaction.selectedDays;
-    if (days) {
+    // `transaction.selectedDays` SEKARANG BERISI MENIT (lihat catatan di
+    // app.post('/create-order')) -- matching key manual WAJIB pakai
+    // parseKeyDurationMinutes (paham suffix 'm'/'h'/'d', dan tanpa suffix
+    // = hari legacy), BUKAN parseInt polos. parseInt("7") kebetulan valid
+    // secara sintaks tapi SALAH SECARA MAKNA di sini: "7" berarti 7 HARI
+    // (10080 menit), bukan 7 menit -- parseInt polos akan gagal match
+    // total untuk semua key lama format "KEY:7" kalau dibandingkan
+    // langsung ke basis menit tanpa konversi.
+    const selectedMinutes = transaction.selectedDays;
+    if (selectedMinutes) {
       const idx = product.keys.findIndex(k => {
         const parts = k.split(':');
-        return parts.length > 1 && parseInt(parts[parts.length - 1]) === days;
+        return parts.length > 1 && parseKeyDurationMinutes(parts[parts.length - 1]) === selectedMinutes;
       });
       if (idx !== -1) { key = product.keys.splice(idx, 1)[0].split(':')[0]; }
     }
@@ -3349,7 +3470,7 @@ app.post('/admin/product/add', requireAdmin, (req, res, next) => {
     // kosong (auto-match by nama produk + hari akan jalan otomatis saat checkout).
     const resolvedStockMode = stockMode === 'manual' ? 'manual' : 'auto';
     pricingOptions.forEach(o => { o.stockSource = resolvedStockMode; o.resellerItemId = null; });
-    const items=pricingOptions.map(o=>({l:`${name.toUpperCase()} ${o.days} DAYS`,p:o.price}));
+    const items=pricingOptions.map(o=>({l:`${name.toUpperCase()} ${formatDurationLabel(o)}`,p:o.price}));
     const newProduct={id:uuidv4(),name,category:category||'freefire',description:description||'',image,pricingOptions,items,status:status==='inactive'?'inactive':'active',keys:keyArray,sold:0,createdAt:new Date().toISOString(),stockMode:resolvedStockMode,downloadLink:downloadLink?.trim()||''};
     products.push(newProduct);await writeDB('products.json',products);
     res.json({success:true,product:newProduct});
@@ -3387,7 +3508,7 @@ app.post('/admin/product/edit/:id', requireAdmin, (req, res, next) => {
           if (old && old.resellerPrice !== undefined) o.resellerPrice = Math.min(old.resellerPrice, o.price);
         });
         product.pricingOptions = opts;
-        product.items = opts.map(o => ({ l: `${product.name.toUpperCase()} ${o.days} DAYS`, p: o.price }));
+        product.items = opts.map(o => ({ l: `${product.name.toUpperCase()} ${formatDurationLabel(o)}`, p: o.price }));
       }
     }
     if (keys !== undefined && keys !== null) {
@@ -3500,11 +3621,20 @@ app.post('/admin/product/:id', requireAdmin, async (req, res) => {
       const oldOpts = product.pricingOptions || [];
       const validOpts = pricingOptionsInput
         .map(o => {
-          const days = parseInt(o.days);
+          // durationMinutes adalah field UTAMA (dari form admin baru yang
+          // sudah disederhanakan jadi 1 kolom angka menit). `days` tetap
+          // dihitung & disimpan sebagai TURUNAN (dibulatkan ke atas) untuk
+          // kompatibilitas dengan bagian kode lain yang mungkin masih baca
+          // field `days` langsung -- BUKAN sumber kebenaran utama lagi.
+          const durationMinutes = o.durationMinutes != null ? parseInt(o.durationMinutes) : null;
+          const days = durationMinutes != null ? Math.max(1, Math.ceil(durationMinutes / 1440)) : parseInt(o.days);
           const price = parseInt(o.price);
-          const old = oldOpts.find(x => x.days === days);
+          const old = durationMinutes != null
+            ? oldOpts.find(x => getOptionDurationMinutes(x) === durationMinutes)
+            : oldOpts.find(x => x.days === days);
           const opt = {
             days, price,
+            ...(durationMinutes != null ? { durationMinutes } : {}),
             stockSource: o.stockSource === 'manual' ? 'manual' : 'auto',
             // FIX: resellerItemId dulu selalu di-parseInt() -- ini merusak ID
             // dari sistem multi-provider yang berbentuk string "mp:providerId:productId"
@@ -3514,14 +3644,14 @@ app.post('/admin/product/:id', requireAdmin, async (req, res) => {
             // di titik pemakaian (resolveItemId/generateAutoKey), bukan di sini.
             resellerItemId: (o.stockSource !== 'manual' && o.resellerItemId) ? String(o.resellerItemId) : null
           };
-          // Pertahankan harga reseller custom (per paket, match by days) biar gak ke-reset waktu admin ubah harga normal
+          // Pertahankan harga reseller custom (per paket, match by durasi) biar gak ke-reset waktu admin ubah harga normal
           if (old && old.resellerPrice !== undefined) opt.resellerPrice = Math.min(old.resellerPrice, price);
           return opt;
         })
         .filter(o => o.days > 0 && o.price >= 0);
       if (validOpts.length) {
         product.pricingOptions = validOpts;
-        product.items = validOpts.map(o => ({ l: `${product.name.toUpperCase()} ${o.days} DAYS`, p: o.price }));
+        product.items = validOpts.map(o => ({ l: `${product.name.toUpperCase()} ${formatDurationLabel(o)}`, p: o.price }));
       }
     } else if (pricingDays) {
       // Skema LAMA (parallel array pricingDays/pricingPrices) -- tetap
@@ -3538,7 +3668,7 @@ app.post('/admin/product/:id', requireAdmin, async (req, res) => {
           o.resellerItemId = old?.resellerItemId || null;
         });
         product.pricingOptions = opts;
-        product.items = opts.map(o => ({ l: `${product.name.toUpperCase()} ${o.days} DAYS`, p: o.price }));
+        product.items = opts.map(o => ({ l: `${product.name.toUpperCase()} ${formatDurationLabel(o)}`, p: o.price }));
       }
     }
 
@@ -3582,8 +3712,16 @@ app.post('/admin/product/reseller-price/:id', requireAdmin, async (req, res) => 
     if (!Array.isArray(product.pricingOptions)) return res.json({ success: false, message: 'Produk belum punya paket harga' });
 
     for (const entry of entries) {
+      // Dukung entry berbasis durationMinutes (form baru) maupun days
+      // (form lama) -- durationMinutes diprioritaskan kalau ada, karena
+      // matching by `days` saja bisa ambigu antara 2 opsi berbeda yang
+      // kebetulan sama-sama dibulatkan ke hari yang sama (mis. opsi 3 jam
+      // dan opsi 1 hari bisa sama-sama punya days=1 setelah pembulatan).
+      const entryMinutes = entry.durationMinutes != null ? parseInt(entry.durationMinutes) : null;
       const days = parseInt(entry.days);
-      const opt = product.pricingOptions.find(o => o.days === days);
+      const opt = entryMinutes != null
+        ? product.pricingOptions.find(o => getOptionDurationMinutes(o) === entryMinutes)
+        : product.pricingOptions.find(o => o.days === days);
       if (!opt) continue;
       if (entry.resellerPrice === null || entry.resellerPrice === '' || entry.resellerPrice === undefined) {
         delete opt.resellerPrice;
@@ -4593,6 +4731,13 @@ app.get('/api/reseller/products', partnerAuth, async (req, res) => {
         // terbatas dari sisi HeroMarket (provider yang punya stok), jadi
         // ditandai unlimited supaya partner tidak salah kira produk habis.
         items: (p.pricingOptions || []).map(o => ({
+          // CATATAN: sama seperti /api/reseller/order, Partner API ini
+          // kontraknya publik berbasis `days` murni -- varian durasi jam/
+          // menit (yang `days`-nya cuma hasil pembulatan) akan tampil stok
+          // 0 di sini secara sengaja (endsWith(':'+days) tidak akan match
+          // key berformat "180m"), BUKAN bug -- partner memang belum bisa
+          // akses varian jam lewat API ini, konsisten dengan guard di
+          // /api/reseller/order.
           days: o.days,
           price: o.resellerPrice !== undefined ? o.resellerPrice : o.price,
           stockMode: o.stockSource === 'manual' ? 'limited' : 'unlimited',
@@ -4626,8 +4771,33 @@ app.post('/api/reseller/order', partnerAuth, async (req, res) => {
     const product = products.find(p => p.id === productId && p.status === 'active');
     if (!product) return res.status(404).json({ success: false, code: 'PRODUCT_NOT_FOUND', message: 'Produk tidak ditemukan atau nonaktif' });
 
+    // CATATAN: Partner API ini kontraknya PUBLIK & terdokumentasi
+    // (PARTNER_API_DOCS.md) sebagai `days` = angka hari murni -- SENGAJA
+    // TIDAK diubah ke basis menit seperti bagian internal lain, supaya
+    // tidak merusak integrasi partner luar yang sudah pakai API ini.
+    // Konsekuensinya: varian durasi JAM/MENIT (durationMinutes yang tidak
+    // habis dibagi 1440) TIDAK BISA dipesan lewat Partner API ini untuk
+    // saat ini -- hanya varian durasi hari genap yang bisa. Kalau nanti
+    // partner butuh akses ke varian jam, PARTNER_API_DOCS.md perlu
+    // diupdate dengan field baru (mis. durationMinutes) sebagai
+    // penambahan yang backward-compatible, bukan mengubah field `days`.
     const opt = (product.pricingOptions || []).find(o => o.days === parseInt(days));
     if (!opt) return res.status(400).json({ success: false, code: 'INVALID_DAYS', message: 'Varian hari tidak ditemukan untuk produk ini' });
+
+    // GUARD PENTING: `opt.days` untuk varian durasi JAM/MENIT adalah hasil
+    // PEMBULATAN KE ATAS (mis. 3 jam -> days=1), BUKAN representasi asli.
+    // Tanpa guard ini, partner yang order `days:1` bisa salah dapat
+    // "varian 1 hari" padahal yang match sebenarnya varian 3 jam --
+    // partner jelas rugi (dapat jauh lebih sedikit dari yang dibayar).
+    // Tolak secara eksplisit kalau opt yang match ternyata bukan durasi
+    // hari genap (durationMinutes ada dan tidak habis dibagi 1440).
+    if (opt.durationMinutes != null && opt.durationMinutes % 1440 !== 0) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_DAYS',
+        message: 'Varian hari tidak ditemukan untuk produk ini (varian yang tersedia berdurasi jam/menit, belum didukung oleh Partner API versi ini)',
+      });
+    }
 
     const unitPrice = opt.resellerPrice !== undefined ? opt.resellerPrice : opt.price;
     const totalPrice = unitPrice * qty;
@@ -4954,11 +5124,15 @@ app.post('/admin/transaction/confirm/:id', requireAdmin, async (req, res) => {
         return res.json({ success: false, message: transaction.failReason });
       }
     } else if (product?.keys?.length > 0) {
-      const days = transaction.selectedDays;
-      if (days) {
+      // Sama seperti allocateKeyAndCompleteTransaction: selectedDays
+      // sekarang berbasis MENIT, wajib pakai parseKeyDurationMinutes
+      // (bukan parseInt polos) supaya key format lama "KEY:7" (7 hari)
+      // maupun baru "KEY:180m" (180 menit) sama-sama match dengan benar.
+      const selectedMinutes = transaction.selectedDays;
+      if (selectedMinutes) {
         const idx = product.keys.findIndex(k => {
           const parts = k.split(':');
-          return parts.length > 1 && parseInt(parts[parts.length - 1]) === days;
+          return parts.length > 1 && parseKeyDurationMinutes(parts[parts.length - 1]) === selectedMinutes;
         });
         if (idx !== -1) { key = product.keys.splice(idx, 1)[0].split(':')[0]; }
       }

@@ -31,6 +31,16 @@ const https = require('https');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 
+// Duplikasi kecil (sengaja, bukan lupa) dari helper yang sama di server.js
+// -- reseller-api.js adalah module Node terpisah (require('./reseller-api')),
+// tidak share scope function dengan server.js, jadi helper konversi durasi
+// perlu didefinisikan ulang di sini. Kalau basis konversinya berubah,
+// WAJIB diubah di KEDUA tempat (server.js dan file ini) secara bersamaan.
+function getOptionDurationMinutes(opt) {
+  if (opt.durationMinutes != null) return Number(opt.durationMinutes) || 0;
+  return (Number(opt.days) || 0) * 1440;
+}
+
 const DEFAULT_BASE_URL = 'https://vipibmstore.com/api/reseller';
 const REQUEST_TIMEOUT_MS = 25000;
 
@@ -261,8 +271,14 @@ function findAutoMatch(providerProducts, productName, days) {
 async function resolveItemId(settings, product, selectedDays) {
   // 1. Mapping manual per-varian -- prioritas tertinggi, tidak pernah
   //    ditimpa auto-match.
+  // CATATAN: `selectedDays` di sini SEBENARNYA BERISI MENIT (nama
+  // parameter dipertahankan demi jejak historis pemanggilan dari
+  // server.js, lihat catatan di app.post('/create-order') pada
+  // server.js) -- matching WAJIB pakai getOptionDurationMinutes, bukan
+  // o.days langsung, supaya varian durasi jam/menit ikut ter-resolve
+  // dengan benar, bukan cuma varian hari genap.
   if (selectedDays && Array.isArray(product.pricingOptions)) {
-    const opt = product.pricingOptions.find(o => o.days === selectedDays);
+    const opt = product.pricingOptions.find(o => getOptionDurationMinutes(o) === selectedDays);
     if (opt && opt.resellerItemId) {
       return { itemId: opt.resellerItemId, source: 'manual_variant' };
     }
