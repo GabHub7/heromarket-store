@@ -225,9 +225,9 @@ const pageTitle = 'Edit Produk';
         </div>
       </div>
       <textarea id="keysInput" class="hm-input font-mono text-xs resize-none" rows="6"
-        placeholder="Masukkan keys, satu per baris&#10;Contoh:&#10;FF7HARI-001:7&#10;FF3JAM-001:180m&#10;FF7JAM-001:420m"></textarea>
+        placeholder="Masukkan keys, satu per baris&#10;Contoh:&#10;FF7HARI-001:7hari&#10;FF3JAM-001:3jam&#10;FF7JAM-001:420m"></textarea>
       <p class="text-[10px] text-zinc-600 mt-1.5">
-        Format tag durasi: <code class="text-indigo-400">KEY:ANGKA</code> = hari (seperti biasa, tidak berubah), atau <code class="text-indigo-400">KEY:ANGKAm</code> = menit untuk durasi kurang dari 1 hari (misal <code class="text-indigo-400">FF3JAM-001:180m</code> untuk 3 jam = 180 menit). <strong class="text-amber-400">Key lama format <code class="text-amber-400">KEY:7</code> (7 hari) tidak perlu diubah</strong> -- tetap terbaca benar seperti sebelumnya.
+        Format tag durasi -- boleh ketik langsung kata biasa: <code class="text-indigo-400">KEY:1hari</code>, <code class="text-indigo-400">KEY:3jam</code>, atau <code class="text-indigo-400">KEY:90menit</code>. Kode singkat lama <code class="text-indigo-400">KEY:7d</code> / <code class="text-indigo-400">KEY:180m</code> / <code class="text-indigo-400">KEY:12h</code> juga masih jalan. <strong class="text-amber-400">Angka polos tanpa kata di belakang (mis. <code class="text-amber-400">KEY:7</code>) tetap dibaca HARI</strong> -- key lama tidak perlu diubah.
       </p>
     </div>
 
@@ -367,8 +367,9 @@ function renderPricingRows() {
     <div class="flex flex-col gap-2 p-3 rounded-xl relative" style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2)">
       <div class="flex gap-2 items-center">
         <div class="flex-1 flex gap-2">
-          <input type="number" class="hm-input text-xs" style="flex:1.3" value="${opt.durationMinutes}" min="1" placeholder="Durasi (menit)"
-            oninput="pricingOptions[${i}].durationMinutes=parseInt(this.value)||0; updateDurationHint(${i})">
+          <input type="text" class="hm-input text-xs" style="flex:1.3" value="${formatDurationInputValue(opt.durationMinutes)}" placeholder="1hari / 6jam / 90"
+            oninput="pricingOptions[${i}].durationMinutes=parseDurationInput(this.value); updateDurationHint(${i})"
+            onblur="this.value=formatDurationInputValue(pricingOptions[${i}].durationMinutes)">
           <input type="number" class="hm-input text-xs" style="flex:1" value="${opt.price}" min="0" placeholder="Harga (Rp)"
             oninput="pricingOptions[${i}].price=parseInt(this.value)||0">
         </div>
@@ -563,9 +564,41 @@ function setRowStockSource(i, mode) {
   renderPricingRows();
 }
 
+// Input "Durasi" sekarang boleh diketik langsung dalam format manusiawi
+// ("1hari", "6jam", "90m") -- bukan cuma angka menit mentah. Ini SENGAJA
+// dibuat sama persis logikanya dengan parseKeyDurationMinutes() di
+// server.js, supaya "1hari" di kolom Durasi dan "KEY:1hari" di kolom
+// Keys selalu diartikan sama (1440 menit) -- tidak ada lagi kasus kayak
+// bug lama: admin ngetik "1hari" tapi yang tersimpan malah "1440 hari".
+// Angka polos tanpa suffix TETAP berarti MENIT (konsisten dengan
+// perilaku field ini sebelumnya, supaya data lama yang sudah tersimpan
+// dalam angka menit mentah tidak berubah artinya).
+function parseDurationInput(raw) {
+  const str = String(raw).trim().toLowerCase().replace(/\s+/g, '');
+  if (!str) return 0;
+  const m = str.match(/^(\d+(?:\.\d+)?)(menit|minutes?|min|jam|hours?|hr|hari|days?|d|h|m)?$/i);
+  if (!m) return parseInt(str) || 0; // input aneh -- coba ambil angka di depan, kalau tidak ada 0
+  const value = parseFloat(m[1]);
+  const unit = (m[2] || 'menit').toLowerCase();
+  if (/^(jam|hours?|hr|h)$/.test(unit)) return Math.round(value * 60);
+  if (/^(hari|days?|d)$/.test(unit)) return Math.round(value * 1440);
+  return Math.round(value); // menit/minutes/min/m atau tanpa suffix
+}
+
+// Tampilkan angka menit tersimpan sebagai teks yang enak dibaca & diedit
+// ulang di dalam input itu sendiri (bukan cuma di hint di bawahnya) --
+// kelipatan hari/jam genap ditulis "Xhari"/"Xjam", sisanya tetap angka
+// menit polos (konsisten dgn "angka polos = menit").
+function formatDurationInputValue(minutes) {
+  const m = parseInt(minutes) || 0;
+  if (m <= 0) return '';
+  if (m % 1440 === 0) return `${m / 1440}hari`;
+  if (m % 60 === 0) return `${m / 60}jam`;
+  return `${m}`;
+}
+
 // Hint konversi durasi menit -> teks yang mudah dibaca (dipakai di bawah
-// input "Durasi (menit)" supaya admin tidak perlu hitung mental sendiri
-// -- input tetap 1 angka menit polos, ini cuma tampilan bantu-baca.
+// input Durasi supaya admin tidak perlu hitung mental sendiri).
 function formatDurationHint(minutes) {
   const m = parseInt(minutes) || 0;
   if (m <= 0) return '';
@@ -582,7 +615,7 @@ function updateDurationHint(i) {
 }
 
 function addPricingRow(durationMinutes = '', price = '', stockSource = 'auto', resellerItemId = null) {
-  pricingOptions.push({ durationMinutes: durationMinutes ? parseInt(durationMinutes) : 0, price: price ? parseInt(price) : 0, stockSource, resellerItemId });
+  pricingOptions.push({ durationMinutes: durationMinutes ? parseDurationInput(durationMinutes) : 0, price: price ? parseInt(price) : 0, stockSource, resellerItemId });
   renderPricingRows();
 }
 
