@@ -166,14 +166,24 @@ function parseKeyDurationMinutes(rawTag) {
 }
 
 // Label durasi yang ditampilkan ke customer di product.items[].l (mis.
-// "PRODUK 7 DAYS", "PRODUK 180 MINUTES") -- dipakai di SEMUA tempat yang
+// "PRODUK 7 DAYS", "PRODUK 6 HOURS") -- dipakai di SEMUA tempat yang
 // men-generate items dari pricingOptions. Durasi genap hari (kelipatan
-// 1440 menit) ditampilkan sebagai "X DAYS" biar rapi dibaca customer
-// (bukan "10080 MINUTES"); sisanya ditampilkan sebagai menit apa adanya.
+// 1440 menit) ditampilkan sebagai "X DAYS", genap jam (kelipatan 60
+// menit, tapi bukan genap hari) sebagai "X HOURS", sisanya sebagai
+// menit apa adanya.
+//
+// BUG YANG DIBENERIN: sebelumnya fungsi ini cuma punya cabang DAYS &
+// MINUTES -- padahal parseDurationLabelToMinutes() di bawah ini SUDAH
+// lama bisa mem-parse "X HOURS" balik ke menit. Akibatnya paket macam
+// "6 jam"/"7 jam" (durationMinutes 360/420, bukan kelipatan 1440) selalu
+// jatuh ke cabang MINUTES mentah -- customer lihat "360 MINUTES"/
+// "420 MINUTES" di halaman beli, bukan "6 HOURS"/"7 HOURS", meskipun
+// admin sudah mengetik "6jam"/"7jam" dengan benar di form durasi.
 function formatDurationLabel(opt) {
   if (opt.durationMinutes != null) {
     const mins = Number(opt.durationMinutes) || 0;
     if (mins > 0 && mins % 1440 === 0) return `${mins / 1440} DAYS`;
+    if (mins > 0 && mins % 60 === 0) return `${mins / 60} HOURS`;
     return `${mins} MINUTES`;
   }
   return `${opt.days} DAYS`; // legacy, opsi lama tanpa durationMinutes
@@ -202,6 +212,167 @@ function parseDurationLabelToMinutes(duration) {
   // pengiriman `duration` sebagai angka polos seperti "30").
   const plain = str.match(/(\d+)/);
   return plain ? durationToMinutes(parseInt(plain[1], 10), 'days') : null;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// KOIN CASHBACK — ledger FIFO per-lot.
+//
+// Desain: saldo koin TIDAK di-cache di user.coinBalance -- selalu
+// dihitung ulang dari ledger (cointransactions.json), sesuai saran spec
+// section 6 ("saldo sebaiknya dihitung dari ledger"). Setiap entry
+// 'earn' adalah 1 "lot" dengan expiresAt sendiri dan field `remaining`
+// (sisa yang belum dipakai/expired dari lot itu). Redeem & expire
+// mengurangi `remaining` lot, BUKAN menghapus/menimpa nilai lama --
+// histori penuh tetap tersimpan (spec section 5 & 17).
+//
+// Konkurensi: pakai lock in-memory `processingOrders` (Set yang sudah
+// ada di file ini utk saldo Rp) dengan prefix 'coin-'+userId, pola
+// identik dengan lock saldo reseller di app.post('/create-order').
+// ══════════════════════════════════════════════════════════════════
+
+function getCoinSettings(settings) {
+  const c = settings?.coin || {};
+  return {
+    enabled: c.enabled !== false,
+    cashbackPercent: typeof c.cashbackPercent === 'number' ? c.cashbackPercent : 5,
+    maxUsagePercent: typeof c.maxUsagePercent === 'number' ? c.maxUsagePercent : 30,
+    minOrder: typeof c.minOrder === 'number' ? c.minOrder : 20000,
+    expirationMonths: typeof c.expirationMonths === 'number' ? c.expirationMonths : 6
+  };
+}
+
+// Sweep lot 'earn' milik userId yang sudah lewat expiresAt: tulis entry
+// 'expire' baru (amount negatif = sisa lot yang hangus) lalu nolkan
+// `remaining` lot tsb. Mutasi ledger in-place; return true kalau ada
+// perubahan (caller wajib writeDB kalau true).
+function sweepExpiredCoinLots(ledger, userId, now = Date.now()) {
+  let changed = false;
+  for (const entry of ledger) {
+    if (entry.userId !== userId || entry.type !== 'earn') continue;
+    if (!entry.expiresAt) continue; // null expiresAt = tidak pernah expired
+    if ((entry.remaining || 0) <= 0) continue;
+    if (new Date(entry.expiresAt).getTime() > now) continue;
+    const hangus = entry.remaining;
+    entry.remaining = 0;
+    ledger.push({
+      id: uuidv4(), userId, type: 'expire', amount: -hangus,
+      referenceType: 'coin_lot', referenceId: entry.id,
+      description: `Koin kedaluwarsa (dari ${entry.description || 'cashback'})`,
+      expiresAt: null, createdAt: new Date(now).toISOString()
+    });
+    changed = true;
+  }
+  return changed;
+}
+
+// Saldo aktif = jumlah `remaining` semua lot 'earn' milik user (lot yang
+// sudah expired remaining-nya sudah 0 lewat sweep di atas).
+function getUserCoinBalance(ledger, userId) {
+  return ledger.reduce((sum, e) => (e.userId === userId && e.type === 'earn') ? sum + (e.remaining || 0) : sum, 0);
+}
+
+// Baca ledger fresh + sweep expired, simpan kalau berubah. Dipakai di
+// titik-titik yang butuh saldo akurat (checkout, tampilan saldo).
+async function readCoinLedgerFresh(userId) {
+  const ledger = await readFresh('cointransactions.json');
+  if (sweepExpiredCoinLots(ledger, userId)) await writeDB('cointransactions.json', ledger);
+  return ledger;
+}
+
+// Tambah koin (cashback/adjustment/refund pembalikan). Bukan operasi
+// yang butuh cek saldo, jadi tidak wajib lock -- tapi tetap dipanggil
+// dari dalam lock 'coin-'+userId oleh caller supaya konsisten dgn baca
+// ledger yang sama (hindari lost-update kalau race dengan redeem).
+async function earnCoins(ledger, userId, amount, { referenceType, referenceId, description, expirationMonths }) {
+  if (amount <= 0) return;
+  const now = new Date();
+  let expiresAt = null;
+  if (expirationMonths && expirationMonths > 0) {
+    const exp = new Date(now); exp.setMonth(exp.getMonth() + expirationMonths);
+    expiresAt = exp.toISOString();
+  }
+  ledger.push({
+    id: uuidv4(), userId, type: 'earn', amount, remaining: amount,
+    referenceType, referenceId, description, expiresAt, createdAt: now.toISOString()
+  });
+}
+
+// Redeem (pakai) koin secara FIFO dari lot tertua yang belum expired.
+// Return { ok, deducted, balanceAfter } -- `deducted` bisa lebih kecil
+// dari `amount` diminta kalau caller memang sudah membatasi amount
+// sesuai saldo (checkout selalu memanggil dgn amount <= saldo aktual,
+// dihitung tepat sebelum ini, di dalam lock yang sama).
+function redeemCoinsFromLedger(ledger, userId, amount, { referenceType, referenceId, description }) {
+  if (amount <= 0) return { ok: true, deducted: 0 };
+  const balance = getUserCoinBalance(ledger, userId);
+  if (balance < amount) return { ok: false, error: 'Saldo koin tidak cukup', balance };
+  let remainingToDeduct = amount;
+  const lots = ledger
+    .filter(e => e.userId === userId && e.type === 'earn' && (e.remaining || 0) > 0)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  for (const lot of lots) {
+    if (remainingToDeduct <= 0) break;
+    const take = Math.min(lot.remaining, remainingToDeduct);
+    lot.remaining -= take;
+    remainingToDeduct -= take;
+  }
+  ledger.push({
+    id: uuidv4(), userId, type: 'redeem', amount: -amount,
+    referenceType, referenceId, description, expiresAt: null, createdAt: new Date().toISOString()
+  });
+  return { ok: true, deducted: amount, balance: balance - amount };
+}
+
+// Kembalikan koin yang sudah diredeem (order gagal / dibatalkan sebelum
+// selesai -- spec section 11 & 15 langkah 15: "jangan sampai user
+// kehilangan koin karena payment gateway gagal"). Dibuat sebagai lot
+// 'earn' BARU (bukan restore lot lama persis) -- simplifikasi yang
+// disengaja, lihat catatan di laporan akhir (Remaining Issues).
+async function refundRedeemedCoins(userId, amount, { referenceId, description, expirationMonths }) {
+  if (amount <= 0) return;
+  const lockKey = 'coin-' + userId;
+  while (processingOrders.has(lockKey)) { await new Promise(r => setTimeout(r, 50)); }
+  processingOrders.add(lockKey);
+  try {
+    const ledger = await readFresh('cointransactions.json');
+    ledger.push({
+      id: uuidv4(), userId, type: 'refund', amount,
+      referenceType: 'order', referenceId, description, expiresAt: null, createdAt: new Date().toISOString()
+    });
+    await earnCoins(ledger, userId, amount, {
+      referenceType: 'order_refund', referenceId, description: description || 'Pengembalian koin (order gagal)', expirationMonths
+    });
+    await writeDB('cointransactions.json', ledger);
+  } finally {
+    processingOrders.delete(lockKey);
+  }
+}
+
+// Balikkan cashback yang SUDAH diberikan untuk sebuah order (dipakai
+// saat admin membatalkan/refund order yang sebelumnya 'done' -- spec
+// section 11). Klaim balik langsung dari lot cashback order tsb (dicari
+// via referenceId), bukan lot sembarang, supaya tidak menyentuh saldo
+// dari order lain milik user yang sama.
+async function reverseCashbackForOrder(userId, orderRefId, description) {
+  const lockKey = 'coin-' + userId;
+  while (processingOrders.has(lockKey)) { await new Promise(r => setTimeout(r, 50)); }
+  processingOrders.add(lockKey);
+  try {
+    const ledger = await readFresh('cointransactions.json');
+    const lot = ledger.find(e => e.userId === userId && e.type === 'earn' && e.referenceType === 'order' && e.referenceId === orderRefId);
+    if (!lot || (lot.remaining || 0) <= 0) return; // sudah dipakai/expired duluan -- tidak ada yang bisa ditarik balik, biarkan (tidak bisa bikin saldo minus)
+    const clawback = lot.remaining;
+    lot.remaining = 0;
+    ledger.push({
+      id: uuidv4(), userId, type: 'refund', amount: -clawback,
+      referenceType: 'order', referenceId: orderRefId,
+      description: description || 'Cashback dibalik (order dibatalkan/refund)',
+      expiresAt: null, createdAt: new Date().toISOString()
+    });
+    await writeDB('cointransactions.json', ledger);
+  } finally {
+    processingOrders.delete(lockKey);
+  }
 }
 
 async function computeProductCardStock(settings, product) {
@@ -583,10 +754,20 @@ const initDB = async () => {
     resellerPrice: 50000,
     resellerDiscount: 20,
     resellerNote: 'Dapatkan diskon eksklusif untuk semua produk!',
-    popularProductIds: []
+    popularProductIds: [],
+    // ── KOIN CASHBACK: semua konfigurasi bisa diubah admin lewat
+    // /admin/settings/coin. Default konservatif (30% max usage, cashback
+    // 5%) sesuai spec awal fitur ini.
+    coin: {
+      enabled: true,
+      cashbackPercent: 5,
+      maxUsagePercent: 30,
+      minOrder: 20000,
+      expirationMonths: 6
+    }
   };
 
-  const arrayFiles = ['users.json', 'products.json', 'transactions.json', 'testimonials.json', 'notifications.json', 'keyspool.json', 'vouchers.json'];
+  const arrayFiles = ['users.json', 'products.json', 'transactions.json', 'testimonials.json', 'notifications.json', 'keyspool.json', 'vouchers.json', 'cointransactions.json'];
 
   // Seed arrays only if they don't exist at all (null/undefined, NOT empty array)
   for (const filename of arrayFiles) {
@@ -2003,7 +2184,7 @@ app.get('/profile/me', requireAuth, (req, res) => {
 });
 
 // ── User Dashboard ──
-app.get('/dashboard', requireAuth, (req, res) => {
+app.get('/dashboard', requireAuth, async (req, res) => {
   const transactions = readDB('transactions.json');
   const user = getSessionUser(req);
   const settings = readDB('settings.json');
@@ -2017,11 +2198,25 @@ app.get('/dashboard', requireAuth, (req, res) => {
   const doneTransactions = myTransactions.filter(t => t.status === 'done').sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const recentTransactions = myTransactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 20);
 
+  // KOIN CASHBACK: sweep lot expired dulu (lazy expiration, spec 17) baru
+  // hitung saldo & susun histori dari ledger yang sama.
+  const coinCfg = getCoinSettings(settings);
+  let coin = null;
+  if (coinCfg.enabled) {
+    const coinLedger = await readCoinLedgerFresh(req.session.userId);
+    const myCoinLedger = coinLedger.filter(e => e.userId === req.session.userId);
+    coin = {
+      balance: getUserCoinBalance(coinLedger, req.session.userId),
+      history: myCoinLedger.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 50)
+    };
+  }
+
   res.render('pages/dashboard', {
     user, settings,
     stats: { totalOrders, successOrders, pendingOrders, totalSpent },
     doneTransactions,
-    transactions: recentTransactions
+    transactions: recentTransactions,
+    coin
   });
 });
 
@@ -2165,7 +2360,20 @@ app.get('/buy/:id', async (req, res) => {
   productSafe.stock = hasAutoStockBuy ? Infinity : (allKeys || []).length;
   if (product.items) productSafe.items = product.items; // sudah di-map di atas (sudah aman, tanpa raw keys)
 
+  // KOIN CASHBACK: kirim saldo aktual (dihitung dari ledger, sudah lewat
+  // sweep expired) + config buat dipakai preview di UI checkout. Ini
+  // HANYA untuk tampilan -- perhitungan diskon final tetap dihitung ulang
+  // di server saat /create-order, bukan dipercaya dari sini.
+  const coinCfg = getCoinSettings(settings);
+  let coinBalance = 0;
+  if (user) {
+    const coinLedgerBuy = await readCoinLedgerFresh(user.id);
+    coinBalance = getUserCoinBalance(coinLedgerBuy, user.id);
+  }
+  const coinInfo = { enabled: coinCfg.enabled, balance: coinBalance, maxUsagePercent: coinCfg.maxUsagePercent, minOrder: coinCfg.minOrder };
+
   res.render('pages/buy', { product: productSafe, settings, user, isReseller, userBalance: isReseller ? (user?.balance || 0) : 0,
+    coinInfo,
     usdtManualConfigured: Boolean(
       (settings.binanceSpotManual?.apiKey && settings.binanceSpotManual?.secretKey && settings.binanceSpotManual?.walletAddress)
       || (process.env.BINANCE_SPOT_API_KEY && process.env.BINANCE_SPOT_SECRET_KEY && process.env.USDT_TRC20_WALLET_ADDRESS)
@@ -2259,6 +2467,91 @@ app.post('/create-order', requireAuth, async (req, res) => {
       }
     }
 
+    // ── KOIN CASHBACK ──
+    // PENTING (bug #1 -- ketemu waktu re-audit pertama): kalau redeem koin
+    // langsung dieksekusi di sini (SEBELUM cek saldo Rp cukup / cek order
+    // duplikat pending / panggil gateway QRIS), lalu salah satu dari
+    // pengecekan itu gagal & fungsi return lebih awal -- koin sudah
+    // terlanjur kepotong padahal order TIDAK PERNAH dibuat. Fix: pisah jadi
+    // PREVIEW (baca saldo & hitung diskon, TIDAK memotong ledger) di sini,
+    // lalu COMMIT (potong beneran lewat commitCoinRedeem()) baru dipanggil
+    // tepat sebelum transaksi benar-benar di-push & disimpan.
+    //
+    // PENTING (bug #2 -- DEADLOCK, ketemu di re-audit KEDUA): kalau lock
+    // 'coin-'+userId ini ditahan sampai AKHIR request (termasuk selama
+    // allocateKeyAndCompleteTransaction jalan di jalur bayar-saldo), dan
+    // alokasi key-nya gagal, fungsi itu memanggil refundRedeemedCoins()
+    // yang nunggu lock 'coin-'+userId yang SAMA lepas dulu -- padahal lock
+    // itu masih dipegang oleh request ini sendiri (kita lagi nunggu
+    // allocateKeyAndCompleteTransaction selesai). Hasilnya: nunggu selama-
+    // lamanya (request nyangkut) DAN lock user itu kekunci permanen
+    // (semua operasi koin user itu berikutnya ikut macet nunggu lock yang
+    // gak akan pernah lepas). Fix: lock HANYA ditahan dari preview sampai
+    // commit selesai (releaseCoinLock() dipanggil di akhir commitCoinRedeem
+    // lewat try/finally-nya sendiri) -- begitu ledger sudah dipersist,
+    // tidak ada alasan menahan lock lebih lama; proses sesudahnya (alokasi
+    // key, refund-on-fail, dst) aman memegang lock barunya sendiri.
+    let coinDiscount = 0;
+    const coinRefId = uuidv4();
+    const coinLockKey = 'coin-' + req.session.userId;
+    let coinLockHeld = false;
+    function releaseCoinLock() {
+      if (coinLockHeld) { processingOrders.delete(coinLockKey); coinLockHeld = false; }
+    }
+    if (req.body.useCoin === true) {
+      if (processingOrders.has(coinLockKey)) {
+        return res.json({ success: false, message: 'Sedang memproses transaksi koin lain. Tunggu sebentar.' });
+      }
+      processingOrders.add(coinLockKey);
+      coinLockHeld = true;
+      const coinSettings = getCoinSettings(settings);
+      if (coinSettings.enabled && price >= coinSettings.minOrder) {
+        const previewLedger = await readCoinLedgerFresh(req.session.userId);
+        const coinBalance = getUserCoinBalance(previewLedger, req.session.userId);
+        const maxByPercent = Math.floor(price * coinSettings.maxUsagePercent / 100);
+        coinDiscount = Math.min(coinBalance, maxByPercent);
+      }
+      if (coinDiscount > 0) price -= coinDiscount;
+    }
+    // Commit deduksi koin -- panggil TEPAT SEBELUM transaksi dipersist.
+    // Tidak akan pernah gagal karena kurang saldo di titik ini: lock
+    // dipegang terus sejak preview, jadi tidak ada request lain yang bisa
+    // menghabiskan saldo koin yang sama di antara preview & commit ini.
+    // Lock dilepas SEGERA di akhir fungsi ini (lihat finally di dalam) --
+    // JANGAN ditahan sampai akhir request, supaya proses setelahnya (mis.
+    // alokasi key yang mungkin gagal & butuh refund koin lewat lock yang
+    // sama) tidak deadlock.
+    async function commitCoinRedeem() {
+      try {
+        if (coinDiscount <= 0) return;
+        const ledger = await readFresh('cointransactions.json');
+        const r = redeemCoinsFromLedger(ledger, req.session.userId, coinDiscount, {
+          referenceType: 'order', referenceId: coinRefId, description: `Digunakan untuk beli ${product.name}`
+        });
+        if (r.ok) {
+          await writeDB('cointransactions.json', ledger);
+        } else {
+        // Harusnya TIDAK PERNAH tercapai selama lock dipegang terus sejak
+        // preview -- tapi kalau toh terjadi (mis. bug lain di masa depan),
+        // jangan sampai customer dapat diskon gratis tanpa koin sungguhan
+        // terpotong: batalkan diskonnya dari price yang sudah kadung
+        // dikurangi saat preview.
+        price += coinDiscount;
+        coinDiscount = 0;
+      }
+      } finally {
+        // Lepas lock SEGERA di sini -- jangan tunggu sampai akhir request.
+        // Ini yang membenerkan deadlock (bug #2): begitu ledger sudah
+        // ter-commit (atau diputuskan tidak commit sama sekali), tidak ada
+        // alasan menahan lock lebih lama, dan proses sesudahnya (alokasi
+        // key yang bisa gagal & butuh refund koin lewat lock yang sama)
+        // jadi aman.
+        releaseCoinLock();
+      }
+    }
+
+    try {
+
     // ── BAYAR PAKAI SALDO RESELLER: langsung potong saldo & kirim key tanpa QRIS ──
     if (req.body.paymentMethod === 'balance') {
       // RACE CONDITION FIX: kunci per-user supaya 2 request bareng tidak
@@ -2289,6 +2582,7 @@ app.post('/create-order', requireAuth, async (req, res) => {
         const orderIdBal = `HM-${Date.now()}`;
         const refIdBal = uuidv4();
         const orderCodeBal = generateOrderCode();
+        await commitCoinRedeem();
         const newTxn = {
           id: refIdBal, orderId: orderIdBal, code: orderCodeBal,
           userId: req.session.userId, productId: product.id, productName: product.name,
@@ -2296,6 +2590,8 @@ app.post('/create-order', requireAuth, async (req, res) => {
           originalPrice: voucherDiscount > 0 ? originalPrice : undefined,
           voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
           voucherDiscount: voucherDiscount > 0 ? voucherDiscount : undefined,
+          coinUsed: coinDiscount > 0 ? coinDiscount : undefined,
+          coinRefId: coinDiscount > 0 ? coinRefId : undefined,
           price, totalPayment: price,
           customerName, wa, qrString: null, isStatic: false, paymentMethod: 'balance',
           status: 'pending', key: null,
@@ -2323,6 +2619,7 @@ app.post('/create-order', requireAuth, async (req, res) => {
           paidWithBalance: true,
           balance: finalBalance,
           refId: refIdBal, orderId: orderIdBal, orderCode: orderCodeBal,
+          coinDiscount: coinDiscount || undefined,
           ...result,
           message: result.status === 'failed' ? (result.error || 'Gagal memproses pesanan, saldo sudah dikembalikan') : undefined
         });
@@ -2367,6 +2664,8 @@ app.post('/create-order', requireAuth, async (req, res) => {
       return res.json({ success: false, message: 'Kamu masih memiliki pesanan pending untuk produk ini. Selesaikan pembayaran atau tunggu 30 menit.' });
     }
 
+    await commitCoinRedeem();
+
     transactions.push({
       id: refId, orderId, code: orderCode,
       userId: req.session.userId, productId: product.id, productName: product.name,
@@ -2374,6 +2673,8 @@ app.post('/create-order', requireAuth, async (req, res) => {
       originalPrice: voucherDiscount > 0 ? originalPrice : undefined,
       voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
       voucherDiscount: voucherDiscount > 0 ? voucherDiscount : undefined,
+      coinUsed: coinDiscount > 0 ? coinDiscount : undefined,
+      coinRefId: coinDiscount > 0 ? coinRefId : undefined,
       price, totalPayment,
       customerName, wa, qrString, isStatic,
       status: 'pending', key: null,
@@ -2395,7 +2696,20 @@ app.post('/create-order', requireAuth, async (req, res) => {
 
     res.json({ success: true, refId, orderId, qrString, orderCode, isStatic, totalPayment, expiredAt,
       voucherDiscount: voucherDiscount || undefined,
+      coinDiscount: coinDiscount || undefined,
       qrisStaticImage: isStatic ? settings.qrisStaticImage : null });
+
+    } finally {
+      // Lepas lock koin di SEMUA jalur keluar dari sini (sukses maupun
+      // early-return balance/QRIS di atas) -- commitCoinRedeem() sendiri
+      // tidak melepas lock, supaya lock tetap dipegang sampai titik ini.
+      // Safety-net: kalau ada early-return SEBELUM commitCoinRedeem() sempat
+      // dipanggil sama sekali (mis. saldo Rp kurang / order duplikat
+      // pending / gagal QRIS gateway) -- lock belum sempat dilepas di sana,
+      // lepas di sini. Kalau commitCoinRedeem() sudah jalan, ini no-op
+      // (releaseCoinLock() aman dipanggil berkali-kali).
+      releaseCoinLock();
+    }
   } catch (error) {
     console.error('[create-order] error:', error.message);
     res.json({ success: false, message: 'Terjadi kesalahan: ' + error.message });
@@ -2731,6 +3045,18 @@ const allocateKeyAndCompleteTransaction = async (transaction, transactions) => {
         await writeDB('users.json', usersRefund);
       }
     }
+    // KOIN CASHBACK: kalau order ini pakai koin (coinUsed > 0), koin harus
+    // dikembalikan -- generate key gagal artinya user tidak jadi dapat
+    // apa-apa, jangan sampai dia juga kehilangan koinnya (spec section 11
+    // & 15, test case 6).
+    if (transaction.coinUsed > 0) {
+      const coinSettings = getCoinSettings(readDB('settings.json'));
+      await refundRedeemedCoins(transaction.userId, transaction.coinUsed, {
+        referenceId: transaction.coinRefId || transaction.id,
+        description: `Pengembalian koin — order ${transaction.code || transaction.orderId} gagal`,
+        expirationMonths: coinSettings.expirationMonths
+      });
+    }
     await writeDB('transactions.json', transactions);
     return { status: 'failed', error: allocationError, refunded: transaction.paymentMethod === 'balance', balance: refundedBalance };
   }
@@ -2738,6 +3064,35 @@ const allocateKeyAndCompleteTransaction = async (transaction, transactions) => {
   transaction.status = 'done';
   transaction.key = key;
   transaction.paidAt = new Date().toISOString();
+
+  // KOIN CASHBACK: diberikan HANYA setelah pembelian benar-benar sukses
+  // (bukan cuma order dibuat -- spec section 16), dan idempotent lewat
+  // flag coinCashbackGiven supaya retry check-payment / dobel webhook
+  // untuk transaksi yang sama tidak menggandakan cashback (test case 8).
+  if (!transaction.coinCashbackGiven) {
+    const coinSettings = getCoinSettings(readDB('settings.json'));
+    if (coinSettings.enabled && coinSettings.cashbackPercent > 0) {
+      const cashbackAmount = Math.floor((transaction.price || 0) * coinSettings.cashbackPercent / 100);
+      if (cashbackAmount > 0) {
+        const coinLockKey = 'coin-' + transaction.userId;
+        while (processingOrders.has(coinLockKey)) { await new Promise(r => setTimeout(r, 50)); }
+        processingOrders.add(coinLockKey);
+        try {
+          const coinLedger = await readFresh('cointransactions.json');
+          await earnCoins(coinLedger, transaction.userId, cashbackAmount, {
+            referenceType: 'order', referenceId: transaction.id,
+            description: `Cashback pembelian ${transaction.productName || ''}`.trim(),
+            expirationMonths: coinSettings.expirationMonths
+          });
+          await writeDB('cointransactions.json', coinLedger);
+          transaction.coinCashbackGiven = true;
+          transaction.coinCashbackAmount = cashbackAmount;
+        } finally {
+          processingOrders.delete(coinLockKey);
+        }
+      }
+    }
+  }
 
   const notifs = readDB('notifications.json');
   const buyer = readDB('users.json').find(u => u.id === transaction.userId);
@@ -3842,6 +4197,21 @@ app.post('/admin/transaction/delete/:id', requireAdmin, async (req, res) => {
       }
     }
 
+    // KOIN CASHBACK: transaksi dihapus -- kembalikan koin yang dipakai
+    // (kalau ada) & tarik balik cashback yang sudah diberikan (kalau
+    // transaksi sempat 'done'), sama seperti reverse voucher di atas.
+    if (trx.coinUsed > 0 && ['pending', 'done'].includes(trx.status)) {
+      const coinSettingsDel = getCoinSettings(readDB('settings.json'));
+      actions.push(refundRedeemedCoins(trx.userId, trx.coinUsed, {
+        referenceId: trx.coinRefId || trx.id,
+        description: `Pengembalian koin — order ${trx.code || trx.orderId} dihapus admin`,
+        expirationMonths: coinSettingsDel.expirationMonths
+      }));
+    }
+    if (trx.coinCashbackGiven && trx.status === 'done') {
+      actions.push(reverseCashbackForOrder(trx.userId, trx.id, `Cashback dibalik — order ${trx.code || trx.orderId} dihapus admin`));
+    }
+
     transactions = transactions.filter(t => t.id !== req.params.id);
     actions.push(writeDB('transactions.json', transactions));
     await Promise.all(actions);
@@ -3873,6 +4243,20 @@ app.post('/admin/transaction/status/:id', requireAdmin, async (req, res) => {
           actions.push(writeDB('users.json', usersRefund));
           actions.push(Promise.resolve());
         }
+      }
+
+      // 1b. KOIN CASHBACK: kembalikan koin yang dipakai & tarik balik
+      // cashback yang sudah diberikan, sama seperti refund saldo di atas.
+      if (trx.coinUsed > 0) {
+        const coinSettingsCancel = getCoinSettings(readDB('settings.json'));
+        actions.push(refundRedeemedCoins(trx.userId, trx.coinUsed, {
+          referenceId: trx.coinRefId || trx.id,
+          description: `Pengembalian koin — order ${trx.code || trx.orderId} dibatalkan admin`,
+          expirationMonths: coinSettingsCancel.expirationMonths
+        }));
+      }
+      if (trx.coinCashbackGiven && oldStatus === 'done') {
+        actions.push(reverseCashbackForOrder(trx.userId, trx.id, `Cashback dibalik — order ${trx.code || trx.orderId} dibatalkan admin`));
       }
 
       // 2. Restore key manual ke pool produk & kurangi sold count
@@ -4489,6 +4873,18 @@ app.post('/webhook/provider/:id', async (req, res) => {
           // pura-pura pembeli dapat sesuatu yang sebenarnya kosong.
           trx.status = 'failed';
           trx.failReason = 'Webhook provider melaporkan sukses tapi tidak menyertakan key/link pengiriman.';
+          // KOIN CASHBACK: order ini akhirnya gagal juga -- kalau tadi
+          // pakai koin pas checkout, koinnya harus balik (bug yang sama
+          // yang sudah dibenerin di allocateKeyAndCompleteTransaction dan
+          // endpoint konfirmasi-manual admin, jalur ini kelewat sebelumnya).
+          if (trx.coinUsed > 0) {
+            const coinSettingsWh = getCoinSettings(readDB('settings.json'));
+            await refundRedeemedCoins(trx.userId, trx.coinUsed, {
+              referenceId: trx.coinRefId || trx.id,
+              description: `Pengembalian koin — order ${trx.code || trx.orderId} gagal (webhook provider)`,
+              expirationMonths: coinSettingsWh.expirationMonths
+            });
+          }
           await writeDB('transactions.json', transactions);
         } else {
           const products = readDB('products.json');
@@ -4505,6 +4901,36 @@ app.post('/webhook/provider/:id', async (req, res) => {
             price: trx.price, time: trx.paidAt, timeStr: formatDate(new Date(trx.paidAt)),
           });
           await writeDB('notifications.json', notifs);
+
+          // KOIN CASHBACK: jalur async multi-provider ini sempat kelewat --
+          // padahal transaksinya sama persis (dibuat lewat /create-order,
+          // sama-sama berakhir 'done'), jadi harus dapat cashback juga,
+          // idempotent lewat flag yang sama seperti jalur lain.
+          if (!trx.coinCashbackGiven) {
+            const coinSettingsWh2 = getCoinSettings(readDB('settings.json'));
+            if (coinSettingsWh2.enabled && coinSettingsWh2.cashbackPercent > 0) {
+              const cashbackAmountWh = Math.floor((trx.price || 0) * coinSettingsWh2.cashbackPercent / 100);
+              if (cashbackAmountWh > 0) {
+                const coinLockKeyWh = 'coin-' + trx.userId;
+                while (processingOrders.has(coinLockKeyWh)) { await new Promise(r => setTimeout(r, 50)); }
+                processingOrders.add(coinLockKeyWh);
+                try {
+                  const coinLedgerWh = await readFresh('cointransactions.json');
+                  await earnCoins(coinLedgerWh, trx.userId, cashbackAmountWh, {
+                    referenceType: 'order', referenceId: trx.id,
+                    description: `Cashback pembelian ${trx.productName || ''}`.trim(),
+                    expirationMonths: coinSettingsWh2.expirationMonths
+                  });
+                  await writeDB('cointransactions.json', coinLedgerWh);
+                  trx.coinCashbackGiven = true;
+                  trx.coinCashbackAmount = cashbackAmountWh;
+                } finally {
+                  processingOrders.delete(coinLockKeyWh);
+                }
+              }
+            }
+          }
+          await writeDB('transactions.json', transactions);
         }
       } else if (trx && result.status === 'success' && trx.status !== 'processing') {
         // Transaksi sudah dalam status lain (mis. sudah 'done' dari polling
@@ -5016,6 +5442,40 @@ app.post('/admin/settings/reseller-topup-packages', requireAdmin, async (req, re
   }
 });
 
+app.post('/admin/settings/coin', requireAdmin, async (req, res) => {
+  try {
+    const { coinEnabled, cashbackPercent, maxUsagePercent, minOrder, expirationMonths } = req.body;
+    const settings = await readFresh('settings.json');
+    const coin = getCoinSettings(settings); // mulai dari default/nilai lama, timpa yang dikirim saja
+    coin.enabled = coinEnabled === 'true' || coinEnabled === true;
+    if (cashbackPercent !== undefined && cashbackPercent !== '') {
+      const v = parseFloat(cashbackPercent);
+      if (isNaN(v) || v < 0 || v > 100) return res.json({ success: false, message: 'Cashback harus antara 0-100%' });
+      coin.cashbackPercent = v;
+    }
+    if (maxUsagePercent !== undefined && maxUsagePercent !== '') {
+      const v = parseFloat(maxUsagePercent);
+      if (isNaN(v) || v < 0 || v > 100) return res.json({ success: false, message: 'Maximum penggunaan harus antara 0-100%' });
+      coin.maxUsagePercent = v;
+    }
+    if (minOrder !== undefined && minOrder !== '') {
+      const v = parseInt(minOrder);
+      if (isNaN(v) || v < 0) return res.json({ success: false, message: 'Minimum order tidak valid' });
+      coin.minOrder = v;
+    }
+    if (expirationMonths !== undefined && expirationMonths !== '') {
+      const v = parseInt(expirationMonths);
+      if (isNaN(v) || v < 0) return res.json({ success: false, message: 'Masa aktif tidak valid' });
+      coin.expirationMonths = v; // 0 = tidak pernah expired
+    }
+    settings.coin = coin;
+    await writeDB('settings.json', settings);
+    res.json({ success: true, coin });
+  } catch (e) {
+    res.json({ success: false, message: e.message });
+  }
+});
+
 app.post('/admin/settings/reseller', requireAdmin, async (req, res) => {
   try {
     const { resellerEnabled, resellerPrice, resellerDiscount, resellerNote, resellerTopupMin } = req.body;
@@ -5164,6 +5624,14 @@ app.post('/admin/transaction/confirm/:id', requireAdmin, async (req, res) => {
           const uRefund = usersRefund.find(u => u.id === transaction.userId);
           if (uRefund) { uRefund.balance = (uRefund.balance || 0) + transaction.price; await writeDB('users.json', usersRefund); }
         }
+        if (transaction.coinUsed > 0) {
+          const coinSettingsFail = getCoinSettings(readDB('settings.json'));
+          await refundRedeemedCoins(transaction.userId, transaction.coinUsed, {
+            referenceId: transaction.coinRefId || transaction.id,
+            description: `Pengembalian koin — order ${transaction.code || transaction.orderId} gagal`,
+            expirationMonths: coinSettingsFail.expirationMonths
+          });
+        }
         await writeDB('transactions.json', transactions);
         return res.json({ success: false, message: transaction.failReason });
       }
@@ -5196,6 +5664,14 @@ app.post('/admin/transaction/confirm/:id', requireAdmin, async (req, res) => {
       // klik Konfirmasi Bayar lagi untuk retry.
       transaction.status = 'failed';
       transaction.failReason = 'Stok key habis untuk produk ini. Silakan tambah stok lalu klik Konfirmasi Bayar lagi.';
+      if (transaction.coinUsed > 0) {
+        const coinSettingsFail2 = getCoinSettings(readDB('settings.json'));
+        await refundRedeemedCoins(transaction.userId, transaction.coinUsed, {
+          referenceId: transaction.coinRefId || transaction.id,
+          description: `Pengembalian koin — order ${transaction.code || transaction.orderId} gagal`,
+          expirationMonths: coinSettingsFail2.expirationMonths
+        });
+      }
       await writeDB('transactions.json', transactions);
       return res.json({ success: false, message: transaction.failReason });
     }
@@ -5204,6 +5680,32 @@ app.post('/admin/transaction/confirm/:id', requireAdmin, async (req, res) => {
     transaction.key = key;
     transaction.paidAt = new Date().toISOString();
     transaction.confirmedBy = 'admin';
+
+    if (!transaction.coinCashbackGiven) {
+      const coinSettingsOk = getCoinSettings(readDB('settings.json'));
+      if (coinSettingsOk.enabled && coinSettingsOk.cashbackPercent > 0) {
+        const cashbackAmountAdmin = Math.floor((transaction.price || 0) * coinSettingsOk.cashbackPercent / 100);
+        if (cashbackAmountAdmin > 0) {
+          const coinLockKeyAdmin = 'coin-' + transaction.userId;
+          while (processingOrders.has(coinLockKeyAdmin)) { await new Promise(r => setTimeout(r, 50)); }
+          processingOrders.add(coinLockKeyAdmin);
+          try {
+            const coinLedgerAdmin = await readFresh('cointransactions.json');
+            await earnCoins(coinLedgerAdmin, transaction.userId, cashbackAmountAdmin, {
+              referenceType: 'order', referenceId: transaction.id,
+              description: `Cashback pembelian ${transaction.productName || ''}`.trim(),
+              expirationMonths: coinSettingsOk.expirationMonths
+            });
+            await writeDB('cointransactions.json', coinLedgerAdmin);
+            transaction.coinCashbackGiven = true;
+            transaction.coinCashbackAmount = cashbackAmountAdmin;
+          } finally {
+            processingOrders.delete(coinLockKeyAdmin);
+          }
+        }
+      }
+    }
+
     await writeDB('transactions.json', transactions);
 
     // Tambahkan notifikasi pembelian agar muncul di social proof popup
