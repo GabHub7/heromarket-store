@@ -2345,8 +2345,17 @@ app.get('/buy/:id', async (req, res) => {
         ? (product.pricingOptions || []).find(o => getOptionDurationMinutes(o) === labelMinutes)
         : null;
       const customResellerPrice = matchedOpt && matchedOpt.resellerPrice !== undefined ? matchedOpt.resellerPrice : null;
+      // SELF-HEALING: regenerate label live dari pricingOptions (via
+      // formatDurationLabel yang sudah dibenerin), JANGAN percaya item.l
+      // yang tersimpan -- data lama yang sempat disimpan sebelum
+      // formatDurationLabel paham "HOURS" akan selamanya kebeku sebagai
+      // "420 MINUTES" dst kalau cuma mengandalkan admin re-save manual.
+      // Kalau tidak ketemu opsi yang cocok (produk lama/edge case), tetap
+      // fallback ke label tersimpan supaya tidak tiba-tiba kosong.
+      const liveLabel = matchedOpt ? `${product.name.toUpperCase()} ${formatDurationLabel(matchedOpt)}` : item.l;
       return {
         ...item,
+        l: liveLabel,
         stok,
         reseller_price: isReseller ? (customResellerPrice !== null ? customResellerPrice : Math.round(item.p * (1 - resellerDiscount / 100))) : null
       };
