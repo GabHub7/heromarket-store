@@ -18,9 +18,13 @@ if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
   process.exit(1);
 }
 
-// Warning (bukan fail-fast) jika GensPay belum dikonfigurasi — mode QRIS statis tetap bisa jalan tanpa ini
+// Warning (bukan fail-fast) jika GensPay belum dikonfigurasi lewat env var
+// -- cuma pengecekan awal startup, jadi belum tahu apakah nanti diisi
+// lewat Admin Panel (settings.genspayApiKey/genspayBaseUrl, lihat
+// getGenspayCreds) setelah DB kebaca. Kalau nanti diisi lewat panel,
+// warning ini aman diabaikan.
 if (!process.env.GENSPAY_BASE_URL || !process.env.GENSPAY_API_KEY) {
-  console.warn('[WARNING] GENSPAY_BASE_URL / GENSPAY_API_KEY belum diset. Mode QRIS API (GensPay) tidak akan berfungsi sampai env var ini diisi.');
+  console.warn('[WARNING] GENSPAY_BASE_URL / GENSPAY_API_KEY belum diset di environment variable. Mode QRIS API (GensPay) butuh salah satu: env var ini, ATAU diisi lewat Admin Panel > Pengaturan QRIS.');
 }
 
 // Load DB module AFTER dotenv so env vars are available
@@ -903,7 +907,25 @@ function joinUrlPath(baseUrl, extraPath) {
 }
 
 // ── GensPay API (genspay.my.id) ──
-// Konfigurasi murni lewat environment variable, tidak perlu Merchant ID / Project ID.
+// Kredensial BOLEH diisi lewat 2 cara: (1) environment variable server
+// (GENSPAY_BASE_URL/GENSPAY_API_KEY, cara lama), atau (2) lewat admin
+// panel (settings.genspayBaseUrl/settings.genspayApiKey, disimpan lewat
+// /admin/settings/genspay) -- ditambahkan karena tidak semua orang yang
+// pegang toko ini punya akses ubah environment variable di hosting-nya.
+// settings.json SELALU menang kalau diisi; env var jadi fallback kalau
+// field di settings kosong. SEMUA tempat yang butuh kredensial GensPay
+// WAJIB lewat helper ini -- jangan baca process.env.GENSPAY_* langsung
+// lagi di tempat lain, supaya tidak ada yang kelewat pas field admin
+// panel diisi (persis bug yang dilaporkan: field API key di admin panel
+// dulu read-only & cuma nampilin status env var lama -- API key baru
+// yang mau diisi dari GensPay jadi tidak pernah kepakai).
+function getGenspayCreds(settings) {
+  const s = settings || {};
+  return {
+    baseUrl: ((s.genspayBaseUrl || '').trim()) || (process.env.GENSPAY_BASE_URL || '').trim(),
+    apiKey: ((s.genspayApiKey || '').trim()) || (process.env.GENSPAY_API_KEY || '').trim()
+  };
+}
 
 // Dipakai buat bangun callback_url per-request -- sama persis polanya kayak
 // baseUrl NOWPayments di bawah (`${req.protocol}://${req.get('host')}`),
@@ -928,9 +950,8 @@ const getAppBaseUrl = (req) => {
 // regress back to being forgotten at a new call site later.
 const createQRISPayment = (orderId, amount, settings, callbackUrl) => {
   return new Promise((resolve, reject) => {
-    const baseUrl = (process.env.GENSPAY_BASE_URL || '').trim();
-    const apiKey = (process.env.GENSPAY_API_KEY || '').trim();
-    if (!baseUrl || !apiKey) return reject(new Error('GENSPAY_BASE_URL atau GENSPAY_API_KEY belum diset di environment variable'));
+    const { baseUrl, apiKey } = getGenspayCreds(settings);
+    if (!baseUrl || !apiKey) return reject(new Error('GensPay belum dikonfigurasi -- isi lewat Admin Panel (Pengaturan QRIS) atau environment variable GENSPAY_BASE_URL/GENSPAY_API_KEY.'));
     if (!callbackUrl) return reject(new Error('callbackUrl wajib diisi -- lihat komentar FIX di atas createQRISPayment.'));
 
     let url;
@@ -969,9 +990,8 @@ const createQRISPayment = (orderId, amount, settings, callbackUrl) => {
 
 const checkPaymentStatus = (orderId, amount, settings) => {
   return new Promise((resolve, reject) => {
-    const baseUrl = (process.env.GENSPAY_BASE_URL || '').trim();
-    const apiKey = (process.env.GENSPAY_API_KEY || '').trim();
-    if (!baseUrl || !apiKey) return reject(new Error('GENSPAY_BASE_URL atau GENSPAY_API_KEY belum diset di environment variable'));
+    const { baseUrl, apiKey } = getGenspayCreds(settings);
+    if (!baseUrl || !apiKey) return reject(new Error('GensPay belum dikonfigurasi -- isi lewat Admin Panel (Pengaturan QRIS) atau environment variable GENSPAY_BASE_URL/GENSPAY_API_KEY.'));
 
     let url;
     try { url = new URL(joinUrlPath(baseUrl, `/transaction/${encodeURIComponent(orderId)}/status`)); } catch (e) { return reject(new Error('GENSPAY_BASE_URL tidak valid')); }
@@ -1045,7 +1065,7 @@ app.get('/debug/genspay-resettle', async (req, res) => {
     orderId = candidates[0].orderId;
   }
 
-  const apiKey = (process.env.GENSPAY_API_KEY || '').trim();
+  const apiKey = getGenspayCreds(readDB('settings.json')).apiKey;
   if (!apiKey) return res.status(500).json({ error: 'no_api_key' });
 
   const body = JSON.stringify({
@@ -1110,7 +1130,7 @@ async function logWebhookDebug(entry) {
 
 app.post('/webhook/genspay', async (req, res) => {
   try {
-    const apiKey = (process.env.GENSPAY_API_KEY || '').trim();
+    const apiKey = getGenspayCreds(readDB('settings.json')).apiKey;
     // FIX (debug): sebelumnya cuma cek 'x-genspay-signature' -- kalau
     // GensPay ternyata pakai nama header lain (beda kapitalisasi tidak
     // masalah, Express sudah lowercase semua otomatis, tapi NAMA yang
@@ -3777,11 +3797,21 @@ app.get('/admin', requireAdmin, (req, res) => {
     settings,
     stats,
     chartData,
-    genspayConfigured: {
-      baseUrl: !!(process.env.GENSPAY_BASE_URL || '').trim(),
-      apiKey: !!(process.env.GENSPAY_API_KEY || '').trim(),
-      baseUrlPreview: (process.env.GENSPAY_BASE_URL || '').trim()
-    },
+    genspayConfigured: (() => {
+      const creds = getGenspayCreds(settings);
+      return {
+        baseUrl: !!creds.baseUrl,
+        apiKey: !!creds.apiKey,
+        baseUrlPreview: creds.baseUrl,
+        // Dari mana nilai yang AKTIF ini datang -- dipakai admin panel buat
+        // nampilin badge "dari Admin Panel" vs "dari Environment Variable",
+        // supaya HBM tidak bingung lagi kenapa API key yang dia isi di
+        // panel "kayak ga kepakai" (dulu memang beneran ga kepakai, field-
+        // nya read-only; sekarang field settings SELALU menang kalau diisi).
+        apiKeySource: (settings.genspayApiKey || '').trim() ? 'panel' : 'env',
+        baseUrlSource: (settings.genspayBaseUrl || '').trim() ? 'panel' : 'env'
+      };
+    })(),
     // Dibangun dari domain yang BENERAN sedang dipakai admin buat akses
     // panel ini (bukan hardcoded/env var) -- jadi kalau domain pernah
     // pindah, URL ini otomatis ikut benar tanpa perlu update kode. GensPay
@@ -4428,9 +4458,14 @@ app.post('/admin/settings/pakasir', requireAdmin, async (req, res) => {
 
 app.post('/admin/qris/test', requireAdmin, async (req, res) => {
   try {
-    // Test pakai kredensial dari environment variable (GENSPAY_BASE_URL / GENSPAY_API_KEY),
-    // bukan dari input panel — GensPay tidak butuh Merchant ID / Project ID.
-    await createQRISPayment('test-' + Date.now(), 1000, {}, `${getAppBaseUrl(req)}/webhook/genspay`);
+    // Test pakai kredensial AKTIF (settings.json kalau diisi dari Admin
+    // Panel, fallback ke environment variable -- lihat getGenspayCreds).
+    // Sebelumnya ini selalu kirim {} (kosong) sehingga tombol test SELALU
+    // pakai env var lama walau API key baru sudah diisi lewat panel --
+    // hasil test jadi menyesatkan (kelihatan gagal/pakai key lama padahal
+    // key baru sudah benar diisi).
+    const settings = readDB('settings.json');
+    await createQRISPayment('test-' + Date.now(), 1000, settings, `${getAppBaseUrl(req)}/webhook/genspay`);
     res.json({ success: true });
   } catch (e) {
     res.json({ success: false, message: e.message });
@@ -5446,6 +5481,25 @@ app.post('/admin/settings/reseller-topup-packages', requireAdmin, async (req, re
     settings.resellerTopupPackages = clean;
     await writeDB('settings.json', settings);
     res.json({ success: true, packages: clean });
+  } catch (e) {
+    res.json({ success: false, message: e.message });
+  }
+});
+
+// Simpan kredensial GensPay dari admin panel ke settings.json. Kirim
+// string kosong ('') buat mengosongkan field & balik pakai environment
+// variable lagi (bukan dianggap "tidak diubah") -- field yang benar-
+// benar TIDAK DIKIRIM (undefined) baru dianggap "tidak diubah", biar
+// form bisa punya tombol "Kosongkan / pakai env var" yang jelas.
+app.post('/admin/settings/genspay', requireAdmin, async (req, res) => {
+  try {
+    const { genspayApiKey, genspayBaseUrl } = req.body;
+    const settings = await readFresh('settings.json');
+    if (genspayApiKey !== undefined) settings.genspayApiKey = String(genspayApiKey).trim();
+    if (genspayBaseUrl !== undefined) settings.genspayBaseUrl = String(genspayBaseUrl).trim();
+    await writeDB('settings.json', settings);
+    const creds = getGenspayCreds(settings);
+    res.json({ success: true, configured: { baseUrl: !!creds.baseUrl, apiKey: !!creds.apiKey } });
   } catch (e) {
     res.json({ success: false, message: e.message });
   }
@@ -6502,5 +6556,3 @@ app.post('/admin/import', requireAdmin, express.json({ limit: '10mb' }), async (
     res.json({ success: true, message: `${count} file berhasil diimport` });
   } catch (e) { res.json({ success: false, message: e.message }); }
 });
-
-  
