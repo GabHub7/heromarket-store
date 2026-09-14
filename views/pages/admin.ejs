@@ -938,7 +938,7 @@ textarea.hm-input{resize:vertical;min-height:80px;}
         <!-- GensPay API -->
         <div id="sectionApi" class="<%= (settings.qrisMode||'static')==='api' ? '' : 'hidden' %> space-y-3">
             <div class="p-3 rounded-xl bg-indigo-500/8 border border-indigo-500/20 text-[11px] text-indigo-300 mb-2">
-                <iconify-icon icon="mdi:information-outline"></iconify-icon> Kredensial GensPay diatur lewat environment variable server (<code class="font-mono">GENSPAY_BASE_URL</code> &amp; <code class="font-mono">GENSPAY_API_KEY</code>), bukan dari panel ini — demi keamanan API key. Cukup pastikan sudah diisi di Vercel/hosting kamu, lalu test koneksi di bawah.
+                <iconify-icon icon="mdi:information-outline"></iconify-icon> Isi kredensial GensPay di bawah ini LEWAT PANEL INI (paling gampang), atau lewat environment variable server (<code class="font-mono">GENSPAY_BASE_URL</code> &amp; <code class="font-mono">GENSPAY_API_KEY</code>) kalau kamu yang pegang hosting-nya. Kalau dua-duanya diisi, yang dari panel ini yang dipakai.
             </div>
 
             <!-- Webhook URL (auto-detect dari domain aktif) -->
@@ -959,32 +959,39 @@ textarea.hm-input{resize:vertical;min-height:80px;}
                 </div>
             </div>
 
-            <!-- Status Env Var -->
-            <div class="flex flex-col gap-1.5 p-3 rounded-xl bg-white/3 border border-white/10">
-                <div class="flex items-center justify-between text-[11px]">
-                    <span class="text-zinc-400 font-mono">GENSPAY_BASE_URL</span>
-                    <% if (genspayConfigured.baseUrl) { %>
-                    <span class="text-emerald-400 font-bold flex items-center gap-1"><iconify-icon icon="mdi:check-circle"></iconify-icon> Terisi</span>
-                    <% } else { %>
-                    <span class="text-red-400 font-bold flex items-center gap-1"><iconify-icon icon="mdi:close-circle"></iconify-icon> Kosong</span>
-                    <% } %>
+            <!-- Form isi kredensial dari Admin Panel -->
+            <form id="genspayCredsForm" class="space-y-2.5 p-3 rounded-xl bg-white/3 border border-white/10">
+                <div>
+                    <div class="setting-row-label flex items-center justify-between">
+                        <span>GensPay Base URL</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded <%= genspayConfigured.baseUrl ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' %>">
+                            <%= genspayConfigured.baseUrl ? ('Aktif · dari ' + (genspayConfigured.baseUrlSource==='panel' ? 'Panel' : 'Env Var')) : 'Kosong' %>
+                        </span>
+                    </div>
+                    <input type="text" name="genspayBaseUrl" class="hm-input" placeholder="<%= genspayConfigured.baseUrlSource==='env' && genspayConfigured.baseUrlPreview ? genspayConfigured.baseUrlPreview : 'https://api.genspay.my.id' %>">
                 </div>
-                <% if (genspayConfigured.baseUrl) { %>
-                <div class="text-[10px] text-zinc-600 font-mono truncate"><%= genspayConfigured.baseUrlPreview %></div>
-                <% } %>
-                <div class="flex items-center justify-between text-[11px] mt-1">
-                    <span class="text-zinc-400 font-mono">GENSPAY_API_KEY</span>
-                    <% if (genspayConfigured.apiKey) { %>
-                    <span class="text-emerald-400 font-bold flex items-center gap-1"><iconify-icon icon="mdi:check-circle"></iconify-icon> Terisi</span>
-                    <% } else { %>
-                    <span class="text-red-400 font-bold flex items-center gap-1"><iconify-icon icon="mdi:close-circle"></iconify-icon> Kosong</span>
-                    <% } %>
+                <div>
+                    <div class="setting-row-label flex items-center justify-between">
+                        <span>GensPay API Key</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded <%= genspayConfigured.apiKey ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' %>">
+                            <%= genspayConfigured.apiKey ? ('Aktif · dari ' + (genspayConfigured.apiKeySource==='panel' ? 'Panel' : 'Env Var')) : 'Kosong' %>
+                        </span>
+                    </div>
+                    <input type="password" name="genspayApiKey" class="hm-input" placeholder="<%= genspayConfigured.apiKeySource==='panel' ? '•••••••••••••••• (sudah tersimpan, isi ulang untuk ganti)' : 'Tempel API Key baru dari GensPay di sini' %>" autocomplete="off">
                 </div>
-            </div>
+                <label class="flex items-center gap-1.5 text-[10px] text-zinc-500">
+                    <input type="checkbox" id="genspayResetToggle" class="rounded">
+                    Kosongkan field di atas dengan sengaja (reset ke environment variable)
+                </label>
+                <button type="submit" class="w-full py-2 rounded-xl text-xs font-bold text-black" style="background:linear-gradient(135deg,#6366f1,#818cf8)">
+                    <iconify-icon icon="mdi:content-save"></iconify-icon> Simpan Kredensial GensPay
+                </button>
+            </form>
+
             <% if (!genspayConfigured.baseUrl || !genspayConfigured.apiKey) { %>
             <div class="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-[11px] text-red-400 flex items-start gap-1.5">
                 <iconify-icon icon="mdi:alert" class="mt-0.5 flex-shrink-0"></iconify-icon>
-                <span>Belum lengkap. Tambahkan env var yang kosong di pengaturan hosting/Vercel kamu, lalu redeploy sebelum test koneksi.</span>
+                <span>Belum lengkap. Isi lewat form di atas, atau tambahkan env var yang kosong di hosting kamu lalu redeploy, sebelum test koneksi.</span>
             </div>
             <% } %>
 
@@ -1155,6 +1162,52 @@ textarea.hm-input{resize:vertical;min-height:80px;}
         <div id="partnersList" class="space-y-2">
             <div class="text-center py-6 text-zinc-600 text-xs">Memuat daftar partner...</div>
         </div>
+    </div>
+
+    <!-- Koin Cashback -->
+    <div class="neon-card p-5 mb-3" style="border-color:rgba(16,185,129,.2)">
+        <div class="text-xs font-bold mb-4 flex items-center gap-2" style="color:#34d399">
+            <iconify-icon icon="ph:coin-fill"></iconify-icon> Koin Cashback
+        </div>
+        <form id="coinSettingsForm" class="space-y-3">
+            <div class="flex items-center justify-between p-3 rounded-xl" style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.15)">
+                <div>
+                    <div class="text-xs font-semibold text-white">Aktifkan Koin Cashback</div>
+                    <div class="text-[10px] text-zinc-500 mt-0.5">User dapat koin dari pembelian & bisa dipakai potong harga</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="coinEnabled" id="coinEnabledToggle" class="sr-only peer" <%= (settings.coin?.enabled !== false) ? 'checked' : '' %>>
+                    <div class="w-9 h-5 bg-zinc-700 peer-focus:ring-2 peer-focus:ring-emerald-500/30 rounded-full peer peer-checked:bg-emerald-500 transition-all after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                </label>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <div class="setting-row-label">Cashback (%)</div>
+                    <input type="number" step="0.1" name="cashbackPercent" value="<%= settings.coin?.cashbackPercent ?? 5 %>" min="0" max="100" class="hm-input" placeholder="5">
+                </div>
+                <div>
+                    <div class="setting-row-label">Maksimal Pakai (%)</div>
+                    <input type="number" step="0.1" name="maxUsagePercent" value="<%= settings.coin?.maxUsagePercent ?? 30 %>" min="0" max="100" class="hm-input" placeholder="30">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <div class="setting-row-label">Minimum Order (Rp)</div>
+                    <input type="number" name="minOrder" value="<%= settings.coin?.minOrder ?? 20000 %>" min="0" class="hm-input" placeholder="20000">
+                </div>
+                <div>
+                    <div class="setting-row-label">Masa Aktif (bulan)</div>
+                    <input type="number" name="expirationMonths" value="<%= settings.coin?.expirationMonths ?? 6 %>" min="0" class="hm-input" placeholder="6">
+                </div>
+            </div>
+            <div class="p-3 rounded-xl text-[11px]" style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.12);color:#a1a1aa">
+                <iconify-icon icon="mdi:information-outline" class="text-emerald-400 align-middle mr-1"></iconify-icon>
+                Contoh: order Rp100.000 dgn cashback <span id="coinCashbackPreview"><%= settings.coin?.cashbackPercent ?? 5 %></span>% = dapat <strong class="text-emerald-400" id="coinCashbackAmountPreview"><%= Math.round(100000 * (settings.coin?.cashbackPercent ?? 5) / 100).toLocaleString('id-ID') %></strong> koin. Masa aktif 0 bulan = koin tidak pernah kedaluwarsa.
+            </div>
+            <button type="submit" class="w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2" style="background:linear-gradient(135deg,#059669,#34d399);color:#000">
+                <iconify-icon icon="ph:coin-fill"></iconify-icon> Simpan Pengaturan Koin
+            </button>
+        </form>
     </div>
 
     <!-- Reseller VIP -->
@@ -2749,6 +2802,54 @@ async function saveResellerPrice(productId, productName) {
     else toast(d.message, 'error');
 }
 
+// ── GENSPAY CREDENTIALS ──
+document.getElementById('genspayCredsForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const fd = new FormData(this);
+    const baseUrlVal = fd.get('genspayBaseUrl') || '';
+    const apiKeyVal = fd.get('genspayApiKey') || '';
+    const resetIntentional = document.getElementById('genspayResetToggle').checked;
+    const data = {};
+    // Field kosong berarti "JANGAN DIUBAH" secara default -- supaya ganti
+    // base URL doang tidak sengaja ikut menghapus API key yang sudah
+    // tersimpan (begitu juga sebaliknya). Kirim key ke server HANYA kalau
+    // ada isinya, ATAU kalau checkbox reset dicentang secara sengaja.
+    if (baseUrlVal || resetIntentional) data.genspayBaseUrl = baseUrlVal;
+    if (apiKeyVal || resetIntentional) data.genspayApiKey = apiKeyVal;
+    if (Object.keys(data).length === 0) { toast('Isi salah satu field, atau centang kotak reset dulu.', 'error'); return; }
+    const d = await api('/admin/settings/genspay', data);
+    if (d.success) {
+        toast('Kredensial GensPay disimpan!', 'success');
+        setTimeout(() => location.reload(), 800); // reload biar badge status & webhook URL kebaca ulang
+    } else {
+        toast(d.message, 'error');
+    }
+});
+
+// ── KOIN CASHBACK SETTINGS ──
+document.getElementById('coinSettingsForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const fd = new FormData(this);
+    const data = {
+        coinEnabled: document.getElementById('coinEnabledToggle').checked ? 'true' : 'false',
+        cashbackPercent: fd.get('cashbackPercent'),
+        maxUsagePercent: fd.get('maxUsagePercent'),
+        minOrder: fd.get('minOrder'),
+        expirationMonths: fd.get('expirationMonths')
+    };
+    const d = await api('/admin/settings/coin', data);
+    if (d.success) toast('Pengaturan koin cashback disimpan!', 'success');
+    else toast(d.message, 'error');
+});
+
+document.querySelector('[name=cashbackPercent]')?.addEventListener('input', function() {
+    const pct = parseFloat(this.value) || 0;
+    const pctEl = document.getElementById('coinCashbackPreview');
+    const amtEl = document.getElementById('coinCashbackAmountPreview');
+    if (pctEl) pctEl.textContent = pct;
+    if (amtEl) amtEl.textContent = Math.round(100000 * pct / 100).toLocaleString('id-ID');
+});
+
 // ── RESELLER SETTINGS ──
 document.getElementById('resellerSettingsForm').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -3163,3 +3264,5 @@ async function importDB(event) {
 </script>
 </body>
 </html>
+
+
