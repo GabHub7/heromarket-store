@@ -1908,12 +1908,11 @@ app.get('/reseller/panel', requireAuth, (req, res) => {
   // API Key NOWPayments atau QRIS, harus langsung kepakai di sini.
   const settings = res.locals.settings;
   const user = getSessionUser(req);
-  // FIX (saldo untuk semua user): Seller Panel (saldo, topup, generate key)
-  // dulu dikunci hanya utk is_reseller. Sekarang SEMUA user yang login boleh
-  // masuk -- cukup requireAuth di atas, tanpa syarat is_reseller lagi. Harga
-  // reseller (diskon) di dalam panel tetap dihitung sesuai status is_reseller
-  // masing-masing user (lihat isReseller & harga di section Generate Key).
-  if (!user) return res.redirect('/reseller');
+  // REVERT (klien klarifikasi: yang wajib saldo cuma Seller/Reseller VIP,
+  // BUKAN semua user -- lihat chat "yang bayar pake saldo cuma seller aja
+  // jangan yang non seller juga"). Balikin Seller Panel jadi khusus
+  // is_reseller lagi seperti semula.
+  if (!user || !user.is_reseller) return res.redirect('/reseller');
 
   const transactions = readDB('transactions.json');
   const myTx = transactions.filter(t => t.userId === user.id).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -2014,11 +2013,9 @@ app.post('/reseller/topup', requireAuth, async (req, res) => {
     const users = readDB('users.json');
     const user = users.find(u => u.id === req.session.userId);
     if (!user) return res.json({ success: false, message: 'User tidak ditemukan' });
-    // FIX (saldo untuk semua user): topup saldo dulu dibatasi hanya untuk
-    // Reseller VIP. Sekarang SEMUA user (termasuk seller biasa/non-VIP) wajib
-    // pakai sistem saldo untuk beli produk (lihat /create-order), jadi topup
-    // harus terbuka untuk semua user login, bukan admin. Diskon harga reseller
-    // (is_reseller) tetap terpisah dan tidak terpengaruh oleh perubahan ini.
+    // REVERT (klien klarifikasi: cuma Seller/Reseller VIP yang wajib pakai
+    // saldo, non-seller tetap QRIS/USDT langsung seperti semula).
+    if (!user.is_reseller) return res.json({ success: false, message: 'Topup saldo hanya untuk Reseller VIP' });
 
     const settings = readDB('settings.json');
     const nominal = parseInt(req.body.nominal);
@@ -2453,12 +2450,11 @@ app.get('/buy/:id', async (req, res) => {
   }
   const coinInfo = { enabled: coinCfg.enabled, balance: coinBalance, maxUsagePercent: coinCfg.maxUsagePercent, minOrder: coinCfg.minOrder };
 
-  // FIX (saldo untuk semua user): userBalance dulu hanya diisi utk isReseller
-  // (karena bayar-saldo dulu eksklusif Reseller VIP). Sekarang saldo dipakai
-  // SEMUA user login untuk beli produk, jadi kirim balance user manapun yang
-  // sedang login (bukan reseller pun tetap 0 kalau belum pernah topup, bukan
-  // 0 paksa seperti sebelumnya).
-  res.render('pages/buy', { product: productSafe, settings, user, isReseller, userBalance: user ? (user.balance || 0) : 0,
+  // REVERT (klien klarifikasi: cuma Seller/Reseller VIP yang wajib pakai
+  // saldo, non-seller balik ke QRIS/USDT). userBalance dikirim eksklusif
+  // untuk isReseller lagi seperti semula -- non-reseller tidak butuh nomor
+  // ini karena tombol Saldo di buy.ejs juga hanya muncul utk isReseller.
+  res.render('pages/buy', { product: productSafe, settings, user, isReseller, userBalance: isReseller ? (user?.balance || 0) : 0,
     coinInfo,
     usdtManualConfigured: Boolean(
       (settings.binanceSpotManual?.apiKey && settings.binanceSpotManual?.secretKey && settings.binanceSpotManual?.walletAddress)
@@ -2650,12 +2646,12 @@ app.post('/create-order', requireAuth, async (req, res) => {
       }
       processingOrders.add(balLockKey);
       try {
-        // FIX (saldo untuk semua user): sebelumnya bayar-pakai-saldo dibatasi
-        // hanya utk is_reseller. Sekarang saldo adalah SATU-SATUNYA cara beli
-        // produk untuk semua user (lihat penolakan QRIS/USDT di bawah), jadi
-        // syarat is_reseller di sini dihapus -- cukup harus login (requireAuth)
-        // & saldo cukup. Diskon harga reseller tetap jalan terpisah lewat
-        // orderUser?.is_reseller di perhitungan `price` di atas.
+        // REVERT (klien klarifikasi: "yang bayar pake saldo cuma seller aja
+        // jangan yang non seller juga" -- BUKAN semua user). Balikin syarat
+        // is_reseller di sini seperti semula: cuma Seller/Reseller VIP yang
+        // boleh bayar pakai saldo. Non-seller balik pakai QRIS/USDT (lihat
+        // penolakan di bawah yang juga sudah direvert).
+        if (!orderUser?.is_reseller) return res.json({ success: false, message: 'Bayar pakai saldo hanya untuk Reseller VIP' });
         const usersBal = await readFresh('users.json'); // preview awal, buat pesan error yang informatif -- angka final tetap dicek ulang di adjustUserBalance terhadap data paling baru
         const uBalPreview = usersBal.find(u => u.id === req.session.userId);
         if (!uBalPreview) return res.json({ success: false, message: 'User tidak ditemukan' });
@@ -2796,19 +2792,97 @@ app.post('/create-order', requireAuth, async (req, res) => {
       }
     }
 
-    // ── FIX (saldo untuk semua user): SEMUA pembelian produk sekarang WAJIB
-    // pakai Saldo -- keputusan bisnis untuk menghapus bayar-langsung (QRIS/
-    // USDT manual) khusus untuk beli produk. Kode lama yang membuat order
-    // QRIS/USDT untuk produk (generate qrString / totalPayment / expiredAt,
-    // dst) SUDAH DIHAPUS dari sini supaya tidak ada jalur belakang yang bisa
-    // dipakai untuk beli produk tanpa saldo, walau tombolnya sudah dicopot
-    // dari UI (views/pages/buy.ejs). Kalau kode sampai ke titik ini, artinya
-    // paymentMethod yang dikirim BUKAN 'balance' -> tolak dengan jelas.
-    //
-    // Topup saldo sendiri TIDAK terpengaruh -- /reseller/topup masih memakai
-    // QRIS/USDT/crypto seperti biasa, karena itu jalur untuk MENGISI saldo,
-    // bukan untuk membeli produk secara langsung.
-    return res.json({ success: false, message: 'Pembelian produk hanya bisa menggunakan Saldo. Silakan topup saldo terlebih dahulu di Seller Panel.' });
+    // ── REVERT (klien klarifikasi: "yang bayar pake saldo cuma seller aja
+    // jangan yang non seller juga" -- BUKAN semua user). Seller/Reseller VIP
+    // TETAP wajib pakai Saldo (keputusan sebelumnya tidak berubah untuk
+    // mereka), tapi non-seller balik ke QRIS/USDT langsung seperti semula.
+    if (orderUser?.is_reseller) {
+      // Reseller sampai ke titik ini berarti kirim paymentMethod selain
+      // 'balance' (mis. tombolnya di-bypass lewat API) -- tolak dengan jelas,
+      // JANGAN buatkan order QRIS untuk reseller.
+      return res.json({ success: false, message: 'Akun Seller/Reseller VIP wajib bayar pakai Saldo. Silakan topup saldo terlebih dahulu di Seller Panel.' });
+    }
+
+    // ── QRIS/USDT LANGSUNG (khusus user non-seller) — kode asli sebelum
+    // perubahan "saldo untuk semua user", dikembalikan persis seperti semula ──
+    const qrisMode = settings.qrisMode || 'static';
+    const orderId = `HM-${Date.now()}`;
+    const refId = uuidv4();
+    const orderCode = generateOrderCode();
+
+    let qrString = null, isStatic = false, totalPayment = price, expiredAt = null;
+
+    if (qrisMode === 'static') {
+      if (!settings.qrisStaticImage) return res.json({ success: false, message: 'Upload gambar QRIS di admin panel terlebih dahulu.' });
+      isStatic = true;
+    } else {
+      try {
+        const r = await createQRISPayment(orderId, price, settings, `${getAppBaseUrl(req)}/webhook/genspay`);
+        qrString = r.qr_string;
+        totalPayment = r.total_payment || price;
+        expiredAt = r.expired_at || null;
+      } catch (error) {
+        console.error('[create-order/buy] GensPay gagal, fallback ke QRIS statis:', error.message);
+        if (settings.qrisStaticImage) { isStatic = true; }
+        else return res.json({ success: false, message: 'QRIS API error: ' + error.message });
+      }
+    }
+
+    const transactions = await readFresh('transactions.json');
+
+    // Cegah transaksi duplikat: tolak jika ada pending untuk produk yang sama dalam 30 menit
+    const existingPending = transactions.find(t =>
+      t.userId === req.session.userId &&
+      t.productId === productId &&
+      t.status === 'pending' &&
+      (Date.now() - new Date(t.createdAt).getTime()) < 30 * 60 * 1000
+    );
+    if (existingPending) {
+      return res.json({ success: false, message: 'Kamu masih memiliki pesanan pending untuk produk ini. Selesaikan pembayaran atau tunggu 30 menit.' });
+    }
+
+    await commitCoinRedeem();
+
+    const newQrisTxn = {
+      id: refId, orderId, code: orderCode,
+      userId: req.session.userId, productId: product.id, productName: product.name,
+      duration, selectedDays,
+      originalPrice: voucherDiscount > 0 ? originalPrice : undefined,
+      voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
+      voucherDiscount: voucherDiscount > 0 ? voucherDiscount : undefined,
+      coinUsed: coinDiscount > 0 ? coinDiscount : undefined,
+      coinRefId: coinDiscount > 0 ? coinRefId : undefined,
+      price, totalPayment,
+      customerName, wa, qrString, isStatic,
+      status: 'pending', key: null,
+      createdAt: new Date().toISOString(), time: formatDate()
+    };
+    // AUDIT FIX: simpan lewat updateCollectionAtomic (bukan readFresh()+push+
+    // writeDB() manual atas `transactions` di atas) -- konsisten dengan
+    // perbaikan race-condition di jalur saldo, supaya order QRIS baru ini
+    // tidak hilang kalau ada penulisan transactions.json lain yang barengan
+    // (mis. webhook order lain, atau checkout saldo user lain).
+    await updateCollectionAtomic('transactions.json', (txs) => {
+      txs.push(newQrisTxn);
+      return txs;
+    });
+
+    // Catat pemakaian voucher jika dipakai
+    if (appliedVoucher) {
+      const vouchers = await readFresh('vouchers.json');
+      const v = vouchers.find(v => v.id === appliedVoucher.id);
+      if (v) {
+        v.usedCount = (v.usedCount || 0) + 1;
+        v.usages = v.usages || [];
+        v.usages.push({ userId: req.session.userId, usedAt: new Date().toISOString(), orderId: refId });
+        await writeDB('vouchers.json', vouchers);
+      }
+    }
+
+    res.json({ success: true, refId, orderId, qrString, orderCode, isStatic, totalPayment, expiredAt,
+      voucherDiscount: voucherDiscount || undefined,
+      coinDiscount: coinDiscount || undefined,
+      qrisStaticImage: isStatic ? settings.qrisStaticImage : null });
 
     } finally {
       // Lepas lock koin di SEMUA jalur keluar dari sini (sukses maupun
