@@ -96,7 +96,7 @@ body>*{position:relative;z-index:1;}
                 <% } %>
                 <div class="min-w-0">
                     <div class="text-sm font-bold text-white truncate">@<%= user.username %></div>
-                    <div class="text-[10px] text-yellow-500 flex items-center gap-1"><iconify-icon icon="mdi:cart"></iconify-icon> Reseller</div>
+                    <div class="text-[10px] text-yellow-500 flex items-center gap-1"><iconify-icon icon="mdi:cart"></iconify-icon> <%= isReseller ? 'Reseller VIP' : 'Seller' %></div>
                 </div>
             </div>
             <div class="rounded-xl p-3" style="background:rgba(234,179,8,.06);border:1px solid rgba(234,179,8,.15)">
@@ -148,7 +148,16 @@ body>*{position:relative;z-index:1;}
                 <div class="text-sm font-bold text-white mb-2.5"><%= p.name %></div>
                 <div class="grid grid-cols-2 gap-2">
                     <% p.pricingOptions.forEach((o, idx) => {
-                        const rp = o.resellerPrice !== undefined ? o.resellerPrice : Math.round(o.price * (1 - (settings.resellerDiscount||20)/100));
+                        // FIX (saldo untuk semua user): panel ini sekarang bisa diakses
+                        // seller biasa (non-reseller) juga, jadi harga yang ditampilkan
+                        // WAJIB ikut status is_reseller asli user -- sebelumnya selalu
+                        // pakai harga diskon reseller walau usernya bukan reseller,
+                        // sehingga dialog konfirmasi bisa nunjukin harga lebih murah dari
+                        // yang sebenarnya dipotong dari saldo (server tetap hitung ulang
+                        // harga penuh yang benar, tapi UI-nya jadi bikin bingung).
+                        const rp = isReseller
+                          ? (o.resellerPrice !== undefined ? o.resellerPrice : Math.round(o.price * (1 - (settings.resellerDiscount||20)/100)))
+                          : o.price;
                         const label = p.items?.[idx]?.l || (p.name.toUpperCase() + ' ' + o.days + ' DAYS');
                     %>
                     <button onclick='generateKey("<%= p.id %>", <%- JSON.stringify(label) %>, <%= rp %>, <%- JSON.stringify(p.name) %>)'
