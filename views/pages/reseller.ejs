@@ -99,27 +99,7 @@ body>*{position:relative;z-index:1;}
 
 <% } else { %>
 
-<% if (user) { %>
-<!-- ── SALDO UNTUK SEMUA USER (bukan cuma Reseller VIP) ── -->
-<!-- FIX (saldo untuk semua user): sebelumnya cuma Reseller VIP yang bisa akses
-     Seller Panel (topup & bayar pakai saldo). Sekarang semua user login boleh
-     pakai saldo untuk beli produk (lihat perubahan /create-order & /reseller/topup
-     di server.js), jadi kasih jalan masuk yang jelas ke Seller Panel di sini
-     tanpa harus upgrade Reseller VIP dulu. -->
-<div class="neon-card p-4 flex items-center gap-3 fade-in-up" style="animation-delay:.08s;border-color:rgba(99,102,241,.25)">
-    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3)">
-        <iconify-icon icon="mdi:wallet-outline" class="text-indigo-300 text-lg"></iconify-icon>
-    </div>
-    <div class="flex-1 min-w-0">
-        <div class="text-xs font-bold text-white">Beli produk pakai Saldo</div>
-        <div class="text-[11px] text-zinc-500">Gak perlu jadi Reseller VIP dulu — isi saldo & beli produk langsung di Seller Panel.</div>
-    </div>
-    <a href="/reseller/panel" class="flex-shrink-0 text-[11px] font-bold px-3 py-2 rounded-lg text-indigo-300"
-       style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3)">Buka</a>
-</div>
-<% } %>
-
-<!-- ── BENEFIT LIST ── -->
+<!-- BENEFIT LIST ── -->
 <div class="neon-card p-5 fade-in-up" style="animation-delay:.1s">
     <h2 class="text-sm font-black text-white mb-4 flex items-center gap-2">
         <iconify-icon icon="mdi:star-circle" class="text-yellow-400 text-lg"></iconify-icon>
@@ -370,4 +350,3 @@ function closePayment() {
 </script>
 </body>
 </html>
-
