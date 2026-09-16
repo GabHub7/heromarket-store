@@ -721,6 +721,48 @@ const readSmart = db.readSmart; // TTL-based: auto-refresh jika cache >8 detik
 const updateCollectionAtomic = db.updateCollectionAtomic; // optimistic concurrency (lihat komentar di supabase.js)
 const refreshForWrite = (...files) => Promise.all(files.map(f => db.refreshFromDB(f)));
 
+// AUDIT FIX (saldo untuk semua user, September 2026): users.json disimpan
+// sebagai SATU blob JSON (kolom keyvalue_store.value), bukan tabel
+// relasional per-user -- writeDB() SELALU menimpa SELURUH array user
+// sekaligus (lihat komentar panjang di supabase.js soal updateCollectionAtomic).
+// Pola lama di /create-order & allocateKeyAndCompleteTransaction untuk
+// potong/tambah saldo adalah: readFresh('users.json') -> cari user -> ubah
+// .balance di kopian in-memory -> writeDB('users.json', ...) balik. Kalau 2
+// request (dari 2 user BERBEDA sekalipun) menyentuh users.json di waktu yang
+// hampir bersamaan -- checkout A & checkout B, atau checkout & topup
+// webhook -- keduanya baca array yang sama, masing-masing ubah baris
+// user-nya sendiri di kopian masing-masing, lalu writeDB TERAKHIR yang
+// sampai ke Supabase MENIMPA TOTAL, diam-diam MENGHILANGKAN perubahan
+// saldo dari request yang lebih dulu selesai. Efeknya: saldo user A bisa
+// gak kepotong walau key sudah keluar (kerugian toko), atau user B kirim
+// duit topup tapi saldonya gak nambah (kerugian customer, komplain "udah
+// bayar tapi saldo ga masuk"). Sebelum perubahan hari ini risikonya kecil
+// (cuma reseller VIP -- jumlah kecil -- yang transaksi pakai saldo);
+// sekarang SEMUA pembeli pakai saldo untuk SEMUA pembelian, jadi peluang 2
+// transaksi saldo bertabrakan dalam window race jauh lebih tinggi.
+//
+// Fix: SEMUA mutasi user.balance WAJIB lewat helper ini, yang pakai
+// updateCollectionAtomic (optimistic concurrency + retry otomatis kalau
+// versi basi) -- bukan lagi readFresh()+writeDB() manual. delta boleh
+// negatif (potong saldo, dengan opsi minBalance guard) atau positif
+// (tambah/refund saldo).
+async function adjustUserBalance(userId, delta, { minBalance = null } = {}) {
+  let outcome = { ok: true, balance: null, reason: null };
+  await updateCollectionAtomic('users.json', (users) => {
+    const u = users.find(u => u.id === userId);
+    if (!u) { outcome = { ok: false, balance: null, reason: 'not_found' }; return null; }
+    const nextBalance = (u.balance || 0) + delta;
+    if (minBalance !== null && nextBalance < minBalance) {
+      outcome = { ok: false, balance: u.balance || 0, reason: 'insufficient' };
+      return null; // abort, jangan tulis apa-apa -- saldo tidak cukup
+    }
+    u.balance = nextBalance;
+    outcome = { ok: true, balance: nextBalance, reason: null };
+    return users;
+  });
+  return outcome;
+}
+
 // Inject settings + isAdmin ke semua view otomatis
 // FIX: sebelumnya pakai readDB() yang MURNI baca cache in-memory tanpa refresh
 // apapun. Di Vercel serverless, tiap request bisa kena instance/lambda yang
@@ -1866,7 +1908,12 @@ app.get('/reseller/panel', requireAuth, (req, res) => {
   // API Key NOWPayments atau QRIS, harus langsung kepakai di sini.
   const settings = res.locals.settings;
   const user = getSessionUser(req);
-  if (!user || !user.is_reseller) return res.redirect('/reseller');
+  // FIX (saldo untuk semua user): Seller Panel (saldo, topup, generate key)
+  // dulu dikunci hanya utk is_reseller. Sekarang SEMUA user yang login boleh
+  // masuk -- cukup requireAuth di atas, tanpa syarat is_reseller lagi. Harga
+  // reseller (diskon) di dalam panel tetap dihitung sesuai status is_reseller
+  // masing-masing user (lihat isReseller & harga di section Generate Key).
+  if (!user) return res.redirect('/reseller');
 
   const transactions = readDB('transactions.json');
   const myTx = transactions.filter(t => t.userId === user.id).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -1900,6 +1947,7 @@ app.get('/reseller/panel', requireAuth, (req, res) => {
 
   res.render('pages/seller-panel', {
     layout: false, settings, user,
+    isReseller: !!user.is_reseller,
     products,
     keyTx: keyTx.slice(0, 100),
     breakdown,
@@ -1966,7 +2014,11 @@ app.post('/reseller/topup', requireAuth, async (req, res) => {
     const users = readDB('users.json');
     const user = users.find(u => u.id === req.session.userId);
     if (!user) return res.json({ success: false, message: 'User tidak ditemukan' });
-    if (!user.is_reseller) return res.json({ success: false, message: 'Topup saldo hanya untuk Reseller VIP' });
+    // FIX (saldo untuk semua user): topup saldo dulu dibatasi hanya untuk
+    // Reseller VIP. Sekarang SEMUA user (termasuk seller biasa/non-VIP) wajib
+    // pakai sistem saldo untuk beli produk (lihat /create-order), jadi topup
+    // harus terbuka untuk semua user login, bukan admin. Diskon harga reseller
+    // (is_reseller) tetap terpisah dan tidak terpengaruh oleh perubahan ini.
 
     const settings = readDB('settings.json');
     const nominal = parseInt(req.body.nominal);
@@ -2401,7 +2453,12 @@ app.get('/buy/:id', async (req, res) => {
   }
   const coinInfo = { enabled: coinCfg.enabled, balance: coinBalance, maxUsagePercent: coinCfg.maxUsagePercent, minOrder: coinCfg.minOrder };
 
-  res.render('pages/buy', { product: productSafe, settings, user, isReseller, userBalance: isReseller ? (user?.balance || 0) : 0,
+  // FIX (saldo untuk semua user): userBalance dulu hanya diisi utk isReseller
+  // (karena bayar-saldo dulu eksklusif Reseller VIP). Sekarang saldo dipakai
+  // SEMUA user login untuk beli produk, jadi kirim balance user manapun yang
+  // sedang login (bukan reseller pun tetap 0 kalau belum pernah topup, bukan
+  // 0 paksa seperti sebelumnya).
+  res.render('pages/buy', { product: productSafe, settings, user, isReseller, userBalance: user ? (user.balance || 0) : 0,
     coinInfo,
     usdtManualConfigured: Boolean(
       (settings.binanceSpotManual?.apiKey && settings.binanceSpotManual?.secretKey && settings.binanceSpotManual?.walletAddress)
@@ -2593,12 +2650,17 @@ app.post('/create-order', requireAuth, async (req, res) => {
       }
       processingOrders.add(balLockKey);
       try {
-        if (!orderUser?.is_reseller) return res.json({ success: false, message: 'Bayar pakai saldo hanya untuk Reseller VIP' });
-        const usersBal = await readFresh('users.json');
-        const uBal = usersBal.find(u => u.id === req.session.userId);
-        if (!uBal) return res.json({ success: false, message: 'User tidak ditemukan' });
-        if ((uBal.balance || 0) < price) {
-          return res.json({ success: false, message: `Saldo tidak cukup. Saldo kamu Rp${(uBal.balance || 0).toLocaleString('id-ID')}, harga Rp${price.toLocaleString('id-ID')}` });
+        // FIX (saldo untuk semua user): sebelumnya bayar-pakai-saldo dibatasi
+        // hanya utk is_reseller. Sekarang saldo adalah SATU-SATUNYA cara beli
+        // produk untuk semua user (lihat penolakan QRIS/USDT di bawah), jadi
+        // syarat is_reseller di sini dihapus -- cukup harus login (requireAuth)
+        // & saldo cukup. Diskon harga reseller tetap jalan terpisah lewat
+        // orderUser?.is_reseller di perhitungan `price` di atas.
+        const usersBal = await readFresh('users.json'); // preview awal, buat pesan error yang informatif -- angka final tetap dicek ulang di adjustUserBalance terhadap data paling baru
+        const uBalPreview = usersBal.find(u => u.id === req.session.userId);
+        if (!uBalPreview) return res.json({ success: false, message: 'User tidak ditemukan' });
+        if ((uBalPreview.balance || 0) < price) {
+          return res.json({ success: false, message: `Saldo tidak cukup. Saldo kamu Rp${(uBalPreview.balance || 0).toLocaleString('id-ID')}, harga Rp${price.toLocaleString('id-ID')}` });
         }
 
         const transactionsBal = await readFresh('transactions.json');
@@ -2626,9 +2688,45 @@ app.post('/create-order', requireAuth, async (req, res) => {
           status: 'pending', key: null,
           createdAt: new Date().toISOString(), time: formatDate()
         };
-        transactionsBal.push(newTxn);
-        uBal.balance = (uBal.balance || 0) - price;
-        await Promise.all([writeDB('users.json', usersBal), writeDB('transactions.json', transactionsBal)]);
+
+        // AUDIT FIX (race saldo, lihat komentar panjang di adjustUserBalance):
+        // potong saldo lewat adjustUserBalance (optimistic concurrency, selalu
+        // bekerja di atas versi TERBARU users.json saat commit, retry otomatis
+        // kalau kepentok versi basi) -- BUKAN lagi baca-ubah-tulis manual di
+        // atas kopian `usersBal` yang bisa saja sudah basi kalau ADA transaksi
+        // lain (checkout user lain / topup / refund) yang menulis users.json
+        // persis di antara baca & tulis kita.
+        const deduct = await adjustUserBalance(req.session.userId, -price, { minBalance: 0 });
+        if (!deduct.ok) {
+          return res.json({
+            success: false,
+            message: deduct.reason === 'not_found'
+              ? 'User tidak ditemukan'
+              : `Saldo tidak cukup. Saldo kamu Rp${(deduct.balance || 0).toLocaleString('id-ID')}, harga Rp${price.toLocaleString('id-ID')}`
+          });
+        }
+
+        // AUDIT FIX: simpan transaksi baru lewat updateCollectionAtomic juga --
+        // push+writeDB manual ke seluruh array transactions.json bisa
+        // menghilangkan perubahan transaksi LAIN (mis. webhook yang barengan
+        // menandai order lain 'expired'/'done') kalau writeDB itu menimpa
+        // duluan/belakangan tanpa tahu ada perubahan lain di antaranya.
+        await updateCollectionAtomic('transactions.json', (transactions) => {
+          transactions.push(newTxn);
+          return transactions;
+        });
+
+        // Re-read fresh setelah push di atas -- transactionsBal (dibaca SEBELUM
+        // push) belum punya newTxn di dalamnya, dan allocateKeyAndCompleteTransaction
+        // butuh referensi objek transaksi yang ADA di dalam array yang akan
+        // dia tulis balik. transactionsForAlloc juga menangkap perubahan
+        // lain yang mungkin barengan masuk (mis. webhook), memperkecil window
+        // basi sebelum completion write di allocateKeyAndCompleteTransaction
+        // (lihat catatan di fungsi itu soal writeDB non-atomic yang masih
+        // dipakai bersama banyak jalur lain -- perbaikan penuh butuh refactor
+        // terpisah, lihat ringkasan audit).
+        const transactionsForAlloc = await readFresh('transactions.json');
+        const newTxnRef = transactionsForAlloc.find(t => t.id === refIdBal) || newTxn;
 
         if (appliedVoucher) {
           const vouchers = await readFresh('vouchers.json');
@@ -2641,8 +2739,49 @@ app.post('/create-order', requireAuth, async (req, res) => {
           }
         }
 
-        const result = await allocateKeyAndCompleteTransaction(newTxn, transactionsBal);
-        const finalBalance = result.status === 'failed' && result.refunded ? result.balance : uBal.balance;
+        // AUDIT FIX: allocateKeyAndCompleteTransaction SUDAH menangani rapi
+        // kegagalan bisnis (stok habis, provider tolak, dst) dengan refund
+        // otomatis di dalam dirinya sendiri (lihat allocationError branch).
+        // TAPI kalau ada exception TAK TERDUGA yang lolos dari situ (mis.
+        // disk/file error pas writeDB, bug lain yang belum ketahuan), tanpa
+        // try/catch di sini exception itu akan lolos ke outer catch handler
+        // /create-order yang CUMA balikin pesan error TANPA refund -- padahal
+        // saldo SUDAH DIPOTONG di atas. User bisa kehilangan saldo tanpa
+        // dapat key ataupun uangnya balik. Try/catch ini jaring pengaman
+        // terakhir: refund saldo (+ koin kalau dipakai) & tandai transaksi
+        // 'failed' supaya tidak nyangkut 'pending' selamanya.
+        let result;
+        try {
+          result = await allocateKeyAndCompleteTransaction(newTxnRef, transactionsForAlloc);
+        } catch (allocErr) {
+          console.error('[create-order/balance] exception tak terduga saat alokasi key, me-refund saldo:', allocErr.message);
+          // AUDIT FIX: refund lewat adjustUserBalance (atomic), bukan lagi
+          // readFresh()+writeDB() manual -- lihat komentar panjang di
+          // definisi adjustUserBalance.
+          const refundExc = await adjustUserBalance(req.session.userId, price);
+          if (coinDiscount > 0) {
+            const coinSettingsExc = getCoinSettings(readDB('settings.json'));
+            await refundRedeemedCoins(req.session.userId, coinDiscount, {
+              referenceId: coinRefId,
+              description: `Pengembalian koin — order ${orderCodeBal} gagal (error sistem)`,
+              expirationMonths: coinSettingsExc.expirationMonths
+            });
+          }
+          await updateCollectionAtomic('transactions.json', (transactions) => {
+            const txExc = transactions.find(t => t.id === refIdBal);
+            if (!txExc) return null;
+            txExc.status = 'failed';
+            txExc.failReason = 'Kesalahan sistem saat memproses pesanan: ' + allocErr.message;
+            return transactions;
+          });
+          return res.json({
+            success: false,
+            paidWithBalance: true,
+            balance: refundExc.ok ? refundExc.balance : undefined,
+            message: 'Terjadi kesalahan sistem saat memproses pesanan. Saldo kamu sudah dikembalikan.'
+          });
+        }
+        const finalBalance = result.status === 'failed' && result.refunded ? result.balance : deduct.balance;
         return res.json({
           success: result.status !== 'failed',
           paidWithBalance: true,
@@ -2657,76 +2796,19 @@ app.post('/create-order', requireAuth, async (req, res) => {
       }
     }
 
-    const qrisMode = settings.qrisMode || 'static';
-    const orderId = `HM-${Date.now()}`;
-    const refId = uuidv4();
-    const orderCode = generateOrderCode();
-
-    let qrString = null, isStatic = false, totalPayment = price, expiredAt = null;
-
-    if (qrisMode === 'static') {
-      if (!settings.qrisStaticImage) return res.json({ success: false, message: 'Upload gambar QRIS di admin panel terlebih dahulu.' });
-      isStatic = true;
-    } else {
-      try {
-        const r = await createQRISPayment(orderId, price, settings, `${getAppBaseUrl(req)}/webhook/genspay`);
-        qrString = r.qr_string;
-        totalPayment = r.total_payment || price;
-        expiredAt = r.expired_at || null;
-      } catch (error) {
-        console.error('[create-order/buy] GensPay gagal, fallback ke QRIS statis:', error.message);
-        if (settings.qrisStaticImage) { isStatic = true; }
-        else return res.json({ success: false, message: 'QRIS API error: ' + error.message });
-      }
-    }
-
-    const transactions = await readFresh('transactions.json');
-
-    // Cegah transaksi duplikat: tolak jika ada pending untuk produk yang sama dalam 30 menit
-    const existingPending = transactions.find(t =>
-      t.userId === req.session.userId &&
-      t.productId === productId &&
-      t.status === 'pending' &&
-      (Date.now() - new Date(t.createdAt).getTime()) < 30 * 60 * 1000
-    );
-    if (existingPending) {
-      return res.json({ success: false, message: 'Kamu masih memiliki pesanan pending untuk produk ini. Selesaikan pembayaran atau tunggu 30 menit.' });
-    }
-
-    await commitCoinRedeem();
-
-    transactions.push({
-      id: refId, orderId, code: orderCode,
-      userId: req.session.userId, productId: product.id, productName: product.name,
-      duration, selectedDays,
-      originalPrice: voucherDiscount > 0 ? originalPrice : undefined,
-      voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
-      voucherDiscount: voucherDiscount > 0 ? voucherDiscount : undefined,
-      coinUsed: coinDiscount > 0 ? coinDiscount : undefined,
-      coinRefId: coinDiscount > 0 ? coinRefId : undefined,
-      price, totalPayment,
-      customerName, wa, qrString, isStatic,
-      status: 'pending', key: null,
-      createdAt: new Date().toISOString(), time: formatDate()
-    });
-    await writeDB('transactions.json', transactions);
-
-    // Catat pemakaian voucher jika dipakai
-    if (appliedVoucher) {
-      const vouchers = await readFresh('vouchers.json');
-      const v = vouchers.find(v => v.id === appliedVoucher.id);
-      if (v) {
-        v.usedCount = (v.usedCount || 0) + 1;
-        v.usages = v.usages || [];
-        v.usages.push({ userId: req.session.userId, usedAt: new Date().toISOString(), orderId: refId });
-        await writeDB('vouchers.json', vouchers);
-      }
-    }
-
-    res.json({ success: true, refId, orderId, qrString, orderCode, isStatic, totalPayment, expiredAt,
-      voucherDiscount: voucherDiscount || undefined,
-      coinDiscount: coinDiscount || undefined,
-      qrisStaticImage: isStatic ? settings.qrisStaticImage : null });
+    // ── FIX (saldo untuk semua user): SEMUA pembelian produk sekarang WAJIB
+    // pakai Saldo -- keputusan bisnis untuk menghapus bayar-langsung (QRIS/
+    // USDT manual) khusus untuk beli produk. Kode lama yang membuat order
+    // QRIS/USDT untuk produk (generate qrString / totalPayment / expiredAt,
+    // dst) SUDAH DIHAPUS dari sini supaya tidak ada jalur belakang yang bisa
+    // dipakai untuk beli produk tanpa saldo, walau tombolnya sudah dicopot
+    // dari UI (views/pages/buy.ejs). Kalau kode sampai ke titik ini, artinya
+    // paymentMethod yang dikirim BUKAN 'balance' -> tolak dengan jelas.
+    //
+    // Topup saldo sendiri TIDAK terpengaruh -- /reseller/topup masih memakai
+    // QRIS/USDT/crypto seperti biasa, karena itu jalur untuk MENGISI saldo,
+    // bukan untuk membeli produk secara langsung.
+    return res.json({ success: false, message: 'Pembelian produk hanya bisa menggunakan Saldo. Silakan topup saldo terlebih dahulu di Seller Panel.' });
 
     } finally {
       // Lepas lock koin di SEMUA jalur keluar dari sini (sukses maupun
@@ -2969,16 +3051,16 @@ const allocateKeyAndCompleteTransaction = async (transaction, transactions) => {
   }
 
   if (transaction.type === 'topup') {
-    const users = await readSmart('users.json');
-    const u = users.find(u => u.id === transaction.userId);
-    if (u) {
-      u.balance = (u.balance || 0) + transaction.price + (transaction.bonus || 0);
-      await writeDB('users.json', users);
-    }
+    // AUDIT FIX (race saldo): dulu readSmart()+writeDB() manual -- bisa
+    // menimpa balik perubahan saldo lain (mis. checkout user lain / topup
+    // lain) yang nulis users.json persis di antara baca & tulis di sini.
+    // Pakai adjustUserBalance (optimistic concurrency) supaya kredit topup
+    // SELALU nambah ke angka TERBARU, bukan ke kopian yang mungkin basi.
+    const creditResult = await adjustUserBalance(transaction.userId, transaction.price + (transaction.bonus || 0));
     transaction.status = 'done';
     transaction.paidAt = new Date().toISOString();
     await writeDB('transactions.json', transactions);
-    return { status: 'done', type: 'topup', balance: u ? u.balance : undefined, bonus: transaction.bonus || 0 };
+    return { status: 'done', type: 'topup', balance: creditResult.ok ? creditResult.balance : undefined, bonus: transaction.bonus || 0 };
   }
 
   const products = await readFresh('products.json');
@@ -3064,15 +3146,13 @@ const allocateKeyAndCompleteTransaction = async (transaction, transactions) => {
     // user harus dikembalikan uangnya, bukan kehilangan saldo tanpa dapat
     // apa-apa. Untuk QRIS/NOWPayments, uang belum masuk ke sistem internal kita
     // sama sekali jadi tidak ada yang perlu di-refund di sisi kita.
+    // AUDIT FIX (race saldo): pakai adjustUserBalance (optimistic concurrency)
+    // -- bukan lagi readFresh()+writeDB() manual -- lihat komentar panjang
+    // di definisi adjustUserBalance.
     let refundedBalance = null;
     if (transaction.paymentMethod === 'balance') {
-      const usersRefund = await readFresh('users.json');
-      const uRefund = usersRefund.find(u => u.id === transaction.userId);
-      if (uRefund) {
-        uRefund.balance = (uRefund.balance || 0) + transaction.price;
-        refundedBalance = uRefund.balance;
-        await writeDB('users.json', usersRefund);
-      }
+      const refundRes = await adjustUserBalance(transaction.userId, transaction.price);
+      refundedBalance = refundRes.ok ? refundRes.balance : null;
     }
     // KOIN CASHBACK: kalau order ini pakai koin (coinUsed > 0), koin harus
     // dikembalikan -- generate key gagal artinya user tidak jadi dapat
