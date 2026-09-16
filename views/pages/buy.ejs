@@ -344,30 +344,23 @@ const pageTitle = 'Beli ' + product.name;
         </div>
 
         <!-- METODE PEMBAYARAN -->
+        <!-- FIX (saldo untuk semua user): tombol bayar-langsung QRIS & USDT
+             (Binance) untuk beli produk sudah DICOPOT dari sini -- keputusan
+             bisnis: semua user (bukan cuma Reseller VIP) sekarang WAJIB pakai
+             Saldo untuk beli produk. selectedPaymentMethod di script bawah
+             juga sudah dikunci ke 'balance' (lihat const, bukan let lagi).
+             Topup saldo tetap lewat QRIS/USDT seperti biasa di Seller Panel. -->
         <div>
             <label class="text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 mb-1.5 block">METODE PEMBAYARAN</label>
-            <div class="grid grid-cols-2 gap-2">
-                <button type="button" id="payMethodQris" onclick="selectPaymentMethod('qris')"
-                    class="flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border">
-                    <iconify-icon icon="mdi:qrcode-scan" class="text-base"></iconify-icon> QRIS
-                </button>
-                <button type="button" id="payMethodUsdtManual" onclick="selectPaymentMethod('usdt_manual')"
-                    class="flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border">
-                    <iconify-icon icon="ph:coin-fill" class="text-base" style="color:#F0B90B"></iconify-icon> USDT (Binance)
-                </button>
-                <% if (isReseller) { %>
-                <button type="button" id="payMethodBalance" onclick="selectPaymentMethod('balance')"
-                    class="flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border col-span-2">
-                    <iconify-icon icon="mdi:wallet" class="text-base"></iconify-icon> Saldo
-                </button>
-                <% } %>
+            <div id="payMethodBalance"
+                class="flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold border active"
+                style="border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.12);color:#fbbf24;">
+                <iconify-icon icon="mdi:wallet" class="text-base"></iconify-icon> Bayar dengan Saldo
             </div>
-            <p class="text-[10px] text-zinc-600 mt-1.5">USDT (TRC20) via Binance cocok untuk pembayaran dari luar negeri.</p>
-            <% if (isReseller) { %>
-            <p class="text-[10px] mt-1 flex items-center gap-1" style="color:#fbbf24">
+            <p class="text-[10px] mt-1.5 flex items-center gap-1" style="color:#fbbf24">
                 <iconify-icon icon="mdi:wallet-outline"></iconify-icon> Saldo kamu: Rp <span id="myBalanceLabel"><%= (userBalance||0).toLocaleString('id-ID') %></span>
             </p>
-            <% } %>
+            <a href="/reseller/panel" class="text-[10px] text-indigo-400 underline mt-1 inline-block">Saldo kurang? Isi saldo di Seller Panel</a>
         </div>
 
 
@@ -657,21 +650,16 @@ const pageTitle = 'Beli ' + product.name;
     let payInterval = null;
     let currentRefId = null;
     let appliedVoucher = null;   // { code, discount, finalPrice }
-    let selectedPaymentMethod = 'qris';
+    // FIX (saldo untuk semua user): dulu default-nya 'qris' dan bisa diganti
+    // lewat selectPaymentMethod('qris'/'usdt_manual'/'balance'). Sekarang
+    // SATU-SATUNYA metode bayar produk adalah saldo -- dikunci const, bukan
+    // let, supaya tidak ada kode lain yang bisa diam-diam mengubahnya balik
+    // ke qris/usdt_manual.
+    const selectedPaymentMethod = 'balance';
     const PID   = '<%= product.id %>';
     const PNAME = '<%= product.name %>';
 
-    let myBalance = <%= isReseller ? (userBalance||0) : 0 %>;
-
-    function selectPaymentMethod(method) {
-        selectedPaymentMethod = method;
-        document.getElementById('payMethodQris').classList.toggle('active', method === 'qris');
-        document.getElementById('payMethodUsdtManual').classList.toggle('active', method === 'usdt_manual');
-        const balBtn = document.getElementById('payMethodBalance');
-        if (balBtn) balBtn.classList.toggle('active', method === 'balance');
-    }
-    // Default: QRIS aktif saat halaman dibuka
-    document.addEventListener('DOMContentLoaded', () => selectPaymentMethod('qris'));
+    let myBalance = <%= (userBalance||0) %>;
 
     function selectPkg(label, price, stock) {
         selPkg = { label, price, stock };
@@ -1213,3 +1201,4 @@ const pageTitle = 'Beli ' + product.name;
         checkPurchaseStatus();
     });
 </script>
+
