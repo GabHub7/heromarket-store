@@ -344,12 +344,11 @@ const pageTitle = 'Beli ' + product.name;
         </div>
 
         <!-- METODE PEMBAYARAN -->
-        <!-- FIX (saldo untuk semua user): tombol bayar-langsung QRIS & USDT
-             (Binance) untuk beli produk sudah DICOPOT dari sini -- keputusan
-             bisnis: semua user (bukan cuma Reseller VIP) sekarang WAJIB pakai
-             Saldo untuk beli produk. selectedPaymentMethod di script bawah
-             juga sudah dikunci ke 'balance' (lihat const, bukan let lagi).
-             Topup saldo tetap lewat QRIS/USDT seperti biasa di Seller Panel. -->
+        <!-- REVERT (klien klarifikasi: "yang bayar pake saldo cuma seller
+             aja jangan yang non seller juga"). Seller/Reseller VIP TETAP
+             saldo-only (tidak berubah), non-seller balik ke pilihan
+             QRIS/USDT langsung seperti semula. -->
+        <% if (isReseller) { %>
         <div>
             <label class="text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 mb-1.5 block">METODE PEMBAYARAN</label>
             <div id="payMethodBalance"
@@ -362,6 +361,22 @@ const pageTitle = 'Beli ' + product.name;
             </p>
             <a href="/reseller/panel" class="text-[10px] text-indigo-400 underline mt-1 inline-block">Saldo kurang? Isi saldo di Seller Panel</a>
         </div>
+        <% } else { %>
+        <div>
+            <label class="text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 mb-1.5 block">METODE PEMBAYARAN</label>
+            <div class="grid grid-cols-2 gap-2">
+                <button type="button" id="payMethodQris" onclick="selectPaymentMethod('qris')"
+                    class="flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border">
+                    <iconify-icon icon="mdi:qrcode-scan" class="text-base"></iconify-icon> QRIS
+                </button>
+                <button type="button" id="payMethodUsdtManual" onclick="selectPaymentMethod('usdt_manual')"
+                    class="flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border">
+                    <iconify-icon icon="ph:coin-fill" class="text-base" style="color:#F0B90B"></iconify-icon> USDT (Binance)
+                </button>
+            </div>
+            <p class="text-[10px] text-zinc-600 mt-1.5">USDT (TRC20) via Binance cocok untuk pembayaran dari luar negeri.</p>
+        </div>
+        <% } %>
 
 
         <!-- ORDER SUMMARY TABLE -->
@@ -650,16 +665,30 @@ const pageTitle = 'Beli ' + product.name;
     let payInterval = null;
     let currentRefId = null;
     let appliedVoucher = null;   // { code, discount, finalPrice }
-    // FIX (saldo untuk semua user): dulu default-nya 'qris' dan bisa diganti
-    // lewat selectPaymentMethod('qris'/'usdt_manual'/'balance'). Sekarang
-    // SATU-SATUNYA metode bayar produk adalah saldo -- dikunci const, bukan
-    // let, supaya tidak ada kode lain yang bisa diam-diam mengubahnya balik
-    // ke qris/usdt_manual.
-    const selectedPaymentMethod = 'balance';
+    // REVERT (klien klarifikasi: cuma Seller/Reseller VIP yang saldo-only,
+    // non-seller balik pilih QRIS/USDT seperti semula). isReseller dari
+    // server nentuin default & apakah tombol QRIS/USDT ada sama sekali
+    // (lihat kondisi <% if (isReseller) %> di HTML METODE PEMBAYARAN).
+    let selectedPaymentMethod = <%= isReseller ? "'balance'" : "'qris'" %>;
     const PID   = '<%= product.id %>';
     const PNAME = '<%= product.name %>';
 
-    let myBalance = <%= (userBalance||0) %>;
+    let myBalance = <%= isReseller ? (userBalance||0) : 0 %>;
+
+    function selectPaymentMethod(method) {
+        selectedPaymentMethod = method;
+        const qrisBtn = document.getElementById('payMethodQris');
+        const usdtBtn = document.getElementById('payMethodUsdtManual');
+        if (qrisBtn) qrisBtn.classList.toggle('active', method === 'qris');
+        if (usdtBtn) usdtBtn.classList.toggle('active', method === 'usdt_manual');
+        const balBtn = document.getElementById('payMethodBalance');
+        if (balBtn) balBtn.classList.toggle('active', method === 'balance');
+    }
+    // Default: QRIS aktif saat halaman dibuka (khusus non-seller, yang
+    // punya tombol QRIS/USDT). Seller sudah dikunci 'balance' dari server.
+    <% if (!isReseller) { %>
+    document.addEventListener('DOMContentLoaded', () => selectPaymentMethod('qris'));
+    <% } %>
 
     function selectPkg(label, price, stock) {
         selPkg = { label, price, stock };
@@ -1201,4 +1230,3 @@ const pageTitle = 'Beli ' + product.name;
         checkPurchaseStatus();
     });
 </script>
-
