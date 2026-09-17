@@ -2702,15 +2702,21 @@ app.post('/create-order', requireAuth, async (req, res) => {
           });
         }
 
-        // AUDIT FIX: simpan transaksi baru lewat updateCollectionAtomic juga --
-        // push+writeDB manual ke seluruh array transactions.json bisa
-        // menghilangkan perubahan transaksi LAIN (mis. webhook yang barengan
-        // menandai order lain 'expired'/'done') kalau writeDB itu menimpa
-        // duluan/belakangan tanpa tahu ada perubahan lain di antaranya.
-        await updateCollectionAtomic('transactions.json', (transactions) => {
-          transactions.push(newTxn);
-          return transactions;
-        });
+        // REVERT (produksi terbukti sering konflik): transactions.json
+        // ternyata ditulis JAUH lebih sering daripada users.json -- setiap
+        // checkout (saldo maupun QRIS), setiap webhook konfirmasi
+        // pembayaran, dan polling status semuanya nyentuh koleksi yang
+        // sama. Bungkus push transaksi baru ini dengan updateCollectionAtomic
+        // (yang GAGAL TOTAL & lempar exception kalau 5x retry tetap
+        // bentrok versi) ternyata malah bikin checkout customer betulan
+        // gagal di produksi ("updateCollectionAtomic: gagal setelah 5
+        // percobaan") -- padahal risiko asal yang mau dicegah cuma "kalau
+        // pas bertabrakan, transaksi baru ini kemungkinan kecil kepentok
+        // race" (rendah dampak, gampang di-retry user). Kegagalan checkout
+        // total jauh lebih buruk daripada risiko itu, jadi balik ke
+        // push+writeDB polos seperti semula (kode asli sebelum audit).
+        transactionsBal.push(newTxn);
+        await writeDB('transactions.json', transactionsBal);
 
         // Re-read fresh setelah push di atas -- transactionsBal (dibaca SEBELUM
         // push) belum punya newTxn di dalamnya, dan allocateKeyAndCompleteTransaction
@@ -2763,13 +2769,24 @@ app.post('/create-order', requireAuth, async (req, res) => {
               expirationMonths: coinSettingsExc.expirationMonths
             });
           }
-          await updateCollectionAtomic('transactions.json', (transactions) => {
-            const txExc = transactions.find(t => t.id === refIdBal);
-            if (!txExc) return null;
-            txExc.status = 'failed';
-            txExc.failReason = 'Kesalahan sistem saat memproses pesanan: ' + allocErr.message;
-            return transactions;
-          });
+          // REVERT (konsisten dengan revert push di atas -- transactions.json
+          // terbukti sering ditulis bersamaan di produksi, jadi pola atomic
+          // yang bisa GAGAL TOTAL setelah retry kurang cocok di sini juga.
+          // Ini pun jalur langka (cuma kepicu kalau ada exception tak
+          // terduga), jadi risiko race-nya rendah; dibungkus try/catch
+          // sendiri supaya kalau toh gagal, tidak menutupi pesan error asli
+          // ke user dengan error BARU dari sini.
+          try {
+            const txListExc = await readFresh('transactions.json');
+            const txExc = txListExc.find(t => t.id === refIdBal);
+            if (txExc) {
+              txExc.status = 'failed';
+              txExc.failReason = 'Kesalahan sistem saat memproses pesanan: ' + allocErr.message;
+              await writeDB('transactions.json', txListExc);
+            }
+          } catch (markFailedErr) {
+            console.error('[create-order/balance] gagal menandai transaksi failed (non-fatal, saldo tetap sudah di-refund):', markFailedErr.message);
+          }
           return res.json({
             success: false,
             paidWithBalance: true,
@@ -2857,15 +2874,17 @@ app.post('/create-order', requireAuth, async (req, res) => {
       status: 'pending', key: null,
       createdAt: new Date().toISOString(), time: formatDate()
     };
-    // AUDIT FIX: simpan lewat updateCollectionAtomic (bukan readFresh()+push+
-    // writeDB() manual atas `transactions` di atas) -- konsisten dengan
-    // perbaikan race-condition di jalur saldo, supaya order QRIS baru ini
-    // tidak hilang kalau ada penulisan transactions.json lain yang barengan
-    // (mis. webhook order lain, atau checkout saldo user lain).
-    await updateCollectionAtomic('transactions.json', (txs) => {
-      txs.push(newQrisTxn);
-      return txs;
-    });
+    // REVERT (ini persis yang gagal di produksi -- lihat screenshot error
+    // "updateCollectionAtomic: gagal setelah 5 percobaan untuk
+    // transactions.json"). transactions.json ternyata ditulis jauh lebih
+    // sering daripada perkiraan awal (checkout QRIS dari SEMUA non-seller +
+    // checkout saldo dari SEMUA seller + webhook konfirmasi + polling status,
+    // semuanya nyentuh koleksi yang sama), jadi retry atomic 5x gampang habis
+    // dan malah GAGAL TOTAL checkout customer -- lebih buruk daripada risiko
+    // asal (transaksi baru kepentok race, jarang & gampang di-retry user).
+    // Balik ke push+writeDB polos seperti kode asli sebelum audit.
+    transactions.push(newQrisTxn);
+    await writeDB('transactions.json', transactions);
 
     // Catat pemakaian voucher jika dipakai
     if (appliedVoucher) {
@@ -2896,8 +2915,16 @@ app.post('/create-order', requireAuth, async (req, res) => {
       releaseCoinLock();
     }
   } catch (error) {
-    console.error('[create-order] error:', error.message);
-    res.json({ success: false, message: 'Terjadi kesalahan: ' + error.message });
+    // FIX: dulu pesan error INTERNAL/teknis (stack trace, nama fungsi
+    // internal, dsb) langsung dikirim mentah-mentah ke customer lewat
+    // message ini -- pernah kejadian customer lihat pesan sebrutal
+    // "updateCollectionAtomic: gagal setelah 5 percobaan untuk
+    // transactions.json (terus-menerus konflik versi)" di layar checkout
+    // mereka. Detail teknis lengkap tetap di-log ke server (buat kita
+    // debug), tapi yang dikirim ke customer sekarang pesan generik yang
+    // actionable -- coba lagi, atau hubungi CS kalau berulang.
+    console.error('[create-order] error:', error.message, error.stack);
+    res.json({ success: false, message: 'Terjadi kesalahan saat memproses pesanan. Coba lagi dalam beberapa saat, atau hubungi CS kalau masalah berlanjut.' });
   }
 });
 
