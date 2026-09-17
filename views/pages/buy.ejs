@@ -669,7 +669,7 @@ const pageTitle = 'Beli ' + product.name;
     // non-seller balik pilih QRIS/USDT seperti semula). isReseller dari
     // server nentuin default & apakah tombol QRIS/USDT ada sama sekali
     // (lihat kondisi <% if (isReseller) %> di HTML METODE PEMBAYARAN).
-    let selectedPaymentMethod = <%= isReseller ? "'balance'" : "'qris'" %>;
+    let selectedPaymentMethod = <%- isReseller ? "'balance'" : "'qris'" %>;
     const PID   = '<%= product.id %>';
     const PNAME = '<%= product.name %>';
 
