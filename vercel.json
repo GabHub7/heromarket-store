@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "regions": ["sin1"],
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/public/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
+      "dest": "/public/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=604800, immutable"
+      }
+    },
+    {
+      "src": "/public/(.*)",
+      "dest": "/public/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "server.js"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/cron/reconcile-genspay",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}

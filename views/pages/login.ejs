@@ -1,0 +1,118 @@
+<%
+const pageTitle = 'Login';
+const turnstileSiteKey = settings?.turnstile?.siteKey || '';
+%>
+<% if (turnstileSiteKey) { %>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<% } %>
+
+<script>
+if (typeof window !== 'undefined') {
+  document.body.classList.add('auth-page');
+  window.addEventListener('load', () => document.body.classList.add('auth-page'));
+}
+</script>
+
+<div class="min-h-screen flex items-center justify-center px-4 py-20" style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);">
+    <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <img src="https://z-cdn-media.chatglm.cn/files/87e4e759-3898-4bd9-93f3-42078956a794.png?auth_key=1878848442-1a65b6a56ce44d8188d26c370725de81-0-3e86df522848abe81fc556fd03a5fe98" alt="Logo" class="h-16 w-auto mx-auto mb-4 hm-logo-img">
+            <h1 class="brand-wordmark brand-wordmark-lg mb-2" style="font-size:28px;background:linear-gradient(135deg,#7b2cbf,#9d4edd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">HERO MARKET</h1>
+            <p class="text-sm text-zinc-500">Masuk ke akun Anda</p>
+        </div>
+
+        <div class="bg-[#151520] rounded-xl border-2 border-purple-500/25 shadow-2xl overflow-hidden" style="box-shadow:0 0 30px rgba(157,78,221,.15);">
+            <div class="p-6">
+                <% if (error) { %>
+                    <div class="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center gap-2">
+                        <iconify-icon icon="mdi:alert-circle" class="text-red-400 text-lg"></iconify-icon>
+                        <span class="text-xs text-red-400"><%= error %></span>
+                    </div>
+                <% } %>
+
+                <form method="POST" action="/login" class="space-y-4">
+                    <input type="hidden" name="redirect" value="<%= redirect %>">
+
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-400 mb-2">Username</label>
+                        <div class="relative">
+                            <iconify-icon icon="mdi:account" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"></iconify-icon>
+                            <input type="text" name="username" required class="form-input pl-10" placeholder="Masukkan username" autofocus>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-400 mb-2">Password</label>
+                        <div class="relative">
+                            <iconify-icon icon="mdi:lock" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"></iconify-icon>
+                            <input type="password" name="password" id="login-password" required class="form-input pl-10 pr-10" placeholder="Masukkan password">
+                            <button type="button" onclick="togglePass('login-password','login-eye')" class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+                                <iconify-icon icon="mdi:eye-outline" id="login-eye" class="text-base"></iconify-icon>
+                            </button>
+                        </div>
+                    </div>
+
+                    <% if (turnstileSiteKey) { %>
+                    <!-- Cloudflare Turnstile Widget -->
+                    <div class="flex justify-center">
+                        <div class="cf-turnstile"
+                             data-sitekey="<%= turnstileSiteKey %>"
+                             data-theme="dark"
+                             data-size="flexible"></div>
+                    </div>
+                    <% } %>
+
+                    <button type="submit" class="btn-gaming w-full flex items-center justify-center gap-2">
+                        <iconify-icon icon="mdi:login" class="text-base"></iconify-icon>
+                        <span>Masuk</span>
+                    </button>
+                </form>
+
+                <% if (settings?.google?.clientId) { %>
+                <div class="flex items-center gap-3 my-5">
+                    <div class="flex-1 h-px bg-white/10"></div>
+                    <span class="text-[10px] text-zinc-600 uppercase tracking-wider">atau</span>
+                    <div class="flex-1 h-px bg-white/10"></div>
+                </div>
+                <a href="/auth/google?redirect=<%= encodeURIComponent(redirect) %>"
+                   class="w-full flex items-center justify-center gap-2.5 py-2.5 rounded-lg bg-white text-zinc-800 font-semibold text-sm hover:bg-zinc-100 transition-all">
+                    <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                        <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.8 2.73v2.27h2.92c1.71-1.57 2.68-3.88 2.68-6.64z"/>
+                        <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.27c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.34C2.44 15.98 5.48 18 9 18z"/>
+                        <path fill="#FBBC05" d="M3.97 10.71A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.18.29-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3.01-2.33z"/>
+                        <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.9 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/>
+                    </svg>
+                    <span>Masuk dengan Google</span>
+                </a>
+                <% } %>
+
+                <div class="mt-6 text-center">
+                    <p class="text-xs text-zinc-500">
+                        Belum punya akun?
+                        <a href="/register" class="text-indigo-400 hover:text-indigo-300 font-semibold">Daftar sekarang</a>
+                    </p>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <a href="/" class="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
+                        <iconify-icon icon="mdi:arrow-left" class="text-xs"></iconify-icon> Kembali ke Beranda
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePass(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.setAttribute('icon', 'mdi:eye-off-outline');
+    } else {
+        input.type = 'password';
+        icon.setAttribute('icon', 'mdi:eye-outline');
+    }
+}
+</script>
