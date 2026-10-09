@@ -10,9 +10,11 @@
  */
 
 const CheatgameAdapter = require('./cheatgame');
+const HeroitbestAdapter = require('./heroitbest');
 
 const ADAPTERS = [
   CheatgameAdapter,
+  HeroitbestAdapter,
   // TemplateAdapter, // <- contoh: tinggal require + push kalau sudah diisi
 ];
 

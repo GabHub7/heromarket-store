@@ -805,7 +805,9 @@ const initDB = async () => {
     marqueeText: 'LAYANAN GAME MOD MENU PREMIUM - PROSES CEPAT & AMAN',
     contact: { whatsapp: '6281235690535', telegram: 'HEROO3STORE', email: 'support@heromarket.com' },
     adminUsername: process.env.ADMIN_USERNAME || 'heromarket',
-    adminPassword: bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'sumberjo1903', 12),
+    // Tanpa ADMIN_PASSWORD, pakai password ACAK (bukan password default publik).
+    // Set ADMIN_PASSWORD di env lalu redeploy / atur dari panel admin.
+    adminPassword: bcrypt.hashSync(process.env.ADMIN_PASSWORD || crypto.randomBytes(24).toString('hex'), 12),
     categories: [],
     categoryLabels: {},
     resellerEnabled: true,
@@ -840,7 +842,7 @@ const initDB = async () => {
   if (!currentSettings || Object.keys(currentSettings).length === 0) {
     if (!process.env.ADMIN_PASSWORD) {
       console.warn('⚠️  PERINGATAN KEAMANAN: ADMIN_PASSWORD env var belum di-set!');
-      console.warn('⚠️  Password admin default akan dipakai — GANTI SEGERA lewat panel admin setelah login.');
+      console.warn('⚠️  Password admin diacak (tidak ada default). Set ADMIN_PASSWORD di env lalu redeploy supaya bisa login.');
     }
     await writeDB('settings.json', defaultSettings);
   } else if (process.env.ADMIN_USERNAME || process.env.ADMIN_PASSWORD) {
