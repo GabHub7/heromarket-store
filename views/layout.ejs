@@ -403,20 +403,6 @@
                 </a>
                 <% } %>
 
-                <% if (!isAdmin) { %>
-                    <% if (typeof user !== 'undefined' && user && user.is_reseller) { %>
-                    <a href="/reseller" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all" style="background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.2);color:#fbbf24;">
-                        <iconify-icon icon="mdi:crown" class="text-lg"></iconify-icon>
-                        <span class="flex-1">Status VIP</span>
-                        <span class="text-[9px] px-1.5 py-0.5 rounded font-black" style="background:rgba(234,179,8,.2)">AKTIF</span>
-                    </a>
-                    <% } else { %>
-                    <a href="/reseller" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-zinc-400 hover:text-white hover:bg-white/5">
-                        <iconify-icon icon="mdi:crown" class="text-yellow-500 text-lg"></iconify-icon> Jadi Reseller VIP
-                    </a>
-                    <% } %>
-                <% } %>
-
                 <div class="border-t border-white/5 my-1.5"></div>
 
                 <% if (typeof user !== 'undefined' && user) { %>
@@ -760,4 +746,3 @@
     </script>
 </body>
 </html>
-

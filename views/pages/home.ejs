@@ -17,16 +17,6 @@ const pageTitle = 'Beranda';
                        style="background:linear-gradient(135deg,rgba(234,88,12,.2),rgba(249,115,22,.12));border:1px solid rgba(234,88,12,.45);color:#fb923c;">
                         <iconify-icon icon="mdi:shield-crown" class="text-sm"></iconify-icon> Admin
                     </a>
-                <% } else if (user && user.is_reseller) { %>
-                    <a href="/reseller" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
-                       style="background:rgba(234,179,8,.12);border:1px solid rgba(234,179,8,.3);color:#fbbf24;">
-                        <iconify-icon icon="mdi:crown" class="text-sm"></iconify-icon> VIP
-                    </a>
-                <% } else if (resellerSettings && resellerSettings.enabled) { %>
-                    <a href="/reseller" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold hover:scale-105 transition-all"
-                       style="background:linear-gradient(135deg,rgba(234,179,8,.2),rgba(251,191,36,.12));border:1px solid rgba(234,179,8,.45);color:#fbbf24;">
-                        <iconify-icon icon="mdi:crown" class="text-sm"></iconify-icon> Reseller
-                    </a>
                 <% } %>
                 <% if (user) { %>
                     <div class="w-px h-4 bg-white/10"></div>

@@ -2121,6 +2121,9 @@ app.get('/auth/google/callback', async (req, res) => {
 
 // ── RESELLER ──
 app.get('/reseller', (req, res) => {
+  // Menu seller dihapus dari web toko: seller belanja di web seller (heroitbest).
+  // Link lama /reseller dialihkan ke sana (atur lewat env SELLER_WEB_URL).
+  return res.redirect(process.env.SELLER_WEB_URL || 'https://heroitbest.web.id');
   // FIX: pakai res.locals.settings (sudah di-refresh readSmart oleh middleware
   // global) bukan readDB() mentah lagi, supaya perubahan admin (QRIS, NOWPayments,
   // dll) langsung kepakai tanpa nunggu instance ini restart.
