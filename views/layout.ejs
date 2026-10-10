@@ -758,55 +758,6 @@
         fetch(href, { method: 'GET', priority: 'low' }).catch(() => {});
     }, { passive: true });
     </script>
-    <!-- ad-popup: promo GabzStore (hardcode, ikut warna tema) -->
-    <style>
-        #gabz-ad { position: fixed !important; inset: 0; z-index: 100000 !important; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,.72); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
-        #gabz-ad.show { display: flex; animation: gabzFade .25s ease both; }
-        #gabz-ad .gabz-card { position: relative; width: 100%; max-width: 400px; text-align: center; padding: 32px 26px 24px; border-radius: 24px;
-            background: var(--bg-card, #151520); border: 1px solid rgba(123,44,191,.4);
-            box-shadow: 0 0 60px -12px var(--neon-purple, #7b2cbf); animation: gabzPop .32s cubic-bezier(.22,1,.36,1) both; }
-        #gabz-ad .gabz-x { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; line-height: 1; font-size: 16px;
-            color: #fff; background: rgba(255,255,255,.06); border: 1px solid rgba(123,44,191,.4); }
-        #gabz-ad .gabz-ic { width: 68px; height: 68px; margin: 0 auto 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            font-size: 32px; background: rgba(123,44,191,.18); color: #fff; }
-        #gabz-ad h3 { font-size: 19px; font-weight: 800; color: #fff; margin-bottom: 8px; }
-        #gabz-ad p { font-size: 13.5px; line-height: 1.6; color: #b4b4c4; margin-bottom: 20px; }
-        #gabz-ad p b { color: #fff; }
-        #gabz-ad .gabz-cta { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; border-radius: 999px; font-size: 14px; font-weight: 700; text-decoration: none; color: #fff;
-            background: linear-gradient(135deg, var(--neon-purple, #7b2cbf), var(--neon-violet, #9d4edd)); box-shadow: 0 8px 24px -8px var(--neon-purple, #7b2cbf); transition: transform .12s ease, filter .15s ease; }
-        #gabz-ad .gabz-cta:hover { filter: brightness(1.1); }
-        #gabz-ad .gabz-cta:active { transform: scale(.97); }
-        #gabz-ad .gabz-later { display: block; width: 100%; margin-top: 10px; padding: 13px; border-radius: 999px; font-size: 13.5px; font-weight: 700; cursor: pointer;
-            color: #b4b4c4; background: transparent; border: 1px solid rgba(123,44,191,.4); }
-        @keyframes gabzFade { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes gabzPop { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
-        @media (prefers-reduced-motion: reduce) { #gabz-ad.show, #gabz-ad .gabz-card { animation: none; } }
-    </style>
-    <div id="gabz-ad" role="dialog" aria-modal="true" aria-labelledby="gabz-ad-title">
-        <div class="gabz-card">
-            <button type="button" class="gabz-x" aria-label="Tutup" onclick="gabzAdClose()">&#10005;</button>
-            <div class="gabz-ic"><iconify-icon icon="mdi:web"></iconify-icon></div>
-            <h3 id="gabz-ad-title">Ingin membuat website seperti ini?</h3>
-            <p>Hubungi saya <b>(GabzStore)</b> untuk pembuatan website toko digital dan reseller seperti ini.<br><b>0881-1494-688</b></p>
-            <a class="gabz-cta" href="https://wa.me/628811494688?text=Halo%20GabzStore%2C%20saya%20ingin%20membuat%20website%20seperti%20ini" target="_blank" rel="noopener" onclick="gabzAdClose()">
-                <iconify-icon icon="mdi:whatsapp" style="font-size:18px;"></iconify-icon> Hubungi via WhatsApp
-            </a>
-            <button type="button" class="gabz-later" onclick="gabzAdClose()">Nanti Saja</button>
-        </div>
-    </div>
-    <script>
-    (function () {
-        var KEY = 'gabz_ad_seen', el = document.getElementById('gabz-ad');
-        if (!el || /^\/admin/.test(location.pathname)) return;
-        try { if (sessionStorage.getItem(KEY)) return; } catch (_) {}
-        window.gabzAdClose = function () {
-            el.classList.remove('show');
-            try { sessionStorage.setItem(KEY, '1'); } catch (_) {}
-        };
-        el.addEventListener('click', function (e) { if (e.target === el) window.gabzAdClose(); });
-        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && el.classList.contains('show')) window.gabzAdClose(); });
-        setTimeout(function () { el.classList.add('show'); }, 2500);
-    })();
-    </script>
 </body>
 </html>
+
