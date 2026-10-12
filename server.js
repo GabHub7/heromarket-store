@@ -1044,7 +1044,14 @@ const createQRISPaymentGenspay = (orderId, amount, settings, callbackUrl) => {
   });
 };
 
+// GensPay sudah menghapus endpoint cek status (GET /transaction/{id}/status
+// dan cancel -> 410 Gone). Semua kabar bayar sekarang HANYA lewat webhook
+// (/webhook/genspay), jadi tidak ada lagi yang bisa di-poll: selalu 'pending'.
 const checkPaymentStatusGenspay = (orderId, amount, settings) => {
+  return Promise.resolve({ status: 'pending', note: 'genspay_status_endpoint_removed_use_webhook' });
+};
+// (versi lama, tidak dipakai lagi -- dibiarkan sebagai referensi)
+const _checkPaymentStatusGenspayLegacy = (orderId, amount, settings) => {
   return new Promise((resolve, reject) => {
     const { baseUrl, apiKey } = getGenspayCreds(settings);
     if (!baseUrl || !apiKey) return reject(new Error('GensPay belum dikonfigurasi -- isi lewat Admin Panel (Pengaturan QRIS) atau environment variable GENSPAY_BASE_URL/GENSPAY_API_KEY.'));
@@ -2214,9 +2221,9 @@ app.post('/reseller/join', requireAuth, async (req, res) => {
         const r = await createQRISPayment(orderId, price, settings, `${getAppBaseUrl(req)}/webhook/${(settings.qrisMode === 'stenly') ? 'stenly' : 'genspay'}`);
         qrString = r.qr_string;
       } catch (e) {
-        console.error('[create-order/reseller] GensPay gagal, fallback ke QRIS statis:', e.message);
-        if (settings.qrisStaticImage) { isStatic = true; }
-        else return res.json({ success: false, message: 'QRIS error: ' + e.message });
+        // Tidak lagi diam-diam pindah ke QRIS statis: pembeli diberi tahu jujur, admin cek log.
+        console.error('[create-order/reseller] QRIS gateway gagal:', e.message);
+        return res.json({ success: false, message: 'Pembayaran QRIS sedang gangguan. Coba lagi sebentar, atau hubungi admin.' });
       }
     }
 
@@ -2281,8 +2288,7 @@ app.post('/reseller/topup', requireAuth, async (req, res) => {
         const r = await createQRISPayment(orderId, nominal, settings, `${getAppBaseUrl(req)}/webhook/${(settings.qrisMode === 'stenly') ? 'stenly' : 'genspay'}`);
         qrString = r.qr_string;
       } catch (e) {
-        console.error('[create-order/topup] GensPay gagal, fallback ke QRIS statis:', e.message);
-        if (settings.qrisStaticImage) isStatic = true;
+        console.error('[create-order/topup] QRIS gateway gagal (tanpa fallback ke QRIS statis):', e.message);
         // Tidak lagi return error di sini — biarkan lanjut tanpa QRIS,
         // NOWPayments (crypto) masih bisa dipakai.
       }
@@ -3071,9 +3077,9 @@ app.post('/create-order', requireAuth, async (req, res) => {
         totalPayment = r.total_payment || price;
         expiredAt = r.expired_at || null;
       } catch (error) {
-        console.error('[create-order/buy] GensPay gagal, fallback ke QRIS statis:', error.message);
-        if (settings.qrisStaticImage) { isStatic = true; }
-        else return res.json({ success: false, message: 'QRIS API error: ' + error.message });
+        // Tidak lagi diam-diam pindah ke QRIS statis: pembeli diberi tahu jujur, admin cek log.
+        console.error('[create-order/buy] QRIS gateway gagal:', error.message);
+        return res.json({ success: false, message: 'Pembayaran QRIS sedang gangguan. Coba lagi sebentar, atau hubungi admin.' });
       }
     }
 
