@@ -484,16 +484,18 @@ const processingOrders = new Set();
 // GENSPAY_STATUS_CACHE_TTL_MS, terlepas berapa kali browser polling.
 const genspayStatusCache = new Map(); // order_id -> { result, expiresAt }
 const GENSPAY_STATUS_CACHE_TTL_MS = 3000;
+// Pakasir v2 membatasi cek status 1x / 4 detik per transaksi -> cache 5 detik.
+const statusCacheTtl = (settings) => (settings && settings.qrisMode === 'pakasir') ? 5000 : GENSPAY_STATUS_CACHE_TTL_MS;
 
-async function checkPaymentStatusCached(orderId, amount, settings) {
+async function checkPaymentStatusCached(orderId, amount, settings, txn) {
   const cached = genspayStatusCache.get(orderId);
   if (cached && cached.expiresAt > Date.now()) {
     if (cached.error) throw cached.error;
     return cached.result;
   }
   try {
-    const result = await checkPaymentStatus(orderId, amount, settings);
-    genspayStatusCache.set(orderId, { result, error: null, expiresAt: Date.now() + GENSPAY_STATUS_CACHE_TTL_MS });
+    const result = await checkPaymentStatus(orderId, amount, settings, txn);
+    genspayStatusCache.set(orderId, { result, error: null, expiresAt: Date.now() + statusCacheTtl(settings) });
     return result;
   } catch (e) {
     // FIX: error juga WAJIB di-cache -- kalau tidak, tiap polling
@@ -501,7 +503,7 @@ async function checkPaymentStatusCached(orderId, amount, settings) {
     // ada efek throttle sama sekali, justru di saat paling penting
     // (GensPay sedang bermasalah/lambat, request retry-storm bisa
     // memperparah).
-    genspayStatusCache.set(orderId, { result: null, error: e, expiresAt: Date.now() + GENSPAY_STATUS_CACHE_TTL_MS });
+    genspayStatusCache.set(orderId, { result: null, error: e, expiresAt: Date.now() + statusCacheTtl(settings) });
     throw e;
   } finally {
     // Housekeeping ringan: buang entri kadaluarsa sesekali supaya Map ini
@@ -611,9 +613,8 @@ app.post('/webhook/genspay', express.raw({ type: '*/*', limit: '1mb' }), (req, r
   next();
 });
 
-// Sama seperti fix GensPay di atas -- stenly.id (HMAC-SHA256) juga butuh RAW
-// bytes persis buat verifikasi signature webhook.
-app.post('/webhook/stenly', express.raw({ type: '*/*', limit: '1mb' }), (req, res, next) => {
+// Pakasir: baca body sebagai raw lalu parse sendiri, tidak bergantung Content-Type pengirim.
+app.post('/webhook/pakasir', express.raw({ type: '*/*', limit: '1mb' }), (req, res, next) => {
   req.rawBodyForSignature = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '';
   try {
     req.body = req.rawBodyForSignature ? JSON.parse(req.rawBodyForSignature) : {};
@@ -1078,104 +1079,133 @@ const _checkPaymentStatusGenspayLegacy = (orderId, amount, settings) => {
   });
 };
 
-// ── stenly.id (stenly.id/docs) ──
-// Konvensi field FLAT sama seperti getGenspayCreds (settings.stenlyApiKey,
-// dst) -- bukan nested object -- biar konsisten dengan pola settings.json
-// codebase ini. Dua kredensial TERPISAH: Secret Key (sk_live_...) buat
-// panggilan API biasa, Webhook Secret (whsec_...) khusus verifikasi
-// signature callback -- lihat tabel "Autentikasi & Format Keys" di
-// dokumentasi resmi mereka, jangan tertukar.
-function getStenlyCreds(settings) {
+// ── Pakasir API v2 (app.pakasir.com) -- docs: pakasir.com/p/create-transaction ──
+// Auth header X-Api-Key. Create: POST /api/v2/create-transaction/{slug}/{order_id}
+// body {method:'qris', amount} ("find or create": order_id+amount sama = respons sama).
+// Status: GET /api/v2/transaction-status/{slug}/{txn_id} (maks 1x/4 detik per transaksi).
+// Cancel: POST /api/v2/cancel-transaction/{slug}/{txn_id}. Status: pending|completed|canceled.
+// QRIS Rp500 - Rp10.000.000. Webhook: header X-Secret, body {txn_id,order_id,amount,is_sandbox,status,completed_at},
+// dikirim HANYA saat sukses. API v1 dihentikan 20 Okt 2026 -- hanya v2 yang dipakai di sini.
+// Field settings FLAT (pola sama dgn GensPay): pakasirSlug, pakasirApiKey, pakasirWebhookSecret, pakasirBaseUrl.
+function getPakasirCreds(settings) {
   const s = settings || {};
   return {
-    baseUrl: ((s.stenlyBaseUrl || '').trim()) || (process.env.STENLY_BASE_URL || '').trim() || 'https://stenly.id/api/v1',
-    apiKey: ((s.stenlyApiKey || '').trim()) || (process.env.STENLY_API_KEY || '').trim(),
-    webhookSecret: ((s.stenlyWebhookSecret || '').trim()) || (process.env.STENLY_WEBHOOK_SECRET || '').trim(),
+    baseUrl: (((s.pakasirBaseUrl || '').trim()) || (process.env.PAKASIR_BASE_URL || '').trim() || 'https://app.pakasir.com').replace(/\/+$/, ''),
+    slug: ((s.pakasirSlug || '').trim()) || (process.env.PAKASIR_SLUG || '').trim(),
+    apiKey: ((s.pakasirApiKey || '').trim()) || (process.env.PAKASIR_API_KEY || '').trim(),
+    webhookSecret: ((s.pakasirWebhookSecret || '').trim()) || (process.env.PAKASIR_WEBHOOK_SECRET || '').trim(),
   };
 }
 
-// callbackUrl diterima demi kesamaan tanda tangan fungsi dengan
-// createQRISPaymentGenspay (dipanggil lewat dispatcher generik di bawah),
-// TAPI TIDAK dipakai -- stenly.id tidak menerima callback_url per-request;
-// Callback URL diatur sekali per-project di dashboard mereka sendiri (lihat
-// docs). Pastikan itu sudah diisi ke {domain}/webhook/stenly, karena field
-// ini di sini tidak akan mengubah apapun di sisi stenly.id.
-const createQRISPaymentStenly = (orderId, amount, settings, _callbackUrlUnused) => {
+// Respons v2 bisa datar atau dibungkus {payment}/{transaction}/{data}.
+function pakasirUnwrap(j) {
+  j = j || {};
+  for (const k of ['payment', 'transaction', 'data']) {
+    if (j[k] && typeof j[k] === 'object' && !Array.isArray(j[k])) return j[k];
+  }
+  return j;
+}
+
+function pakasirRequest(creds, method, path, body) {
   return new Promise((resolve, reject) => {
-    const { baseUrl, apiKey } = getStenlyCreds(settings);
-    if (!apiKey) return reject(new Error('stenly.id belum dikonfigurasi -- isi Secret Key lewat Admin Panel (Pengaturan QRIS).'));
-
+    if (!creds.slug || !creds.apiKey) return reject(new Error('Pakasir belum dikonfigurasi -- isi Slug & API Key lewat Admin Panel (Pengaturan QRIS) atau env PAKASIR_SLUG/PAKASIR_API_KEY.'));
     let url;
-    try { url = new URL(joinUrlPath(baseUrl, '/charge')); } catch (e) { return reject(new Error('Base URL stenly.id tidak valid')); }
-
-    const body = JSON.stringify({ order_id: orderId, gross_amount: amount });
-    const req = https.request({
-      hostname: url.hostname, port: url.port || 443,
-      path: url.pathname + url.search, method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'Content-Length': Buffer.byteLength(body) },
-      timeout: 15000
+    try { url = new URL(creds.baseUrl + path); } catch (e) { return reject(new Error('Base URL Pakasir tidak valid')); }
+    const lib = url.protocol === 'http:' ? require('http') : https;
+    const payload = body !== undefined ? JSON.stringify(body) : null;
+    const headers = { 'X-Api-Key': creds.apiKey };
+    if (payload !== null) { headers['Content-Type'] = 'application/json'; headers['Content-Length'] = Buffer.byteLength(payload); }
+    const req = lib.request({
+      hostname: url.hostname, port: url.port || (url.protocol === 'http:' ? 80 : 443),
+      path: url.pathname + url.search, method, headers, timeout: 15000
     }, (res) => {
       let data = '';
       res.on('data', c => data += c);
       res.on('end', () => {
-        try {
-          const r = JSON.parse(data);
-          const qr = r.data?.qr_string;
-          if (r.status !== 'success' || !qr) return reject(new Error(r.message || `stenly.id error (HTTP ${res.statusCode}): ${data.slice(0,150)}`));
-          resolve({ qr_string: qr, total_payment: r.data?.gross_amount || amount, expired_at: r.data?.expires_at || null });
-        } catch(e) { reject(new Error(`Gagal parse response stenly.id (HTTP ${res.statusCode}): ${data.slice(0,200) || '(response kosong)'}`)); }
+        let json = null;
+        try { json = data ? JSON.parse(data) : null; } catch (e) { /* bukan JSON */ }
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          const e = json && (json.error || json.message);
+          const msg = typeof e === 'string' ? e : (e && e.message) || `Pakasir menolak request (HTTP ${res.statusCode}): ${data.slice(0, 120)}`;
+          return reject(new Error(msg));
+        }
+        resolve(json);
       });
     });
-    req.on('timeout', () => { req.destroy(); reject(new Error('stenly.id timeout')); });
+    req.on('timeout', () => { req.destroy(); reject(new Error('Pakasir timeout')); });
     req.on('error', e => reject(new Error('Network error: ' + e.message)));
-    req.write(body); req.end();
-  });
-};
-
-const checkPaymentStatusStenly = (orderId, amount, settings) => {
-  return new Promise((resolve, reject) => {
-    const { baseUrl, apiKey } = getStenlyCreds(settings);
-    if (!apiKey) return reject(new Error('stenly.id belum dikonfigurasi -- isi Secret Key lewat Admin Panel (Pengaturan QRIS).'));
-    let url;
-    try { url = new URL(joinUrlPath(baseUrl, `/status/${encodeURIComponent(orderId)}`)); } catch (e) { return reject(new Error('Base URL stenly.id tidak valid')); }
-    const req = https.request({
-      hostname: url.hostname, port: url.port || 443,
-      path: url.pathname + url.search, method: 'GET',
-      headers: { 'x-api-key': apiKey },
-      timeout: 10000
-    }, (res) => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch(e) { reject(new Error('Gagal parse response status')); }
-      });
-    });
-    req.on('timeout', () => { req.destroy(); reject(new Error('stenly.id status timeout')); });
-    req.on('error', e => reject(new Error('Network error: ' + e.message)));
+    if (payload !== null) req.write(payload);
     req.end();
   });
+}
+
+// callbackUrl tidak dipakai: Pakasir tidak menerima callback per-request -- Webhook URL
+// diisi SEKALI di Edit Proyek Pakasir: {domain}/webhook/pakasir
+const createQRISPaymentPakasir = async (orderId, amount, settings, _callbackUrlUnused) => {
+  const creds = getPakasirCreds(settings);
+  const j = await pakasirRequest(creds, 'POST',
+    `/api/v2/create-transaction/${encodeURIComponent(creds.slug)}/${encodeURIComponent(orderId)}`,
+    { method: 'qris', amount: Math.round(Number(amount)) });
+  const p = pakasirUnwrap(j);
+  const qr = p.qr_string || p.payment_number;
+  if (!qr || !p.txn_id) throw new Error('Respons Pakasir tidak lengkap (qr_string/txn_id tidak ditemukan).');
+  return {
+    qr_string: qr,
+    total_payment: Number(p.total_payment) || (Number(p.amount || amount) + Number(p.fee || 0)),
+    expired_at: p.expired_at || null,
+    txn_id: p.txn_id,
+    fee: Number(p.fee || 0),
+    is_sandbox: p.is_sandbox === true
+  };
 };
 
+// Status per txn_id. Kalau txn_id belum tersimpan di transaksi (data lama), ambil lewat
+// create-transaction (find-or-create: order_id + nominal dasar yang sama = transaksi yang sama).
+const checkPaymentStatusPakasir = async (orderId, amount, settings, txn) => {
+  const creds = getPakasirCreds(settings);
+  let txnId = txn && txn.gatewayTxnId;
+  if (!txnId) {
+    const base = Number(txn && txn.price) || Number(amount);
+    txnId = (await createQRISPaymentPakasir(orderId, base, settings)).txn_id;
+  }
+  const j = await pakasirRequest(creds, 'GET', `/api/v2/transaction-status/${encodeURIComponent(creds.slug)}/${encodeURIComponent(txnId)}`);
+  const p = pakasirUnwrap(j);
+  return { status: String(p.status || '').toLowerCase(), order_id: p.order_id || null, amount: typeof p.amount === 'number' ? p.amount : null, txn_id: txnId };
+};
+
+const cancelPakasirTransaction = async (txnId, settings) => {
+  const creds = getPakasirCreds(settings);
+  const j = await pakasirRequest(creds, 'POST', `/api/v2/cancel-transaction/${encodeURIComponent(creds.slug)}/${encodeURIComponent(txnId)}`);
+  return (pakasirUnwrap(j).message) || 'OK';
+};
+
+// Bandingkan secret tahan timing-attack (hash dulu supaya panjang sama).
+function timingSafeStrEq(a, b) {
+  if (!a || !b) return false;
+  const ha = crypto.createHash('sha256').update(String(a)).digest();
+  const hb = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
+// Path webhook sesuai mode QRIS aktif (mode lama 'stenly' sudah dihapus -> dianggap GensPay).
+const qrisWebhookPath = (settings) => (settings && settings.qrisMode === 'pakasir') ? 'pakasir' : 'genspay';
+
 // ══════════════════════════════════════════════════════════════════
-// PAYMENT GATEWAY DISPATCHER -- HeroMarket sebelumnya cuma punya 1 gateway
-// QRIS (GensPay, hardcoded). Sekarang ada 2: settings.qrisMode = 'genspay'
-// (default, backward compatible) atau 'stenly'. createQRISPayment/
-// checkPaymentStatus TETAP dipanggil dengan nama & tanda tangan yang sama
-// oleh semua call site lama -- supaya tidak perlu ubah satu-satu di
-// checkout/topup/reseller, cukup ubah definisinya jadi dispatcher di sini.
+// PAYMENT GATEWAY DISPATCHER -- settings.qrisMode: 'static' | 'api' (GensPay,
+// default) | 'pakasir' (API v2). createQRISPayment/checkPaymentStatus tetap
+// dipanggil dengan nama & tanda tangan lama oleh semua call site; mode lain
+// (termasuk sisa nilai lama 'stenly') jatuh ke GensPay.
 // ══════════════════════════════════════════════════════════════════
 const createQRISPayment = (orderId, amount, settings, callbackUrl) => {
-  const mode = settings?.qrisMode || 'genspay';
-  if (mode === 'stenly') return createQRISPaymentStenly(orderId, amount, settings, callbackUrl);
+  if (settings?.qrisMode === 'pakasir') return createQRISPaymentPakasir(orderId, amount, settings, callbackUrl);
   return createQRISPaymentGenspay(orderId, amount, settings, callbackUrl);
 };
 
-const checkPaymentStatus = (orderId, amount, settings) => {
-  const mode = settings?.qrisMode || 'genspay';
-  if (mode === 'stenly') return checkPaymentStatusStenly(orderId, amount, settings);
+const checkPaymentStatus = (orderId, amount, settings, txn) => {
+  if (settings?.qrisMode === 'pakasir') return checkPaymentStatusPakasir(orderId, amount, settings, txn);
   return checkPaymentStatusGenspay(orderId, amount, settings);
 };
+
 
 // ── Self-test: simulasikan webhook GensPay untuk order_id yang beneran macet ──
 // Membuktikan (bukan menebak) apakah KODE webhook sudah benar, dengan
@@ -1445,119 +1475,86 @@ app.post('/webhook/genspay', async (req, res) => {
   }
 });
 
-// ── stenly.id Webhook ──
-// Daftarkan URL ini di Callback URL project stenly.id: https://domainkamu.com/webhook/stenly
-// Signature: HMAC-SHA256(rawBody, Webhook Secret) di header X-Stenly-Signature
-// -- BEDA dari GensPay (plain SHA256(body+secret)) dan pakai kredensial
-// TERPISAH (Webhook Secret whsec_..., bukan Secret Key sk_... yang dipakai
-// createQRISPaymentStenly). Docs stenly.id: wajib balas 200 + body
-// {"received": true} dalam <10 detik, DAN "Retry otomatis belum tersedia"
-// -- beda dari GensPay yang retry 5x, jadi kalau handler ini gagal, TIDAK
-// ada percobaan ulang dari sisi mereka.
-app.post('/webhook/stenly', async (req, res) => {
+// ── Pakasir v2 Webhook ──
+// Daftarkan di Edit Proyek Pakasir -> Webhook URL: https://domainkamu.com/webhook/pakasir
+// Header X-Secret = secret proyek (kalau diisi di panel, wajib cocok). Body: { txn_id, order_id,
+// amount, is_sandbox, status:'completed', completed_at } -- dikirim HANYA saat sukses, retry tidak
+// terdokumentasi, jadi /check-payment juga memeriksa status ke Pakasir sebagai jaring pengaman.
+// Payload TIDAK dipercaya mentah: status dikonfirmasi lewat API Pakasir (kunci kita sendiri).
+app.post('/webhook/pakasir', async (req, res) => {
   try {
     const settings = readDB('settings.json');
-    const { webhookSecret } = getStenlyCreds(settings);
-    const signatureHeader = req.headers['x-stenly-signature'];
-
-    if (!webhookSecret || !signatureHeader) {
-      await logWebhookDebug({
-        provider: 'stenly',
-        result: !webhookSecret ? 'no_webhook_secret_configured' : 'no_signature_header_found',
-        allHeaderNames: Object.keys(req.headers),
-        rawBodyPreview: (req.rawBodyForSignature || '').slice(0, 300),
-      });
-      return res.status(401).json({ received: false });
+    const creds = getPakasirCreds(settings);
+    const secretConfigured = !!creds.webhookSecret;
+    const secretOk = secretConfigured && timingSafeStrEq(req.headers['x-secret'], creds.webhookSecret);
+    if (secretConfigured && !secretOk) {
+      await logWebhookDebug({ provider: 'pakasir', result: 'secret_invalid', hadSecretHeader: !!req.headers['x-secret'],
+        rawBodyPreview: (req.rawBodyForSignature || '').slice(0, 300) });
+      return res.status(401).json({ ok: false });
     }
 
-    const computedSignature = crypto.createHmac('sha256', webhookSecret)
-      .update(req.rawBodyForSignature || JSON.stringify(req.body))
-      .digest('hex');
-
-    const sigA = Buffer.from(String(signatureHeader));
-    const sigB = Buffer.from(computedSignature);
-    if (sigA.length !== sigB.length || !crypto.timingSafeEqual(sigA, sigB)) {
-      await logWebhookDebug({
-        provider: 'stenly',
-        result: 'signature_mismatch',
-        receivedSignature: String(signatureHeader),
-        receivedSignatureLength: String(signatureHeader).length,
-        computedSignature,
-        computedSignatureLength: computedSignature.length,
-        rawBodyPreview: (req.rawBodyForSignature || '').slice(0, 300),
-        rawBodyLength: (req.rawBodyForSignature || '').length,
-        webhookSecretLength: webhookSecret.length,
-      });
-      return res.status(401).json({ received: false });
+    const { txn_id, order_id, amount, status } = req.body || {};
+    if (!order_id || !txn_id) {
+      await logWebhookDebug({ provider: 'pakasir', result: 'bad_payload', rawBodyPreview: (req.rawBodyForSignature || '').slice(0, 300) });
+      return res.status(400).json({ ok: false });
     }
-
-    // Payload stenly.id: { event: "payment.status_updated", data: { order_id,
-    // status: "paid"|"expired"|"cancelled", gross_amount, ... } } -- status
-    // LOWERCASE, beda dari GensPay yang uppercase (SUCCESS/EXPIRED/FAILED).
-    const { event, data } = req.body || {};
-    const txStatus = (data?.status || '').toLowerCase();
-
-    if (event === 'payment.status_updated' && data?.order_id && txStatus === 'paid') {
-      if (processingOrders.has(data.order_id)) {
-        console.log(`[webhook/stenly] order_id=${data.order_id} sedang diproses instance lain, skip (bukan error).`);
-        return res.status(200).json({ received: true });
+    if (String(status || '').toLowerCase() !== 'completed') {
+      console.log(`[webhook/pakasir] diabaikan: status=${status}, order_id=${order_id}`);
+      return res.status(200).json({ ok: true, ignored: status || 'unknown' });
+    }
+    if (processingOrders.has(order_id)) {
+      console.log(`[webhook/pakasir] order_id=${order_id} sedang diproses instance lain, skip (bukan error).`);
+      return res.status(200).json({ ok: true });
+    }
+    processingOrders.add(order_id);
+    try {
+      const transactions = await readFresh('transactions.json');
+      const transaction = transactions.find(t => t.orderId === order_id && t.status === 'pending');
+      if (!transaction) {
+        const anyMatch = transactions.find(t => t.orderId === order_id);
+        console.warn(`[webhook/pakasir] completed diterima tapi tidak ada transaksi pending. order_id=${order_id}. ` +
+          (anyMatch ? `Ditemukan dgn status '${anyMatch.status}' (sudah diproses).` : 'Tidak ada transaksi dgn order_id ini.'));
+        return res.status(200).json({ ok: true, ignored: 'no_pending_transaction' });
       }
-      processingOrders.add(data.order_id);
+      // Nominal harus cocok dengan harga dasar (atau total bayar yang kita simpan).
+      const accepted = [Number(transaction.price), Number(transaction.totalPayment)].filter(n => Number.isFinite(n));
+      if (typeof amount === 'number' && !accepted.includes(amount)) {
+        console.error(`[webhook/pakasir] amount ${amount} tidak cocok (${accepted.join(' / ')}) untuk order ${order_id} -- ditolak`);
+        await logWebhookDebug({ provider: 'pakasir', result: 'amount_mismatch', orderId: order_id, amount, accepted });
+        return res.status(400).json({ ok: false, error: 'amount_mismatch' });
+      }
+      // Konfirmasi ke Pakasir (sumber kebenaran).
+      let verified = null;
       try {
-        const transactions = await readFresh('transactions.json');
-        const transaction = transactions.find(t => t.orderId === data.order_id && t.status === 'pending');
-        if (transaction) {
-          console.log(`[webhook/stenly] status=paid diterima, order_id=${data.order_id}, transaksi=${transaction.id} ditemukan (status pending) -- memproses allocateKey...`);
-          await allocateKeyAndCompleteTransaction(transaction, transactions);
-          console.log(`[webhook/stenly] order_id=${data.order_id} selesai diproses, status akhir=${transaction.status}`);
-        } else {
-          const anyMatch = transactions.find(t => t.orderId === data.order_id);
-          console.warn(`[webhook/stenly] status=paid diterima tapi transaksi TIDAK DITEMUKAN dengan status pending. order_id=${data.order_id}. ` +
-            (anyMatch ? `Transaksi dengan order_id ini DITEMUKAN tapi status sudah '${anyMatch.status}' (bukan 'pending').`
-                       : `TIDAK ADA transaksi sama sekali dengan order_id ini di database.`));
+        verified = await checkPaymentStatusPakasir(order_id, transaction.price, settings, { ...transaction, gatewayTxnId: txn_id });
+      } catch (e) {
+        if (!secretOk) {
+          console.error(`[webhook/pakasir] tidak bisa verifikasi ke Pakasir & tanpa secret valid -- ditolak (503): ${e.message}`);
+          return res.status(503).json({ ok: false, error: 'verify_unavailable' });
         }
-      } finally {
-        processingOrders.delete(data.order_id);
+        console.warn(`[webhook/pakasir] verifikasi API gagal (${e.message}); secret valid, lanjut dari body webhook.`);
       }
-    } else if (event === 'payment.status_updated' && data?.order_id && (txStatus === 'expired' || txStatus === 'cancelled')) {
-      if (processingOrders.has(data.order_id)) {
-        return res.status(200).json({ received: true });
-      }
-      processingOrders.add(data.order_id);
-      try {
-        let matchedTransactionId = null;
-        await updateCollectionAtomic('transactions.json', (transactions) => {
-          const transaction = transactions.find(t => t.orderId === data.order_id && t.status === 'pending');
-          if (!transaction) return null;
-          transaction.status = 'expired';
-          matchedTransactionId = transaction.id;
-          return transactions;
-        });
-        if (matchedTransactionId) {
-          console.log(`[webhook/stenly] status=${txStatus} diterima, order_id=${data.order_id}, transaksi=${matchedTransactionId} ditandai 'expired'.`);
-          const transactions = await readFresh('transactions.json');
-          const transaction = transactions.find(t => t.id === matchedTransactionId);
-          if (transaction?.voucherCode) {
-            const vouchers = await readFresh('vouchers.json');
-            const v = vouchers.find(v => v.code === transaction.voucherCode);
-            if (v) {
-              v.usedCount = Math.max(0, (v.usedCount || 0) - 1);
-              v.usages = (v.usages || []).filter(u => u.orderId !== transaction.id);
-              await writeDB('vouchers.json', vouchers);
-            }
-          }
+      if (verified) {
+        if (verified.status !== 'completed') {
+          console.warn(`[webhook/pakasir] API bilang status=${verified.status} (bukan completed), order_id=${order_id} -- diabaikan.`);
+          return res.status(200).json({ ok: true, ignored: `api_status_${verified.status}` });
         }
-      } finally {
-        processingOrders.delete(data.order_id);
+        if ((verified.order_id && verified.order_id !== order_id) ||
+            (verified.amount !== null && !accepted.includes(verified.amount))) {
+          await logWebhookDebug({ provider: 'pakasir', result: 'verify_mismatch', orderId: order_id, verified });
+          return res.status(400).json({ ok: false, error: 'verify_mismatch' });
+        }
       }
-    } else {
-      console.log(`[webhook/stenly] event diterima tapi diabaikan: event=${event}, status=${txStatus}, order_id=${data?.order_id}`);
+      console.log(`[webhook/pakasir] completed order_id=${order_id}, transaksi=${transaction.id} -- memproses allocateKey...`);
+      await allocateKeyAndCompleteTransaction(transaction, transactions);
+      console.log(`[webhook/pakasir] order_id=${order_id} selesai, status akhir=${transaction.status}`);
+    } finally {
+      processingOrders.delete(order_id);
     }
-
-    res.status(200).json({ received: true });
+    res.status(200).json({ ok: true });
   } catch (e) {
-    console.error('[webhook/stenly] error:', e.message);
-    res.status(200).json({ received: true }); // tetap 200 -- docs bilang retry otomatis BELUM ada
+    console.error('[webhook/pakasir] error:', e.message);
+    res.status(500).json({ ok: false });
   }
 });
 
@@ -2211,15 +2208,16 @@ app.post('/reseller/join', requireAuth, async (req, res) => {
     const orderCode = generateOrderCode();
     const qrisMode = settings.qrisMode || 'static';
 
-    let qrString = null, isStatic = false;
+    let qrString = null, isStatic = false, gwTxnId = null;
 
     if (qrisMode === 'static') {
       if (!settings.qrisStaticImage) return res.json({ success: false, message: 'Admin belum mengatur QRIS. Hubungi admin.' });
       isStatic = true;
     } else {
       try {
-        const r = await createQRISPayment(orderId, price, settings, `${getAppBaseUrl(req)}/webhook/${(settings.qrisMode === 'stenly') ? 'stenly' : 'genspay'}`);
+        const r = await createQRISPayment(orderId, price, settings, `${getAppBaseUrl(req)}/webhook/${qrisWebhookPath(settings)}`);
         qrString = r.qr_string;
+        gwTxnId = r.txn_id || null;
       } catch (e) {
         // Tidak lagi diam-diam pindah ke QRIS statis: pembeli diberi tahu jujur, admin cek log.
         console.error('[create-order/reseller] QRIS gateway gagal:', e.message);
@@ -2233,7 +2231,7 @@ app.post('/reseller/join', requireAuth, async (req, res) => {
       userId: user.id, type: 'reseller',
       productName: 'Upgrade Reseller VIP',
       customerName: user.username, wa: user.wa,
-      price, totalPayment: price, qrString, isStatic,
+      price, totalPayment: price, qrString, isStatic, gatewayTxnId: gwTxnId,
       status: 'pending', key: null,
       createdAt: new Date().toISOString(), time: formatDate()
     });
@@ -2279,14 +2277,15 @@ app.post('/reseller/topup', requireAuth, async (req, res) => {
     // butuh refId) tetap bisa dipakai. qrString akan null kalau QRIS memang
     // tidak tersedia — frontend yang menampilkan pesan "QRIS belum dikonfigurasi"
     // hanya kalau user pilih tab QRIS, sementara tombol crypto tetap berfungsi normal.
-    let qrString = null, isStatic = false;
+    let qrString = null, isStatic = false, gwTxnId = null;
 
     if (qrisMode === 'static') {
       if (settings.qrisStaticImage) isStatic = true;
     } else {
       try {
-        const r = await createQRISPayment(orderId, nominal, settings, `${getAppBaseUrl(req)}/webhook/${(settings.qrisMode === 'stenly') ? 'stenly' : 'genspay'}`);
+        const r = await createQRISPayment(orderId, nominal, settings, `${getAppBaseUrl(req)}/webhook/${qrisWebhookPath(settings)}`);
         qrString = r.qr_string;
+        gwTxnId = r.txn_id || null;
       } catch (e) {
         console.error('[create-order/topup] QRIS gateway gagal (tanpa fallback ke QRIS statis):', e.message);
         // Tidak lagi return error di sini — biarkan lanjut tanpa QRIS,
@@ -2300,7 +2299,7 @@ app.post('/reseller/topup', requireAuth, async (req, res) => {
       userId: user.id, type: 'topup',
       productName: 'Topup Saldo Reseller' + (bonus > 0 ? ` (+bonus Rp${bonus.toLocaleString('id-ID')})` : ''),
       customerName: user.username, wa: user.wa,
-      price: nominal, bonus, totalPayment: nominal, qrString, isStatic,
+      price: nominal, bonus, totalPayment: nominal, qrString, isStatic, gatewayTxnId: gwTxnId,
       status: 'pending', key: null,
       createdAt: new Date().toISOString(), time: formatDate()
     });
@@ -3065,17 +3064,18 @@ app.post('/create-order', requireAuth, async (req, res) => {
     const refId = uuidv4();
     const orderCode = generateOrderCode();
 
-    let qrString = null, isStatic = false, totalPayment = price, expiredAt = null;
+    let qrString = null, isStatic = false, totalPayment = price, expiredAt = null, gwTxnId = null;
 
     if (qrisMode === 'static') {
       if (!settings.qrisStaticImage) return res.json({ success: false, message: 'Upload gambar QRIS di admin panel terlebih dahulu.' });
       isStatic = true;
     } else {
       try {
-        const r = await createQRISPayment(orderId, price, settings, `${getAppBaseUrl(req)}/webhook/${(settings.qrisMode === 'stenly') ? 'stenly' : 'genspay'}`);
+        const r = await createQRISPayment(orderId, price, settings, `${getAppBaseUrl(req)}/webhook/${qrisWebhookPath(settings)}`);
         qrString = r.qr_string;
         totalPayment = r.total_payment || price;
         expiredAt = r.expired_at || null;
+        gwTxnId = r.txn_id || null;
       } catch (error) {
         // Tidak lagi diam-diam pindah ke QRIS statis: pembeli diberi tahu jujur, admin cek log.
         console.error('[create-order/buy] QRIS gateway gagal:', error.message);
@@ -3108,7 +3108,7 @@ app.post('/create-order', requireAuth, async (req, res) => {
       coinUsed: coinDiscount > 0 ? coinDiscount : undefined,
       coinRefId: coinDiscount > 0 ? coinRefId : undefined,
       price, totalPayment,
-      customerName, wa, qrString, isStatic,
+      customerName, wa, qrString, isStatic, gatewayTxnId: gwTxnId,
       status: 'pending', key: null,
       createdAt: new Date().toISOString(), time: formatDate()
     };
@@ -3912,7 +3912,7 @@ app.get('/check-payment/:refId', requireAuth, async (req, res) => {
     const settings = await readSmart('settings.json');
     let paid = false;
     try {
-      const r = await checkPaymentStatusCached(transaction.orderId, transaction.totalPayment || transaction.price, settings);
+      const r = await checkPaymentStatusCached(transaction.orderId, transaction.totalPayment || transaction.price, settings, transaction);
       // Normalize status dari response GensPay (data.status) — juga tetap kompatibel kalau ada transaksi lama format PakKasir
       const status = (r.transaction?.status || r.status || r.data?.status || '').toLowerCase();
       paid = ['completed','success','paid','settlement','capture','complete','authorize','accepted'].includes(status) || r.success === true;
@@ -3996,7 +3996,7 @@ app.get('/cron/reconcile-genspay', async (req, res) => {
     if (processingOrders.has(transaction.id)) { results.stillPending++; continue; }
     processingOrders.add(transaction.id);
     try {
-      const r = await checkPaymentStatus(transaction.orderId, transaction.totalPayment || transaction.price, settings);
+      const r = await checkPaymentStatus(transaction.orderId, transaction.totalPayment || transaction.price, settings, transaction);
       const status = (r.transaction?.status || r.status || r.data?.status || '').toLowerCase();
       const paid = ['completed', 'success', 'paid', 'settlement', 'capture', 'complete', 'authorize', 'accepted'].includes(status) || r.success === true;
 
@@ -4244,19 +4244,22 @@ app.get('/admin', requireAdmin, (req, res) => {
     // URL -- ini masih harus di-paste manual ke dashboard/Telegram bot
     // GensPay, tapi setidaknya sekarang tidak perlu ditebak/diketik ulang.
     genspayWebhookUrl: `${getAppBaseUrl(req)}/webhook/genspay`,
-    stenlyConfigured: (() => {
-      const creds = getStenlyCreds(settings);
+    pakasirConfigured: (() => {
+      const creds = getPakasirCreds(settings);
       return {
         baseUrl: !!creds.baseUrl,
+        slug: !!creds.slug,
         apiKey: !!creds.apiKey,
         webhookSecret: !!creds.webhookSecret,
         baseUrlPreview: creds.baseUrl,
-        apiKeySource: (settings.stenlyApiKey || '').trim() ? 'panel' : 'env',
-        webhookSecretSource: (settings.stenlyWebhookSecret || '').trim() ? 'panel' : 'env',
-        baseUrlSource: (settings.stenlyBaseUrl || '').trim() ? 'panel' : 'env'
+        slugPreview: creds.slug,
+        slugSource: (settings.pakasirSlug || '').trim() ? 'panel' : 'env',
+        apiKeySource: (settings.pakasirApiKey || '').trim() ? 'panel' : 'env',
+        webhookSecretSource: (settings.pakasirWebhookSecret || '').trim() ? 'panel' : 'env',
+        baseUrlSource: (settings.pakasirBaseUrl || '').trim() ? 'panel' : 'env'
       };
     })(),
-    stenlyWebhookUrl: `${getAppBaseUrl(req)}/webhook/stenly`
+    pakasirWebhookUrl: `${getAppBaseUrl(req)}/webhook/pakasir`
   });
 });
 
@@ -4880,20 +4883,6 @@ app.post('/admin/categories/add', requireAdmin, async (req, res) => {
   }
 });
 
-app.post('/admin/settings/pakasir', requireAdmin, async (req, res) => {
-  try {
-    const settings = await readFresh('settings.json');
-    const { qrisMode } = req.body;
-
-    if (qrisMode) settings.qrisMode = qrisMode;
-
-    await writeDB('settings.json', settings);
-    res.json({ success: true });
-  } catch (error) {
-    res.json({ success: false, message: error.message });
-  }
-});
-
 app.post('/admin/qris/test', requireAdmin, async (req, res) => {
   try {
     // Test pakai kredensial AKTIF (settings.json kalau diisi dari Admin
@@ -4903,7 +4892,7 @@ app.post('/admin/qris/test', requireAdmin, async (req, res) => {
     // hasil test jadi menyesatkan (kelihatan gagal/pakai key lama padahal
     // key baru sudah benar diisi).
     const settings = readDB('settings.json');
-    await createQRISPayment('test-' + Date.now(), 1000, settings, `${getAppBaseUrl(req)}/webhook/${(settings.qrisMode === 'stenly') ? 'stenly' : 'genspay'}`);
+    await createQRISPayment('test-' + Date.now(), 1000, settings, `${getAppBaseUrl(req)}/webhook/${qrisWebhookPath(settings)}`);
     res.json({ success: true });
   } catch (e) {
     res.json({ success: false, message: e.message });
@@ -5944,24 +5933,66 @@ app.post('/admin/settings/genspay', requireAdmin, async (req, res) => {
   }
 });
 
-// ── stenly.id Settings ──
-// 📖 Dokumentasi: https://stenly.id/docs
-// Dua kredensial TERPISAH (jangan disatukan): Secret Key (sk_live_...) buat
-// panggilan API biasa, Webhook Secret (whsec_...) khusus verifikasi
-// signature callback (lihat app.post('/webhook/stenly') di atas).
-app.post('/admin/settings/stenly', requireAdmin, async (req, res) => {
+// ── Pakasir API v2 Settings ──
+// 📖 Dokumentasi: https://pakasir.com/p/create-transaction
+// Field yang TIDAK dikirim (undefined) = tidak diubah; string kosong = kosongkan (balik ke env var).
+app.post('/admin/settings/pakasir', requireAdmin, async (req, res) => {
   try {
-    const { stenlyApiKey, stenlyWebhookSecret, stenlyBaseUrl, qrisMode } = req.body;
+    const { pakasirSlug, pakasirApiKey, pakasirWebhookSecret, pakasirBaseUrl, qrisMode } = req.body;
     const settings = await readFresh('settings.json');
-    if (stenlyApiKey !== undefined) settings.stenlyApiKey = String(stenlyApiKey).trim();
-    if (stenlyWebhookSecret !== undefined) settings.stenlyWebhookSecret = String(stenlyWebhookSecret).trim();
-    if (stenlyBaseUrl !== undefined) settings.stenlyBaseUrl = String(stenlyBaseUrl).trim();
+    if (pakasirBaseUrl !== undefined) {
+      const b = String(pakasirBaseUrl).trim().replace(/\/+$/, '');
+      if (b && !/^https:\/\//i.test(b)) return res.json({ success: false, message: 'Base URL harus diawali https://' });
+      settings.pakasirBaseUrl = b;
+    }
+    if (pakasirSlug !== undefined) settings.pakasirSlug = String(pakasirSlug).trim();
+    if (pakasirApiKey !== undefined) settings.pakasirApiKey = String(pakasirApiKey).trim();
+    if (pakasirWebhookSecret !== undefined) settings.pakasirWebhookSecret = String(pakasirWebhookSecret).trim();
     if (qrisMode) settings.qrisMode = qrisMode;
     await writeDB('settings.json', settings);
-    const creds = getStenlyCreds(settings);
-    res.json({ success: true, configured: { baseUrl: !!creds.baseUrl, apiKey: !!creds.apiKey, webhookSecret: !!creds.webhookSecret } });
+    const creds = getPakasirCreds(settings);
+    res.json({ success: true, configured: { baseUrl: !!creds.baseUrl, slug: !!creds.slug, apiKey: !!creds.apiKey, webhookSecret: !!creds.webhookSecret } });
   } catch (e) {
     res.json({ success: false, message: e.message });
+  }
+});
+
+// Test lengkap jalur v2: create -> status -> cancel (transaksi uji Rp1.000 langsung dibatalkan,
+// tidak ada uang berpindah). v2 tidak punya endpoint simulasi bayar -- uji webhook lewat
+// simulasi di dashboard Pakasir saat proyek masih Sandbox.
+app.post('/admin/qris/test-pakasir', requireAdmin, async (req, res) => {
+  const steps = [];
+  const add = (step, ok, detail) => steps.push({ step, ok, detail });
+  try {
+    const settings = readDB('settings.json');
+    const creds = getPakasirCreds(settings);
+    add('config', !!(creds.slug && creds.apiKey), creds.slug && creds.apiKey ? `Base URL: ${creds.baseUrl} · Slug: ${creds.slug}` : 'Slug atau API Key kosong.');
+    add('webhook_secret', !!creds.webhookSecret, creds.webhookSecret ? 'Webhook Secret terisi (header X-Secret dicek).' : 'Webhook Secret kosong -- webhook tetap diverifikasi lewat API status, tapi sebaiknya diisi.');
+    if (!creds.slug || !creds.apiKey) return res.json({ success: false, steps, message: 'Slug atau API Key kosong.' });
+
+    const orderId = 'test-' + Date.now().toString(36);
+    let created;
+    try {
+      created = await createQRISPaymentPakasir(orderId, 1000, settings);
+      add('create', true, `txn_id=${created.txn_id}, fee Rp${created.fee}, total bayar Rp${created.total_payment}, mode ${created.is_sandbox ? 'SANDBOX' : 'LIVE'}`);
+      add('qr_string', true, `QR diterima (${String(created.qr_string).length} karakter).`);
+    } catch (e) {
+      add('create', false, e.message);
+      return res.json({ success: false, steps, message: e.message });
+    }
+    try {
+      const st = await checkPaymentStatusPakasir(orderId, 1000, settings, { gatewayTxnId: created.txn_id, price: 1000 });
+      add('status', st.status === 'pending', `Status transaksi uji: ${st.status || '(kosong)'}`);
+    } catch (e) { add('status', false, e.message); }
+    try {
+      const msg = await cancelPakasirTransaction(created.txn_id, settings);
+      add('cancel', true, `Transaksi uji dibatalkan (${msg}).`);
+    } catch (e) { add('cancel', false, e.message); }
+
+    const ok = steps.every(s => s.ok || s.step === 'webhook_secret');
+    res.json({ success: ok, steps, message: ok ? undefined : (steps.find(s => !s.ok && s.step !== 'webhook_secret') || {}).detail });
+  } catch (e) {
+    res.json({ success: false, steps, message: e.message });
   }
 });
 

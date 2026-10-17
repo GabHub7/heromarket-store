@@ -895,6 +895,7 @@ textarea.hm-input{resize:vertical;min-height:80px;}
 
     <!-- QRIS Payment -->
     <div class="neon-card p-5 mb-3">
+        <% const qrisModeNorm = ['static','api','pakasir'].includes(settings.qrisMode) ? settings.qrisMode : (settings.qrisMode ? 'api' : 'static'); %>
         <div class="text-xs font-bold text-indigo-400 mb-4 flex items-center gap-2">
             <iconify-icon icon="mdi:qrcode-scan"></iconify-icon> Pengaturan QRIS
         </div>
@@ -903,23 +904,23 @@ textarea.hm-input{resize:vertical;min-height:80px;}
         <div class="flex gap-2 mb-4">
             <button type="button" id="modeStaticBtn" onclick="setQrisMode('static')"
                 class="flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5
-                <%= (settings.qrisMode||'static')==='static' ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-white/3 border-white/10 text-zinc-500' %>">
+                <%= qrisModeNorm==='static' ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-white/3 border-white/10 text-zinc-500' %>">
                 <iconify-icon icon="mdi:image"></iconify-icon> Statis (Gambar)
             </button>
             <button type="button" id="modeApiBtn" onclick="setQrisMode('api')"
                 class="flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5
-                <%= (settings.qrisMode||'static')==='api' ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-white/3 border-white/10 text-zinc-500' %>">
+                <%= qrisModeNorm==='api' ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-white/3 border-white/10 text-zinc-500' %>">
                 <iconify-icon icon="mdi:api"></iconify-icon> API (GensPay)
             </button>
-            <button type="button" id="modeStenlyBtn" onclick="setQrisMode('stenly')"
+            <button type="button" id="modePakasirBtn" onclick="setQrisMode('pakasir')"
                 class="flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5
-                <%= (settings.qrisMode||'static')==='stenly' ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-white/3 border-white/10 text-zinc-500' %>">
-                <iconify-icon icon="mdi:api"></iconify-icon> API (stenly.id)
+                <%= qrisModeNorm==='pakasir' ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-white/3 border-white/10 text-zinc-500' %>">
+                <iconify-icon icon="mdi:api"></iconify-icon> API (Pakasir v2)
             </button>
         </div>
 
         <!-- QRIS Statis -->
-        <div id="sectionStatic" class="<%= (settings.qrisMode||'static')==='static' ? '' : 'hidden' %>">
+        <div id="sectionStatic" class="<%= qrisModeNorm==='static' ? '' : 'hidden' %>">
             <p class="text-[11px] text-zinc-500 mb-3">Upload foto QRIS dari rekening kamu (GoPay, DANA, OVO, atau QRIS Merchant). Pembayaran dikonfirmasi manual oleh admin.</p>
             <% if (settings.qrisStaticImage) { %>
             <div class="mb-3 flex flex-col items-center gap-2">
@@ -941,7 +942,7 @@ textarea.hm-input{resize:vertical;min-height:80px;}
         </div>
 
         <!-- GensPay API -->
-        <div id="sectionApi" class="<%= (settings.qrisMode||'static')==='api' ? '' : 'hidden' %> space-y-3">
+        <div id="sectionApi" class="<%= qrisModeNorm==='api' ? '' : 'hidden' %> space-y-3">
             <div class="p-3 rounded-xl bg-indigo-500/8 border border-indigo-500/20 text-[11px] text-indigo-300 mb-2">
                 <iconify-icon icon="mdi:information-outline"></iconify-icon> Isi kredensial GensPay di bawah ini LEWAT PANEL INI (paling gampang), atau lewat environment variable server (<code class="font-mono">GENSPAY_BASE_URL</code> &amp; <code class="font-mono">GENSPAY_API_KEY</code>) kalau kamu yang pegang hosting-nya. Kalau dua-duanya diisi, yang dari panel ini yang dipakai.
             </div>
@@ -1000,31 +1001,31 @@ textarea.hm-input{resize:vertical;min-height:80px;}
             </div>
             <% } %>
 
-            <button type="button" onclick="testPakasir()" class="w-full py-2 rounded-xl text-xs font-bold text-zinc-400 border border-white/10 bg-white/3 hover:bg-white/8 transition-all flex items-center justify-center gap-1.5">
+            <button type="button" onclick="testGenspay()" class="w-full py-2 rounded-xl text-xs font-bold text-zinc-400 border border-white/10 bg-white/3 hover:bg-white/8 transition-all flex items-center justify-center gap-1.5">
                 <iconify-icon icon="mdi:wifi-check"></iconify-icon> Test Koneksi GensPay
             </button>
             <div id="testResult" class="hidden text-[11px] p-2.5 rounded-lg"></div>
         </div>
 
-        <!-- stenly.id API -->
-        <div id="sectionStenly" class="<%= (settings.qrisMode||'static')==='stenly' ? '' : 'hidden' %> space-y-3">
+        <!-- Pakasir API v2 -->
+        <div id="sectionPakasir" class="<%= qrisModeNorm==='pakasir' ? '' : 'hidden' %> space-y-3">
             <div class="p-3 rounded-xl bg-indigo-500/8 border border-indigo-500/20 text-[11px] text-indigo-300 mb-2 space-y-1">
-                <div><iconify-icon icon="mdi:information-outline"></iconify-icon> Isi kredensial stenly.id di bawah ini LEWAT PANEL INI, atau lewat environment variable server (<code class="font-mono">STENLY_BASE_URL</code>, <code class="font-mono">STENLY_API_KEY</code>, <code class="font-mono">STENLY_WEBHOOK_SECRET</code>). Kalau dua-duanya diisi, yang dari panel ini yang dipakai.</div>
-                <div class="pt-1 text-zinc-400">Docs: <a href="https://stenly.id/docs" target="_blank" class="underline">https://stenly.id/docs</a>. Secret Key (sk_live_...) dan Webhook Secret (whsec_...) itu DUA kredensial terpisah di dashboard stenly.id — jangan tertukar.</div>
+                <div><iconify-icon icon="mdi:information-outline"></iconify-icon> Isi kredensial Pakasir di bawah ini LEWAT PANEL INI, atau lewat environment variable server (<code class="font-mono">PAKASIR_SLUG</code>, <code class="font-mono">PAKASIR_API_KEY</code>, <code class="font-mono">PAKASIR_WEBHOOK_SECRET</code>, <code class="font-mono">PAKASIR_BASE_URL</code>). Kalau dua-duanya diisi, yang dari panel ini yang dipakai.</div>
+                <div class="pt-1 text-zinc-400">Docs: <a href="https://pakasir.com/p/create-transaction" target="_blank" class="underline">pakasir.com/p/create-transaction</a>. Slug, API Key, dan Secret ada di bagian bawah halaman <b>Detail Proyek</b> di app.pakasir.com. Proyek baru berstatus <b>Sandbox</b>; ajukan KYC Proyek untuk Go Live. API v1 dihentikan 20 Okt 2026 -- panel ini memakai v2.</div>
             </div>
 
             <!-- Webhook URL (auto-detect dari domain aktif) -->
             <div class="flex flex-col gap-1.5 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
                 <div class="text-[11px] text-amber-300 font-bold flex items-center gap-1">
-                    <iconify-icon icon="mdi:webhook"></iconify-icon> Callback URL untuk didaftarkan di dashboard stenly.id
+                    <iconify-icon icon="mdi:webhook"></iconify-icon> Webhook URL untuk didaftarkan di proyek Pakasir
                 </div>
                 <div class="text-[10px] text-zinc-500 leading-relaxed">
-                    stenly.id TIDAK menerima Callback URL per-transaksi -- daftarkan URL ini SEKALI di halaman project kamu di stenly.id, supaya pembayaran sukses otomatis menyelesaikan transaksi. Kalau domain pernah pindah, buka halaman ini lagi untuk lihat URL yang benar sekarang dan update ulang di dashboard stenly.id.
+                    Paste URL ini SEKALI di <b>Edit Proyek &rarr; Webhook URL</b> di Pakasir. Pakasir mengirim webhook hanya saat pembayaran berhasil. Kalau domain pernah pindah, buka halaman ini lagi untuk lihat URL yang benar sekarang.
                 </div>
                 <div class="flex items-center gap-1.5 mt-1">
-                    <input id="stenlyWebhookUrlInput" type="text" readonly value="<%= stenlyWebhookUrl %>"
+                    <input id="pakasirWebhookUrlInput" type="text" readonly value="<%= pakasirWebhookUrl %>"
                         class="flex-1 min-w-0 text-[11px] font-mono px-2.5 py-2 rounded-lg bg-black/30 border border-white/10 text-zinc-300 truncate">
-                    <button type="button" onclick="copyStenlyWebhookUrl()"
+                    <button type="button" onclick="copyPakasirWebhookUrl()"
                         class="flex-shrink-0 px-3 py-2 rounded-lg text-[11px] font-bold text-amber-300 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition-all flex items-center gap-1">
                         <iconify-icon icon="mdi:content-copy"></iconify-icon> Copy
                     </button>
@@ -1032,58 +1033,68 @@ textarea.hm-input{resize:vertical;min-height:80px;}
             </div>
 
             <!-- Form isi kredensial dari Admin Panel -->
-            <form id="stenlyCredsForm" class="space-y-2.5 p-3 rounded-xl bg-white/3 border border-white/10">
+            <form id="pakasirCredsForm" class="space-y-2.5 p-3 rounded-xl bg-white/3 border border-white/10">
                 <div>
                     <div class="setting-row-label flex items-center justify-between">
-                        <span>stenly.id Base URL</span>
-                        <span class="text-[9px] px-1.5 py-0.5 rounded <%= stenlyConfigured.baseUrl ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' %>">
-                            <%= stenlyConfigured.baseUrl ? ('Aktif · dari ' + (stenlyConfigured.baseUrlSource==='panel' ? 'Panel' : 'Env Var')) : 'Kosong' %>
+                        <span>Pakasir Base URL</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded <%= pakasirConfigured.baseUrl ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' %>">
+                            <%= pakasirConfigured.baseUrl ? ('Aktif · dari ' + (pakasirConfigured.baseUrlSource==='panel' ? 'Panel' : 'Env Var / Bawaan')) : 'Kosong' %>
                         </span>
                     </div>
-                    <input type="text" name="stenlyBaseUrl" class="hm-input" placeholder="<%= stenlyConfigured.baseUrlSource==='env' && stenlyConfigured.baseUrlPreview ? stenlyConfigured.baseUrlPreview : 'https://stenly.id/api/v1' %>">
+                    <input type="text" name="pakasirBaseUrl" class="hm-input" placeholder="<%= pakasirConfigured.baseUrlPreview || 'https://app.pakasir.com' %>">
                 </div>
                 <div>
                     <div class="setting-row-label flex items-center justify-between">
-                        <span>Secret Key</span>
-                        <span class="text-[9px] px-1.5 py-0.5 rounded <%= stenlyConfigured.apiKey ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' %>">
-                            <%= stenlyConfigured.apiKey ? ('Aktif · dari ' + (stenlyConfigured.apiKeySource==='panel' ? 'Panel' : 'Env Var')) : 'Kosong' %>
+                        <span>Slug Proyek</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded <%= pakasirConfigured.slug ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' %>">
+                            <%= pakasirConfigured.slug ? ('Aktif · dari ' + (pakasirConfigured.slugSource==='panel' ? 'Panel' : 'Env Var')) : 'Kosong' %>
                         </span>
                     </div>
-                    <input type="password" name="stenlyApiKey" class="hm-input" placeholder="<%= stenlyConfigured.apiKeySource==='panel' ? '•••••••••••••••• (sudah tersimpan, isi ulang untuk ganti)' : 'sk_live_...' %>" autocomplete="off">
+                    <input type="text" name="pakasirSlug" class="hm-input" placeholder="<%= pakasirConfigured.slugPreview ? pakasirConfigured.slugPreview + ' (sudah tersimpan, isi ulang untuk ganti)' : 'contoh: depodomain' %>" autocomplete="off">
                 </div>
                 <div>
                     <div class="setting-row-label flex items-center justify-between">
-                        <span>Webhook Secret</span>
-                        <span class="text-[9px] px-1.5 py-0.5 rounded <%= stenlyConfigured.webhookSecret ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' %>">
-                            <%= stenlyConfigured.webhookSecret ? ('Aktif · dari ' + (stenlyConfigured.webhookSecretSource==='panel' ? 'Panel' : 'Env Var')) : 'Kosong' %>
+                        <span>API Key</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded <%= pakasirConfigured.apiKey ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' %>">
+                            <%= pakasirConfigured.apiKey ? ('Aktif · dari ' + (pakasirConfigured.apiKeySource==='panel' ? 'Panel' : 'Env Var')) : 'Kosong' %>
                         </span>
                     </div>
-                    <input type="password" name="stenlyWebhookSecret" class="hm-input" placeholder="<%= stenlyConfigured.webhookSecretSource==='panel' ? '•••••••••••••••• (sudah tersimpan, isi ulang untuk ganti)' : 'whsec_...' %>" autocomplete="off">
+                    <input type="password" name="pakasirApiKey" class="hm-input" placeholder="<%= pakasirConfigured.apiKeySource==='panel' ? '•••••••••••••••• (sudah tersimpan, isi ulang untuk ganti)' : 'API Key dari Detail Proyek' %>" autocomplete="off">
+                </div>
+                <div>
+                    <div class="setting-row-label flex items-center justify-between">
+                        <span>Webhook Secret (header X-Secret)</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded <%= pakasirConfigured.webhookSecret ? 'text-emerald-400 bg-emerald-500/10' : 'text-yellow-400 bg-yellow-500/10' %>">
+                            <%= pakasirConfigured.webhookSecret ? ('Aktif · dari ' + (pakasirConfigured.webhookSecretSource==='panel' ? 'Panel' : 'Env Var')) : 'Kosong (disarankan diisi)' %>
+                        </span>
+                    </div>
+                    <input type="password" name="pakasirWebhookSecret" class="hm-input" placeholder="<%= pakasirConfigured.webhookSecretSource==='panel' ? '•••••••••••••••• (sudah tersimpan, isi ulang untuk ganti)' : 'Secret dari Detail Proyek' %>" autocomplete="off">
                 </div>
                 <label class="flex items-center gap-1.5 text-[10px] text-zinc-500">
-                    <input type="checkbox" id="stenlyResetToggle" class="rounded">
+                    <input type="checkbox" id="pakasirResetToggle" class="rounded">
                     Kosongkan field di atas dengan sengaja (reset ke environment variable)
                 </label>
                 <button type="submit" class="w-full py-2 rounded-xl text-xs font-bold text-black" style="background:linear-gradient(135deg,#6366f1,#818cf8)">
-                    <iconify-icon icon="mdi:content-save"></iconify-icon> Simpan Kredensial stenly.id
+                    <iconify-icon icon="mdi:content-save"></iconify-icon> Simpan Kredensial Pakasir
                 </button>
             </form>
 
-            <% if (!stenlyConfigured.baseUrl || !stenlyConfigured.apiKey) { %>
+            <% if (!pakasirConfigured.slug || !pakasirConfigured.apiKey) { %>
             <div class="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-[11px] text-red-400 flex items-start gap-1.5">
                 <iconify-icon icon="mdi:alert" class="mt-0.5 flex-shrink-0"></iconify-icon>
-                <span>Belum lengkap. Isi lewat form di atas, atau tambahkan env var yang kosong di hosting kamu lalu redeploy, sebelum test koneksi.</span>
+                <span>Belum lengkap. Isi Slug dan API Key lewat form di atas (atau env var di hosting lalu redeploy) sebelum test koneksi.</span>
             </div>
             <% } %>
 
-            <button type="button" onclick="testStenly()" class="w-full py-2 rounded-xl text-xs font-bold text-zinc-400 border border-white/10 bg-white/3 hover:bg-white/8 transition-all flex items-center justify-center gap-1.5">
-                <iconify-icon icon="mdi:wifi-check"></iconify-icon> Test Koneksi stenly.id
+            <button type="button" onclick="testPakasirApi()" class="w-full py-2 rounded-xl text-xs font-bold text-zinc-400 border border-white/10 bg-white/3 hover:bg-white/8 transition-all flex items-center justify-center gap-1.5">
+                <iconify-icon icon="mdi:wifi-check"></iconify-icon> Test Koneksi Pakasir
             </button>
-            <div id="testResultStenly" class="hidden text-[11px] p-2.5 rounded-lg"></div>
+            <div class="text-[10px] text-zinc-600 -mt-1">Test membuat transaksi uji Rp1.000 lalu langsung membatalkannya (tidak ada uang berpindah).</div>
+            <div id="testResultPakasir" class="hidden text-[11px] p-2.5 rounded-lg"></div>
         </div>
 
         <!-- Simpan Mode -->
-        <input type="hidden" id="qrisModeVal" value="<%= settings.qrisMode||'static' %>">
+        <input type="hidden" id="qrisModeVal" value="<%= qrisModeNorm %>">
     </div>
 
     <!-- Reseller API (Auto Stock) — porting dari GNE, metode identik:
@@ -2581,17 +2592,17 @@ function setQrisMode(mode) {
     document.getElementById('qrisModeVal').value = mode;
     document.getElementById('sectionStatic').classList.toggle('hidden', mode !== 'static');
     document.getElementById('sectionApi').classList.toggle('hidden', mode !== 'api');
-    document.getElementById('sectionStenly').classList.toggle('hidden', mode !== 'stenly');
+    document.getElementById('sectionPakasir').classList.toggle('hidden', mode !== 'pakasir');
     const btnClass = (active) => `flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${active ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-white/3 border-white/10 text-zinc-500'}`;
     document.getElementById('modeStaticBtn').className = btnClass(mode === 'static');
     document.getElementById('modeApiBtn').className = btnClass(mode === 'api');
-    document.getElementById('modeStenlyBtn').className = btnClass(mode === 'stenly');
+    document.getElementById('modePakasirBtn').className = btnClass(mode === 'pakasir');
     // Auto-save mode -- FIX: sebelumnya manggil /admin/settings/pakasir yang
     // TIDAK ADA di codebase ini (404 diam-diam, mode gak pernah kesimpen).
     // /admin/settings/genspay cukup dipakai buat semua mode karena field
     // qrisMode yang disimpan sama untuk endpoint manapun.
     api('/admin/settings/genspay', { qrisMode: mode })
-        .then(d => { if(d.success) toast(`Mode QRIS: ${mode === 'static' ? 'Statis' : mode === 'stenly' ? 'stenly.id API' : 'GensPay API'}`, 'success'); });
+        .then(d => { if(d.success) toast(`Mode QRIS: ${mode === 'static' ? 'Statis' : mode === 'pakasir' ? 'Pakasir API v2' : 'GensPay API'}`, 'success'); });
 }
 
 
@@ -2623,16 +2634,16 @@ function copyGenspayWebhookUrl() {
         .catch(() => document.execCommand('copy')); // fallback browser lama
 }
 
-function copyStenlyWebhookUrl() {
-    const input = document.getElementById('stenlyWebhookUrlInput');
+function copyPakasirWebhookUrl() {
+    const input = document.getElementById('pakasirWebhookUrlInput');
     input.select();
     input.setSelectionRange(0, 99999);
     navigator.clipboard.writeText(input.value)
-        .then(() => toast('Callback URL disalin! Paste ke dashboard project stenly.id.', 'success'))
+        .then(() => toast('Webhook URL disalin! Paste ke Edit Proyek di Pakasir.', 'success'))
         .catch(() => document.execCommand('copy'));
 }
 
-async function testPakasir() {
+async function testGenspay() {
     const el = document.getElementById('testResult');
     el.className = 'text-[11px] p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300';
     el.textContent = 'Menguji koneksi...';
@@ -2647,18 +2658,20 @@ async function testPakasir() {
     }
 }
 
-async function testStenly() {
-    const el = document.getElementById('testResultStenly');
+async function testPakasirApi() {
+    const el = document.getElementById('testResultPakasir');
     el.className = 'text-[11px] p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300';
-    el.textContent = 'Menguji koneksi...';
+    el.textContent = 'Menguji koneksi (buat -> status -> batalkan)...';
     el.classList.remove('hidden');
-    const d = await api('/admin/qris/test', {});
+    const d = await api('/admin/qris/test-pakasir', {});
+    const lines = (d.steps || []).map(s => (s.ok ? '✓ ' : '✗ ') + s.step + ' — ' + s.detail);
+    el.style.whiteSpace = 'pre-wrap';
     if (d.success) {
         el.className = 'text-[11px] p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300';
-        el.textContent = '✓ Koneksi berhasil! stenly.id siap digunakan.';
+        el.textContent = '✓ Koneksi berhasil! Pakasir siap digunakan.\n' + lines.join('\n');
     } else {
         el.className = 'text-[11px] p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400';
-        el.textContent = '✗ ' + (d.message || 'Koneksi gagal');
+        el.textContent = '✗ ' + (d.message || 'Koneksi gagal') + (lines.length ? '\n' + lines.join('\n') : '');
     }
 }
 
@@ -2936,22 +2949,20 @@ document.getElementById('genspayCredsForm').addEventListener('submit', async fun
     }
 });
 
-// ── STENLY.ID CREDENTIALS ──
-document.getElementById('stenlyCredsForm').addEventListener('submit', async function(e) {
+// ── PAKASIR (API v2) CREDENTIALS ──
+document.getElementById('pakasirCredsForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const fd = new FormData(this);
-    const baseUrlVal = fd.get('stenlyBaseUrl') || '';
-    const apiKeyVal = fd.get('stenlyApiKey') || '';
-    const webhookSecretVal = fd.get('stenlyWebhookSecret') || '';
-    const resetIntentional = document.getElementById('stenlyResetToggle').checked;
+    const reset = document.getElementById('pakasirResetToggle').checked;
     const data = {};
-    if (baseUrlVal || resetIntentional) data.stenlyBaseUrl = baseUrlVal;
-    if (apiKeyVal || resetIntentional) data.stenlyApiKey = apiKeyVal;
-    if (webhookSecretVal || resetIntentional) data.stenlyWebhookSecret = webhookSecretVal;
+    for (const key of ['pakasirBaseUrl', 'pakasirSlug', 'pakasirApiKey', 'pakasirWebhookSecret']) {
+        const v = (fd.get(key) || '').trim();
+        if (v || reset) data[key] = v;
+    }
     if (Object.keys(data).length === 0) { toast('Isi salah satu field, atau centang kotak reset dulu.', 'error'); return; }
-    const d = await api('/admin/settings/stenly', data);
+    const d = await api('/admin/settings/pakasir', data);
     if (d.success) {
-        toast('Kredensial stenly.id disimpan!', 'success');
+        toast('Kredensial Pakasir disimpan!', 'success');
         setTimeout(() => location.reload(), 800);
     } else {
         toast(d.message, 'error');
