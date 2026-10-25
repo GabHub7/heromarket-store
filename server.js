@@ -485,7 +485,7 @@ const processingOrders = new Set();
 const genspayStatusCache = new Map(); // order_id -> { result, expiresAt }
 const GENSPAY_STATUS_CACHE_TTL_MS = 3000;
 // Pakasir v2 membatasi cek status 1x / 4 detik per transaksi -> cache 5 detik.
-const statusCacheTtl = (settings) => (settings && settings.qrisMode === 'pakasir') ? 5000 : GENSPAY_STATUS_CACHE_TTL_MS;
+const statusCacheTtl = (settings) => (settings && (settings.qrisMode === 'pakasir' || settings.qrisMode === 'wijayapay')) ? 5000 : GENSPAY_STATUS_CACHE_TTL_MS;
 
 async function checkPaymentStatusCached(orderId, amount, settings, txn) {
   const cached = genspayStatusCache.get(orderId);
@@ -621,6 +621,16 @@ app.post('/webhook/pakasir', express.raw({ type: '*/*', limit: '1mb' }), (req, r
   } catch (e) {
     req.body = {};
   }
+  next();
+});
+
+// WijayaPay: body bisa JSON atau form-urlencoded -- baca raw lalu parse sendiri.
+app.post('/webhook/wijayapay', express.raw({ type: '*/*', limit: '1mb' }), (req, res, next) => {
+  req.rawBodyForSignature = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '';
+  let parsed = {};
+  try { parsed = req.rawBodyForSignature ? JSON.parse(req.rawBodyForSignature) : {}; }
+  catch (e) { try { parsed = Object.fromEntries(new URLSearchParams(req.rawBodyForSignature)); } catch (e2) { parsed = {}; } }
+  req.body = parsed;
   next();
 });
 
@@ -1179,6 +1189,100 @@ const cancelPakasirTransaction = async (txnId, settings) => {
   return (pakasirUnwrap(j).message) || 'OK';
 };
 
+// ── WijayaPay (gateway.wijayapay.com) -- QRIS ──
+// Create: POST /api/transaction/create (form-urlencoded: code_merchant, api_key, ref_id, code_payment, nominal)
+// dengan header X-Signature = md5(code_merchant + api_key + ref_id). Status: GET /api/get-status?code_merchant&api_key&ref_id
+// -> { data, status_pembayaran: pending|paid|expired }. Webhook (POST/GET): { data:{ref_id,total_dibayar,...}, status:'paid' }
+// + header X-Signature (md5 yang sama); balasan WAJIB JSON { "status": true }. Tidak ada endpoint cancel.
+// Field settings FLAT: wijayapayMerchantCode, wijayapayApiKey, wijayapayBaseUrl (env WIJAYAPAY_MERCHANT_CODE/API_KEY/BASE_URL).
+function getWijayapayCreds(settings) {
+  const s = settings || {};
+  return {
+    baseUrl: (((s.wijayapayBaseUrl || '').trim()) || (process.env.WIJAYAPAY_BASE_URL || '').trim() || 'https://gateway.wijayapay.com').replace(/\/+$/, ''),
+    merchantCode: ((s.wijayapayMerchantCode || '').trim()) || (process.env.WIJAYAPAY_MERCHANT_CODE || '').trim(),
+    apiKey: ((s.wijayapayApiKey || '').trim()) || (process.env.WIJAYAPAY_API_KEY || '').trim(),
+  };
+}
+
+const wijayapaySignature = (creds, refId) =>
+  crypto.createHash('md5').update(`${creds.merchantCode}${creds.apiKey}${refId}`).digest('hex');
+
+function verifyWijayapaySignature(creds, refId, received) {
+  if (!received || !refId || !creds.merchantCode || !creds.apiKey) return false;
+  return timingSafeStrEq(String(received).toLowerCase(), wijayapaySignature(creds, refId));
+}
+
+function wijayapayRequest(creds, method, path, { query, form, signRef } = {}) {
+  return new Promise((resolve, reject) => {
+    if (!creds.merchantCode || !creds.apiKey) return reject(new Error('WijayaPay belum dikonfigurasi -- isi Merchant Code & API Key lewat Admin Panel (Pengaturan QRIS) atau env WIJAYAPAY_MERCHANT_CODE/WIJAYAPAY_API_KEY.'));
+    let url;
+    try {
+      url = new URL(creds.baseUrl + path);
+      if (query) for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
+    } catch (e) { return reject(new Error('Base URL WijayaPay tidak valid')); }
+    const lib = url.protocol === 'http:' ? require('http') : https;
+    const payload = form ? new URLSearchParams(form).toString() : null;
+    const headers = { 'User-Agent': 'HeroMarket/1.0', 'Accept': 'application/json' };
+    if (payload !== null) { headers['Content-Type'] = 'application/x-www-form-urlencoded'; headers['Content-Length'] = Buffer.byteLength(payload); }
+    if (signRef) headers['X-Signature'] = wijayapaySignature(creds, signRef);
+    const req = lib.request({
+      hostname: url.hostname, port: url.port || (url.protocol === 'http:' ? 80 : 443),
+      path: url.pathname + url.search, method, headers, timeout: 15000
+    }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        let json = null;
+        try { json = data ? JSON.parse(data) : null; } catch (e) { /* bukan JSON */ }
+        if (res.statusCode < 200 || res.statusCode >= 300 || (json && json.success === false)) {
+          const m = json && (json.message || json.error);
+          return reject(new Error(typeof m === 'string' && m ? m : `WijayaPay menolak request (HTTP ${res.statusCode}): ${data.slice(0, 120)}`));
+        }
+        resolve(json);
+      });
+    });
+    req.on('timeout', () => { req.destroy(); reject(new Error('WijayaPay timeout')); });
+    req.on('error', e => reject(new Error('Network error: ' + e.message)));
+    if (payload !== null) req.write(payload);
+    req.end();
+  });
+}
+
+// callbackUrl tidak dipakai: Webhook URL didaftarkan SEKALI di dashboard WijayaPay.
+// ref_id = orderId (unik per transaksi). QRIS: biaya ditanggung pembeli kalau type_fee channel = customer;
+// nominal akhir yang harus dibayar dibaca dari total_bayar di respons.
+const createQRISPaymentWijayapay = async (orderId, amount, settings, _callbackUrlUnused) => {
+  const creds = getWijayapayCreds(settings);
+  const j = await wijayapayRequest(creds, 'POST', '/api/transaction/create', {
+    signRef: String(orderId),
+    form: { code_merchant: creds.merchantCode, api_key: creds.apiKey, ref_id: String(orderId), code_payment: 'QRIS', nominal: String(Math.round(Number(amount))) }
+  });
+  const p = (j && j.data) || {};
+  const qr = p.qr_string;
+  if (!qr) throw new Error('Respons WijayaPay tidak lengkap (qr_string tidak ditemukan). Pastikan channel QRIS aktif di akun WijayaPay.');
+  const total = Number(p.total_bayar);
+  return {
+    qr_string: qr,
+    total_payment: Number.isFinite(total) && total > 0 ? total : Number(amount),
+    expired_at: null, // format waktu WijayaPay tanpa zona -> tidak ditebak; tampilan memakai batas bawaan
+    txn_id: p.trx_reference || null,
+    fee: Number(p.total_fee || 0)
+  };
+};
+
+// Hasil dinormalisasi: paid -> 'completed' (sama seperti Pakasir) supaya semua consumer status ikut jalan.
+const checkPaymentStatusWijayapay = async (orderId, amount, settings, txn) => {
+  const creds = getWijayapayCreds(settings);
+  const j = await wijayapayRequest(creds, 'GET', '/api/get-status', {
+    query: { code_merchant: creds.merchantCode, api_key: creds.apiKey, ref_id: String(orderId) }
+  });
+  const raw = String((j && (j.status_pembayaran || (j.data && j.data.status_pembayaran))) || '').toLowerCase();
+  const status = raw === 'paid' ? 'completed' : raw;
+  const d = (j && j.data) || {};
+  const amt = Number(d.total_bayar);
+  return { status, order_id: d.ref_id || String(orderId), amount: Number.isFinite(amt) && amt > 0 ? amt : null, txn_id: d.trx_reference || (txn && txn.gatewayTxnId) || null };
+};
+
 // Bandingkan secret tahan timing-attack (hash dulu supaya panjang sama).
 function timingSafeStrEq(a, b) {
   if (!a || !b) return false;
@@ -1188,21 +1292,23 @@ function timingSafeStrEq(a, b) {
 }
 
 // Path webhook sesuai mode QRIS aktif (mode lama 'stenly' sudah dihapus -> dianggap GensPay).
-const qrisWebhookPath = (settings) => (settings && settings.qrisMode === 'pakasir') ? 'pakasir' : 'genspay';
+const qrisWebhookPath = (settings) => (settings && settings.qrisMode === 'pakasir') ? 'pakasir' : (settings && settings.qrisMode === 'wijayapay') ? 'wijayapay' : 'genspay';
 
 // ══════════════════════════════════════════════════════════════════
 // PAYMENT GATEWAY DISPATCHER -- settings.qrisMode: 'static' | 'api' (GensPay,
-// default) | 'pakasir' (API v2). createQRISPayment/checkPaymentStatus tetap
+// default) | 'pakasir' (API v2) | 'wijayapay'. createQRISPayment/checkPaymentStatus tetap
 // dipanggil dengan nama & tanda tangan lama oleh semua call site; mode lain
 // (termasuk sisa nilai lama 'stenly') jatuh ke GensPay.
 // ══════════════════════════════════════════════════════════════════
 const createQRISPayment = (orderId, amount, settings, callbackUrl) => {
   if (settings?.qrisMode === 'pakasir') return createQRISPaymentPakasir(orderId, amount, settings, callbackUrl);
+  if (settings?.qrisMode === 'wijayapay') return createQRISPaymentWijayapay(orderId, amount, settings, callbackUrl);
   return createQRISPaymentGenspay(orderId, amount, settings, callbackUrl);
 };
 
 const checkPaymentStatus = (orderId, amount, settings, txn) => {
   if (settings?.qrisMode === 'pakasir') return checkPaymentStatusPakasir(orderId, amount, settings, txn);
+  if (settings?.qrisMode === 'wijayapay') return checkPaymentStatusWijayapay(orderId, amount, settings, txn);
   return checkPaymentStatusGenspay(orderId, amount, settings);
 };
 
@@ -1507,9 +1613,16 @@ app.post('/webhook/pakasir', async (req, res) => {
       return res.status(200).json({ ok: true });
     }
     processingOrders.add(order_id);
+    let txLock = null;
     try {
       const transactions = await readFresh('transactions.json');
       const transaction = transactions.find(t => t.orderId === order_id && t.status === 'pending');
+      if (transaction) {
+        // /check-payment mengunci memakai transaction.id (bukan order_id) -- kunci ke-2 ini mencegah
+        // webhook & polling memproses transaksi yang sama bersamaan (dobel key / dobel saldo).
+        if (processingOrders.has(transaction.id)) return res.status(200).json({ ok: true, ignored: 'processing' });
+        txLock = transaction.id; processingOrders.add(txLock);
+      }
       if (!transaction) {
         const anyMatch = transactions.find(t => t.orderId === order_id);
         console.warn(`[webhook/pakasir] completed diterima tapi tidak ada transaksi pending. order_id=${order_id}. ` +
@@ -1549,6 +1662,7 @@ app.post('/webhook/pakasir', async (req, res) => {
       await allocateKeyAndCompleteTransaction(transaction, transactions);
       console.log(`[webhook/pakasir] order_id=${order_id} selesai, status akhir=${transaction.status}`);
     } finally {
+      if (txLock) processingOrders.delete(txLock);
       processingOrders.delete(order_id);
     }
     res.status(200).json({ ok: true });
@@ -1557,6 +1671,92 @@ app.post('/webhook/pakasir', async (req, res) => {
     res.status(500).json({ ok: false });
   }
 });
+
+// ── WijayaPay Webhook ──
+// Daftarkan di dashboard WijayaPay (callback URL): https://domainkamu.com/webhook/wijayapay
+// Payload (POST atau GET): { data:{ref_id,total_dibayar,...}, status:'paid' }, header X-Signature = md5(code_merchant+api_key+ref_id).
+// Balasan WAJIB JSON {"status":true}. Payload TIDAK dipercaya mentah: status dikonfirmasi lewat API get-status.
+// Sumber IP WijayaPay: 172.235.245.77 (tidak dipaksa di sini karena di belakang proxy IP asli tidak selalu terbaca).
+async function handleWijayapayWebhook(req, res) {
+  try {
+    const settings = readDB('settings.json');
+    const creds = getWijayapayCreds(settings);
+    const src = (req.method === 'GET') ? (req.query || {}) : (req.body || {});
+    const data = (src.data && typeof src.data === 'object') ? src.data : src;
+    const refId = String(data.ref_id || src.ref_id || '');
+    const status = String(src.status || data.status || src.status_pembayaran || '').toLowerCase();
+    const sig = req.headers['x-signature'] || src.signature || src.x_signature || '';
+
+    if (!refId) {
+      if (req.method === 'GET') return res.status(200).json({ status: true, message: 'WijayaPay webhook endpoint active' });
+      await logWebhookDebug({ provider: 'wijayapay', result: 'bad_payload', rawBodyPreview: (req.rawBodyForSignature || '').slice(0, 300) });
+      return res.status(400).json({ status: false });
+    }
+    const sigProvided = !!sig;
+    const sigOk = sigProvided && verifyWijayapaySignature(creds, refId, sig);
+    if (sigProvided && !sigOk) {
+      await logWebhookDebug({ provider: 'wijayapay', result: 'signature_invalid', orderId: refId });
+      return res.status(401).json({ status: false });
+    }
+    if (status !== 'paid') {
+      console.log(`[webhook/wijayapay] diabaikan: status=${status}, ref_id=${refId}`);
+      return res.status(200).json({ status: true });
+    }
+    if (processingOrders.has(refId)) return res.status(200).json({ status: true });
+    processingOrders.add(refId);
+    let txLock = null;
+    try {
+      const transactions = await readFresh('transactions.json');
+      const transaction = transactions.find(t => t.orderId === refId && t.status === 'pending');
+      if (!transaction) {
+        console.warn(`[webhook/wijayapay] paid diterima tapi tidak ada transaksi pending. ref_id=${refId}`);
+        return res.status(200).json({ status: true });
+      }
+      // /check-payment mengunci memakai transaction.id (bukan order_id) -- kunci ke-2 ini mencegah
+      // webhook & polling memproses transaksi yang sama bersamaan (dobel key / dobel saldo).
+      if (processingOrders.has(transaction.id)) return res.status(200).json({ status: true });
+      txLock = transaction.id; processingOrders.add(txLock);
+      const accepted = [Number(transaction.price), Number(transaction.totalPayment)].filter(n => Number.isFinite(n));
+      const paidAmt = Number(data.total_dibayar);
+      if (Number.isFinite(paidAmt) && paidAmt > 0 && !accepted.includes(paidAmt)) {
+        console.error(`[webhook/wijayapay] nominal ${paidAmt} tidak cocok (${accepted.join(' / ')}) untuk ${refId} -- ditolak`);
+        await logWebhookDebug({ provider: 'wijayapay', result: 'amount_mismatch', orderId: refId, amount: paidAmt, accepted });
+        return res.status(400).json({ status: false });
+      }
+      let verified = null;
+      try {
+        verified = await checkPaymentStatusWijayapay(refId, transaction.price, settings, transaction);
+      } catch (e) {
+        if (!sigOk) {
+          console.error(`[webhook/wijayapay] tidak bisa verifikasi ke WijayaPay & tanpa signature valid -- ditolak (503): ${e.message}`);
+          return res.status(503).json({ status: false });
+        }
+        console.warn(`[webhook/wijayapay] verifikasi API gagal (${e.message}); signature valid, lanjut dari body webhook.`);
+      }
+      if (verified) {
+        if (verified.status !== 'completed') {
+          console.warn(`[webhook/wijayapay] API bilang status=${verified.status} (bukan paid), ref_id=${refId} -- diabaikan.`);
+          return res.status(200).json({ status: true });
+        }
+        if (verified.amount !== null && !accepted.includes(verified.amount)) {
+          await logWebhookDebug({ provider: 'wijayapay', result: 'verify_mismatch', orderId: refId, verified });
+          return res.status(400).json({ status: false });
+        }
+      }
+      console.log(`[webhook/wijayapay] paid ref_id=${refId}, transaksi=${transaction.id} -- memproses allocateKey...`);
+      await allocateKeyAndCompleteTransaction(transaction, transactions);
+    } finally {
+      if (txLock) processingOrders.delete(txLock);
+      processingOrders.delete(refId);
+    }
+    res.status(200).json({ status: true });
+  } catch (e) {
+    console.error('[webhook/wijayapay] error:', e.message);
+    res.status(500).json({ status: false });
+  }
+}
+app.post('/webhook/wijayapay', handleWijayapayWebhook);
+app.get('/webhook/wijayapay', handleWijayapayWebhook);
 
 // ── NOWPayments Webhook (IPN): notifikasi status pembayaran crypto ──
 // Daftarkan URL ini di dashboard NOWPayments sebagai IPN callback URL: https://domainkamu.com/webhook/nowpayments
@@ -4259,7 +4459,20 @@ app.get('/admin', requireAdmin, (req, res) => {
         baseUrlSource: (settings.pakasirBaseUrl || '').trim() ? 'panel' : 'env'
       };
     })(),
-    pakasirWebhookUrl: `${getAppBaseUrl(req)}/webhook/pakasir`
+    pakasirWebhookUrl: `${getAppBaseUrl(req)}/webhook/pakasir`,
+    wijayapayConfigured: (() => {
+      const creds = getWijayapayCreds(settings);
+      return {
+        baseUrl: !!creds.baseUrl,
+        merchantCode: !!creds.merchantCode,
+        apiKey: !!creds.apiKey,
+        baseUrlPreview: creds.baseUrl,
+        merchantCodeSource: (settings.wijayapayMerchantCode || '').trim() ? 'panel' : 'env',
+        apiKeySource: (settings.wijayapayApiKey || '').trim() ? 'panel' : 'env',
+        baseUrlSource: (settings.wijayapayBaseUrl || '').trim() ? 'panel' : 'env'
+      };
+    })(),
+    wijayapayWebhookUrl: `${getAppBaseUrl(req)}/webhook/wijayapay`
   });
 });
 
@@ -5991,6 +6204,70 @@ app.post('/admin/qris/test-pakasir', requireAdmin, async (req, res) => {
 
     const ok = steps.every(s => s.ok || s.step === 'webhook_secret');
     res.json({ success: ok, steps, message: ok ? undefined : (steps.find(s => !s.ok && s.step !== 'webhook_secret') || {}).detail });
+  } catch (e) {
+    res.json({ success: false, steps, message: e.message });
+  }
+});
+
+// ── WijayaPay Settings ──
+// Field yang TIDAK dikirim (undefined) = tidak diubah; string kosong = kosongkan (balik ke env var).
+app.post('/admin/settings/wijayapay', requireAdmin, async (req, res) => {
+  try {
+    const { wijayapayMerchantCode, wijayapayApiKey, wijayapayBaseUrl, qrisMode } = req.body;
+    const settings = await readFresh('settings.json');
+    if (wijayapayBaseUrl !== undefined) {
+      const b = String(wijayapayBaseUrl).trim().replace(/\/+$/, '');
+      if (b && !/^https:\/\//i.test(b)) return res.json({ success: false, message: 'Base URL harus diawali https://' });
+      settings.wijayapayBaseUrl = b;
+    }
+    if (wijayapayMerchantCode !== undefined) settings.wijayapayMerchantCode = String(wijayapayMerchantCode).trim();
+    if (wijayapayApiKey !== undefined) settings.wijayapayApiKey = String(wijayapayApiKey).trim();
+    if (qrisMode) {
+      if (qrisMode === 'wijayapay') {
+        const c = getWijayapayCreds(settings);
+        if (!c.merchantCode || !c.apiKey) return res.json({ success: false, message: 'Isi Merchant Code & API Key WijayaPay dulu sebelum mengaktifkan.' });
+      }
+      settings.qrisMode = qrisMode;
+    }
+    await writeDB('settings.json', settings);
+    const creds = getWijayapayCreds(settings);
+    res.json({ success: true, configured: { baseUrl: !!creds.baseUrl, merchantCode: !!creds.merchantCode, apiKey: !!creds.apiKey } });
+  } catch (e) {
+    res.json({ success: false, message: e.message });
+  }
+});
+
+// Test: create QRIS uji Rp1.000 -> cek status. WijayaPay tidak punya endpoint cancel, jadi tagihan uji
+// dibiarkan kedaluwarsa sendiri (tidak ada uang berpindah selama tidak dibayar).
+app.post('/admin/qris/test-wijayapay', requireAdmin, async (req, res) => {
+  const steps = [];
+  const add = (step, ok, detail) => steps.push({ step, ok, detail });
+  try {
+    const settings = readDB('settings.json');
+    const creds = getWijayapayCreds(settings);
+    const okCfg = !!(creds.merchantCode && creds.apiKey);
+    add('config', okCfg, okCfg ? `Base URL: ${creds.baseUrl} · Merchant: ${creds.merchantCode}` : 'Merchant Code atau API Key kosong.');
+    if (!okCfg) return res.json({ success: false, steps, message: 'Merchant Code atau API Key kosong.' });
+
+    const orderId = 'test-' + Date.now().toString(36);
+    let created;
+    try {
+      created = await createQRISPaymentWijayapay(orderId, 1000, settings);
+      add('create', true, `ref_id=${orderId}, fee Rp${created.fee}, total bayar Rp${created.total_payment}`);
+      add('qr_string', true, `QR diterima (${String(created.qr_string).length} karakter).`);
+    } catch (e) {
+      const hint = /ip|whitelist|forbidden|403/i.test(e.message) ? ' (kemungkinan IP server belum di-whitelist / whitelist belum dihapus oleh CS WijayaPay)' : '';
+      add('create', false, e.message + hint);
+      return res.json({ success: false, steps, message: e.message + hint });
+    }
+    try {
+      const st = await checkPaymentStatusWijayapay(orderId, 1000, settings, { price: 1000 });
+      add('status', st.status === 'pending', `Status transaksi uji: ${st.status || '(kosong)'}`);
+    } catch (e) { add('status', false, e.message); }
+    add('cancel', true, 'WijayaPay tidak menyediakan cancel -- tagihan uji kedaluwarsa sendiri.');
+
+    const ok = steps.every(x => x.ok);
+    res.json({ success: ok, steps, message: ok ? undefined : (steps.find(x => !x.ok) || {}).detail });
   } catch (e) {
     res.json({ success: false, steps, message: e.message });
   }
