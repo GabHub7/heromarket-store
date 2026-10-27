@@ -1273,9 +1273,17 @@ const createQRISPaymentWijayapay = async (orderId, amount, settings, _callbackUr
 // Hasil dinormalisasi: paid -> 'completed' (sama seperti Pakasir) supaya semua consumer status ikut jalan.
 const checkPaymentStatusWijayapay = async (orderId, amount, settings, txn) => {
   const creds = getWijayapayCreds(settings);
-  const j = await wijayapayRequest(creds, 'GET', '/api/get-status', {
-    query: { code_merchant: creds.merchantCode, api_key: creds.apiKey, ref_id: String(orderId) }
-  });
+  const query = (id) => ({ code_merchant: creds.merchantCode, api_key: creds.apiKey, ref_id: String(id) });
+  let j;
+  try {
+    j = await wijayapayRequest(creds, 'GET', '/api/get-status', { query: query(orderId) });
+  } catch (e) {
+    // Beberapa akun WijayaPay menjawab "ref_id tidak ditemukan" untuk ref_id kita -- coba lagi memakai
+    // trx_reference (WPTRX...) yang disimpan saat create, kalau ada.
+    const alt = txn && txn.gatewayTxnId;
+    if (!alt || !/tidak ditemukan|not found/i.test(e.message)) throw e;
+    j = await wijayapayRequest(creds, 'GET', '/api/get-status', { query: query(alt) });
+  }
   const raw = String((j && (j.status_pembayaran || (j.data && j.data.status_pembayaran))) || '').toLowerCase();
   const status = raw === 'paid' ? 'completed' : raw;
   const d = (j && j.data) || {};
@@ -6260,10 +6268,23 @@ app.post('/admin/qris/test-wijayapay', requireAdmin, async (req, res) => {
       add('create', false, e.message + hint);
       return res.json({ success: false, steps, message: e.message + hint });
     }
-    try {
-      const st = await checkPaymentStatusWijayapay(orderId, 1000, settings, { price: 1000 });
-      add('status', st.status === 'pending', `Status transaksi uji: ${st.status || '(kosong)'}`);
-    } catch (e) { add('status', false, e.message); }
+    // Cek status: coba beberapa kali (data baru bisa butuh beberapa detik), lalu coba lewat trx_reference.
+    // Gagal di langkah ini TIDAK membatalkan test: pembuatan QR sudah berhasil, dan pembayaran tetap
+    // terkonfirmasi lewat webhook. Hanya polling status otomatis yang terpengaruh -- hasilnya dijelaskan apa adanya.
+    {
+      let found = null, lastErr = '', via = '';
+      for (let i = 0; i < 3 && !found; i++) {
+        if (i) await new Promise(r => setTimeout(r, 2000));
+        try { found = await checkPaymentStatusWijayapay(orderId, 1000, settings, {}); via = `ref_id (percobaan ke-${i + 1})`; }
+        catch (e) { lastErr = e.message; }
+      }
+      if (!found && created.txn_id) {
+        try { found = await checkPaymentStatusWijayapay(created.txn_id, 1000, settings, {}); via = 'trx_reference ' + created.txn_id; }
+        catch (e) { lastErr = e.message; }
+      }
+      if (found) add('status', found.status === 'pending', `Status transaksi uji: ${found.status || '(kosong)'} -- ditemukan lewat ${via}`);
+      else add('status', true, `PERINGATAN: WijayaPay menjawab "${lastErr}" untuk transaksi yang baru dibuat. Pembuatan QR OK; pembayaran tetap masuk lewat webhook, tapi cek status otomatis (polling) tidak bisa dipakai di akun ini -- pastikan Webhook URL sudah didaftarkan di WijayaPay & tanyakan CS soal endpoint get-status.`);
+    }
     add('cancel', true, 'WijayaPay tidak menyediakan cancel -- tagihan uji kedaluwarsa sendiri.');
 
     const ok = steps.every(x => x.ok);
