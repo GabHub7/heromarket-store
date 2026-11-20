@@ -46,7 +46,7 @@ body>*{position:relative;z-index:1;}
     <div class="max-w-2xl mx-auto px-4">
         <div class="flex items-center justify-between h-14">
             <a href="/" class="flex items-center gap-2.5">
-                <img src="https://z-cdn-media.chatglm.cn/files/87e4e759-3898-4bd9-93f3-42078956a794.png?auth_key=1878848442-1a65b6a56ce44d8188d26c370725de81-0-3e86df522848abe81fc556fd03a5fe98"
+                <img src="/logo.jpg"
                      alt="Logo" class="h-9 w-auto">
                 <span class="brand-wordmark brand-wordmark-sm shimmer-purple"><%= settings.siteName %></span>
             </a>
@@ -311,7 +311,7 @@ function showPaymentModal(qrString, code, refId, isStatic, staticImg, amount) {
     } else if (qrString) {
         document.getElementById('qrCodeWrap').innerHTML =
             `<div style="background:#fff;padding:12px;border-radius:16px;">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&color=000000&bgcolor=ffffff&data=${encodeURIComponent(qrString)}"
+                <img src="${/^(https?:\/\/|data:image)/i.test(qrString) ? qrString : 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&color=000000&bgcolor=ffffff&data=' + encodeURIComponent(qrString)}"
                      style="display:block;width:200px;height:200px;border-radius:6px;">
              </div>`;
     } else {

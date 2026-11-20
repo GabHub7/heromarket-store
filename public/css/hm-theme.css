@@ -1,0 +1,296 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HERO MARKET — Tema "Midnight Indigo" (biru tua → ungu)
+   Referensi layout: VIP Best Mods (bersih, polos, kartu navy, aksen satu warna).
+   Dimuat SETELAH style inline di layout.ejs, jadi menang pada specificity sama.
+   Prinsip: polos & smooth — tanpa neon/glow, tanpa shimmer, tanpa grid overlay,
+   transisi halus 0.2s, radius besar, border tipis.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root{
+  --hm-bg:#060a1f;            /* biru tua gelap */
+  --hm-bg-2:#0a0f2e;
+  --hm-bg-3:#100e33;          /* ujung bawah condong ungu */
+  --hm-surface:#0d1536;       /* kartu */
+  --hm-surface-2:#121b45;     /* kartu terangkat / input */
+  --hm-line:rgba(140,152,255,.14);
+  --hm-line-strong:rgba(140,152,255,.28);
+  --hm-text:#e8ebff;
+  --hm-muted:#8b94c4;
+  --hm-faint:#5f688f;
+  --hm-blue:#4264e8;
+  --hm-violet:#7a50e6;
+  --hm-accent:#aab4ff;
+  --hm-grad:linear-gradient(135deg,#3f62e6 0%,#6f4fe6 100%);
+  --hm-radius:18px;
+  --bg-dark:#060a1f;
+  --bg-card:#0d1536;
+  --bg-card2:#0a1030;
+}
+
+/* ── Dasar ── */
+html{background:var(--hm-bg);}
+body{
+  background:linear-gradient(180deg,var(--hm-bg) 0%,var(--hm-bg-2) 55%,var(--hm-bg-3) 100%) fixed !important;
+  color:var(--hm-text);
+  -webkit-font-smoothing:antialiased;
+}
+body::before,body::after{display:none !important;}               /* hilangkan grid & glow latar */
+::-webkit-scrollbar-track{background:var(--hm-bg) !important;}
+::-webkit-scrollbar-thumb{background:#1f2a62 !important;}
+::selection{background:rgba(111,125,255,.35);}
+
+/* Font: heading tegas italic seperti referensi, bukan Orbitron */
+.font-orbitron{font-family:'Inter',sans-serif !important;font-style:italic;font-weight:800 !important;letter-spacing:0 !important;}
+.font-display{font-family:'Inter',sans-serif !important;}
+.brand-wordmark{font-weight:800;font-style:italic;letter-spacing:-.01em;}
+.neon-text,.shimmer-text{
+  background:none !important;-webkit-text-fill-color:#fff !important;color:#fff !important;
+  filter:none !important;animation:none !important;
+}
+
+/* ── Navbar (semua halaman) ── */
+#navbar{
+  background:rgba(6,10,31,.84) !important;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--hm-line) !important;
+  box-shadow:none !important;
+}
+.navbar-solid{background:rgba(6,10,31,.96) !important;box-shadow:none !important;}
+.hm-logo-img{border-radius:10px;height:36px !important;width:36px !important;object-fit:cover;}
+.hm-logo::before{display:none !important;}
+.hm-nav-ghost{
+  font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--hm-muted);padding:8px 12px;border-radius:12px;transition:color .2s,background .2s;
+}
+.hm-nav-ghost:hover{color:#fff;background:rgba(255,255,255,.05);}
+.hm-nav-cta{
+  font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  padding:9px 18px;border-radius:12px;background:var(--hm-grad);transition:filter .2s,transform .2s;
+}
+.hm-nav-cta:hover{filter:brightness(1.1);}
+.hm-nav-cta:active{transform:scale(.97);}
+
+/* ── Permukaan: glass / neon-card dibuat polos ── */
+.glass,.glass-strong,.neon-card{
+  background:var(--hm-surface) !important;
+  border:1px solid var(--hm-line) !important;
+  box-shadow:none !important;
+  backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
+  border-radius:var(--hm-radius);
+}
+.glass-strong{background:var(--hm-surface) !important;}
+.neon-card::after{display:none !important;}
+.neon-card:hover{box-shadow:none !important;border-color:var(--hm-line-strong) !important;}
+
+/* ── Tombol ── */
+.btn-primary,.btn-gaming{
+  background:var(--hm-grad) !important;border:0 !important;color:#fff !important;
+  box-shadow:none !important;transition:filter .2s,transform .2s;
+}
+.btn-primary::after{display:none !important;}
+.btn-primary:hover,.btn-gaming:hover{filter:brightness(1.1);transform:none;box-shadow:none !important;}
+.btn-primary:active,.btn-gaming:active{transform:scale(.98);}
+.btn-ghost{background:rgba(255,255,255,.04) !important;border:1px solid var(--hm-line) !important;}
+.btn-ghost:hover{background:rgba(255,255,255,.07) !important;border-color:var(--hm-line-strong) !important;}
+.btn-green::after{display:none !important;}
+.buy-btn:hover{transform:none;filter:brightness(1.08);}
+.pulse-glow{animation:none !important;}
+
+/* ── Remap warna Tailwind violet/indigo ke palet baru ── */
+.bg-violet-600,.bg-violet-500,.bg-indigo-600,.bg-indigo-500{background:var(--hm-grad) !important;}
+.hover\:bg-violet-700:hover,.hover\:bg-violet-500:hover{filter:brightness(1.08);}
+.text-violet-400,.text-violet-300,.text-indigo-400,.text-indigo-300{color:var(--hm-accent) !important;}
+.text-violet-500,.text-indigo-500{color:#8d9bff !important;}
+.border-violet-500\/30,.border-indigo-500\/30,.border-indigo-500\/20,.border-indigo-500\/10{border-color:var(--hm-line) !important;}
+.bg-violet-500\/10,.bg-indigo-500\/10,.bg-violet-500\/20,.bg-indigo-500\/20{background:rgba(111,125,255,.1) !important;}
+.text-white\/25,.text-white\/30{color:var(--hm-faint) !important;}
+.text-white\/40{color:var(--hm-muted) !important;}
+
+/* ── Input ── */
+.hm-input,.form-input{
+  background:var(--hm-surface-2) !important;border:1px solid var(--hm-line) !important;
+  border-radius:14px !important;color:#fff;box-shadow:none !important;transition:border-color .2s,box-shadow .2s;
+}
+.hm-input::placeholder,.form-input::placeholder{color:var(--hm-faint);}
+.hm-input:focus,.form-input:focus{
+  border-color:#6f7dff !important;background:var(--hm-surface-2) !important;
+  box-shadow:0 0 0 3px rgba(111,125,255,.16) !important;outline:none;
+}
+
+/* ── Judul section dengan bar aksen (seperti referensi) ── */
+.hm-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;}
+.hm-section-title{display:flex;align-items:center;gap:12px;min-width:0;}
+.hm-bar{width:4px;align-self:stretch;min-height:34px;border-radius:4px;background:linear-gradient(180deg,#4f6dff,#7a50e6);flex-shrink:0;}
+.hm-section-title h2{font-size:18px;font-weight:800;font-style:italic;text-transform:uppercase;letter-spacing:-.005em;color:#fff;line-height:1.15;}
+.hm-section-title p{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--hm-faint);margin-top:3px;}
+@media(min-width:640px){.hm-section-title h2{font-size:22px;}}
+.hm-pill-link{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--hm-muted);padding:8px 14px;border-radius:12px;background:var(--hm-surface);border:1px solid var(--hm-line);transition:color .2s,border-color .2s;white-space:nowrap;}
+.hm-pill-link:hover{color:#fff;border-color:var(--hm-line-strong);}
+
+/* ── Banner ── */
+#carousel-wrap{
+  border:1px solid var(--hm-line) !important;box-shadow:none !important;background:var(--hm-surface) !important;
+  border-radius:22px !important;
+}
+#carousel-wrap:hover{box-shadow:none !important;}
+#c-slide-default{background:linear-gradient(120deg,#0b1450 0%,#1a1670 55%,#34208c 100%) !important;}
+#c-slide-default>div[style*="bannerPulse"]{animation:none !important;opacity:.55;}
+#c-slide-default>div[style*="repeating-linear-gradient"]{display:none;}
+#c-slide-default .font-orbitron{text-shadow:none !important;text-transform:uppercase;}
+.c-dot{background:rgba(255,255,255,.28) !important;}
+.c-dot.active{background:#8d9bff !important;animation:none !important;box-shadow:none !important;}
+#carousel-track .c-slide .c-title{font-family:'Inter',sans-serif !important;font-style:italic;font-weight:800;text-transform:uppercase;}
+#carousel-track .c-slide .c-cta{background:var(--hm-grad) !important;}
+
+/* utilitas spasi (tidak bergantung pada hasil build Tailwind) */
+.hm-top-sec{padding-top:22px;}
+.hm-stack>*+*{margin-top:20px;}
+.hm-feat-sec{padding:8px 0 16px;}
+@media(min-width:640px){.hm-top-sec{padding-top:30px;}.hm-feat-sec{padding-bottom:32px;}}
+
+/* ── Ribbon sambutan + pencarian + kategori ── */
+.hm-ribbon{
+  display:flex;align-items:center;gap:10px;overflow:hidden;white-space:nowrap;
+  background:var(--hm-surface);border:1px solid var(--hm-line);border-radius:14px;padding:11px 16px;
+  font-size:12px;color:var(--hm-muted);
+}
+.hm-ribbon b{color:#fff;font-weight:800;}
+@keyframes hm-marquee{from{transform:translateX(100%);}to{transform:translateX(-100%);}}
+.hm-ribbon-text{display:inline-block;animation:hm-marquee 22s linear infinite;will-change:transform;}
+.hm-ribbon:hover .hm-ribbon-text{animation-play-state:paused;}
+@media(min-width:768px){.hm-ribbon-text{animation:none;transform:none;}}
+.hm-search{
+  display:flex;align-items:stretch;max-width:520px;margin:0 auto;border-radius:16px;overflow:hidden;
+  background:var(--hm-surface-2);border:1px solid var(--hm-line);transition:border-color .2s,box-shadow .2s;
+}
+.hm-search:focus-within{border-color:#6f7dff;box-shadow:0 0 0 3px rgba(111,125,255,.16);}
+.hm-search input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#fff;font-size:13px;padding:14px 18px;}
+.hm-search input::placeholder{color:var(--hm-faint);}
+.hm-search button{width:54px;background:var(--hm-grad);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;transition:filter .2s;}
+.hm-search button:hover{filter:brightness(1.1);}
+
+/* ── Filter kategori (pill) ── */
+.prod-filter,.cat-btn{
+  border-radius:12px !important;font-size:10px !important;font-weight:800 !important;letter-spacing:.08em;text-transform:uppercase;
+  background:var(--hm-surface) !important;color:var(--hm-muted) !important;border:1px solid var(--hm-line) !important;box-shadow:none !important;
+  transition:color .2s,border-color .2s,background .2s;
+}
+.prod-filter:hover,.cat-btn:hover{color:#fff !important;border-color:var(--hm-line-strong) !important;}
+.prod-filter.bg-violet-600,.prod-filter.active,.cat-btn.active{
+  background:var(--hm-grad) !important;color:#fff !important;border-color:transparent !important;
+}
+.filter-sticky-left{background-color:transparent !important;}
+
+/* ── Kartu produk (beranda) ── */
+.product-card,.popular-card{
+  background:var(--hm-surface) !important;border:1px solid var(--hm-line) !important;border-radius:var(--hm-radius) !important;
+  box-shadow:none !important;transition:transform .2s ease,border-color .2s ease;
+}
+.product-card:hover,.popular-card:hover{
+  transform:translateY(-3px) !important;border-color:var(--hm-line-strong) !important;box-shadow:none !important;
+}
+.product-card:active,.popular-card:active{transform:scale(.99) !important;}
+.product-card h3,.popular-card h3{
+  font-style:italic;font-weight:800 !important;text-transform:uppercase;letter-spacing:0;color:#fff;
+  white-space:normal !important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25;
+  min-height:2.5em;
+}
+.product-card .price-tag{color:var(--hm-accent);}
+.platform-label{
+  background:var(--hm-blue) !important;color:#fff !important;border:0 !important;border-radius:6px !important;
+  padding:3px 8px !important;font-size:8px !important;font-weight:800 !important;letter-spacing:.06em;
+  backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
+}
+.hm-card-sold{display:flex;align-items:center;gap:6px;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--hm-accent);margin-bottom:12px;}
+.hm-card-btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px 0;border-radius:12px;
+  font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--hm-blue);
+  transition:filter .2s,transform .2s;
+}
+.hm-card-btn:hover{filter:brightness(1.12);}
+.product-card .btn-primary,.popular-card .btn-primary{background:var(--hm-blue) !important;border-radius:12px !important;text-transform:uppercase;letter-spacing:.08em;}
+.safety-label{box-shadow:none !important;backdrop-filter:none !important;}
+
+/* ── Statistik (dibuat kalem) ── */
+.stat-card{background:var(--hm-surface) !important;border:1px solid var(--hm-line) !important;border-radius:var(--hm-radius) !important;}
+.stat-card:hover{transform:none !important;filter:none !important;}
+.stat-card .font-orbitron{color:#fff !important;}
+.stat-card span[style*="#f97316"],.stat-card span[style*="#a78bfa"]{color:var(--hm-accent) !important;}
+
+/* ── Fitur (3 kartu) ── */
+.hm-features{display:grid;gap:14px;grid-template-columns:1fr;}
+@media(min-width:768px){.hm-features{grid-template-columns:repeat(3,1fr);gap:20px;}}
+.hm-feature{background:var(--hm-surface);border:1px solid var(--hm-line);border-radius:22px;padding:22px;}
+.hm-feature-ico{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--hm-accent);background:rgba(111,125,255,.12);margin-bottom:14px;}
+.hm-feature h3{font-size:12px;font-weight:800;font-style:italic;text-transform:uppercase;color:#fff;margin-bottom:8px;letter-spacing:.02em;}
+.hm-feature p{font-size:12px;line-height:1.65;color:var(--hm-muted);}
+.hm-page-title{text-align:center;font-size:18px;font-weight:800;font-style:italic;text-transform:uppercase;color:#fff;margin-bottom:22px;}
+@media(min-width:640px){.hm-page-title{font-size:22px;}}
+
+/* ── Footer ── */
+footer{
+  background:var(--hm-surface) !important;border-top:1px solid var(--hm-line) !important;
+  border-radius:32px 32px 0 0;margin-top:40px;
+}
+footer a{transition:color .2s;}
+
+/* ── Testimoni / leaderboard / badge ── */
+.testi-card,.trust-badge{background:var(--hm-surface) !important;border:1px solid var(--hm-line) !important;border-radius:var(--hm-radius) !important;box-shadow:none !important;}
+.testi-card:hover,.trust-badge:hover{transform:none !important;border-color:var(--hm-line-strong) !important;background:var(--hm-surface-2) !important;box-shadow:none !important;}
+.glow-first{animation:none !important;box-shadow:none !important;}
+section[id="leaderboard-home"],section[id="games"]{border-color:transparent !important;}
+.game-card:hover{transform:translateY(-3px) !important;box-shadow:none !important;border-color:var(--hm-line-strong) !important;}
+.game-card::before{display:none;}
+
+/* ── Panel, drawer, keranjang, notifikasi, toast ── */
+#search-panel{background:rgba(6,10,31,.985) !important;}
+#menu-drawer-content,#cart-panel-content{background:var(--hm-surface) !important;border-color:var(--hm-line) !important;}
+#cart-panel-content>div.sticky{background:var(--hm-surface) !important;}
+.purchase-notif{background:var(--hm-surface) !important;border:1px solid var(--hm-line) !important;box-shadow:0 8px 24px rgba(0,0,0,.35) !important;backdrop-filter:none !important;}
+.purchase-notif-product{color:var(--hm-accent) !important;}
+.profile-photo-container{border-color:var(--hm-line-strong) !important;}
+.profile-photo-initial{background:var(--hm-grad) !important;font-family:'Inter',sans-serif !important;}
+.float-social-btn{box-shadow:0 6px 18px rgba(0,0,0,.35) !important;}
+
+/* ── Halaman beli (detail produk) ── */
+.hm-buy-wrap{max-width:1080px !important;}
+.hm-buy-cols{display:block;}
+.hm-buy-cols>.hm-buy-main>*+*{margin-top:16px;}
+.hm-buy-side{margin-top:16px;}
+@media(min-width:1024px){
+  .hm-buy-cols{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:24px;align-items:start;}
+  .hm-buy-side{margin-top:0;position:sticky;top:76px;}
+}
+.hm-buy-head{border-radius:22px !important;}
+.hm-buy-head>div:first-child[style*="linear-gradient"]{display:none;}              /* bar shimmer atas dihapus */
+.hm-buy-wrap .glass-strong{border-radius:22px !important;}
+.hm-buy-variants>.mb-3 p{
+  display:flex;align-items:center;gap:10px;font-size:15px !important;font-weight:800 !important;font-style:italic;
+  letter-spacing:0 !important;text-transform:uppercase;color:#fff !important;
+}
+.hm-buy-variants>.mb-3 p::before{content:'';width:4px;height:22px;border-radius:4px;background:linear-gradient(180deg,#4f6dff,#7a50e6);}
+#pkg-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+@media(min-width:640px){#pkg-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+.pkg-card{
+  background:var(--hm-surface) !important;border:1.5px solid var(--hm-line) !important;border-radius:18px !important;
+  box-shadow:none !important;transition:border-color .2s,background .2s !important;
+}
+.pkg-card:hover{border-color:var(--hm-line-strong) !important;}
+.pkg-option input[type=radio]:checked + .pkg-card{
+  border-color:#5b78ff !important;background:var(--hm-surface-2) !important;box-shadow:none !important;
+}
+.pkg-card .pkg-label{font-style:italic;font-weight:800 !important;text-transform:uppercase;color:#fff !important;}
+.pkg-card .pkg-price{color:#fff !important;font-weight:800 !important;}
+.pkg-card .pkg-checkmark{background:#4f6dff !important;}
+.pkg-card .pkg-status{color:var(--hm-faint) !important;font-size:9px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
+.pkg-card .pkg-status-dot{background:#4f6dff !important;}
+.pkg-card .pkg-status-dot.out{background:#52525b !important;}
+
+/* tombol utama checkout & modal pembayaran */
+#paymentModal .glass-strong,#paymentModal [class*="rounded-t"]{background:var(--hm-surface) !important;}
+#paymentModal [style*="linear-gradient(90deg,#7c3aed"]{background:var(--hm-grad) !important;animation:none !important;}
+
+/* ── Auth & halaman lain: kartu form ikut tema ── */
+body.auth-page{background:linear-gradient(180deg,var(--hm-bg),var(--hm-bg-3)) fixed !important;}
+
+/* ── Hormati preferensi gerak berkurang ── */
+@media(prefers-reduced-motion:reduce){*{animation-duration:.001ms !important;transition-duration:.001ms !important;}}

@@ -77,10 +77,10 @@ const pageTitle = 'Beli ' + product.name;
 
 <!-- NAVBAR -->
 <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300" style="background:rgba(6,5,15,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.05);">
-    <div class="max-w-3xl mx-auto px-4">
+    <div class="max-w-5xl mx-auto px-4">
         <div class="flex items-center justify-between h-14">
             <a href="/" class="flex items-center gap-2.5">
-                <img src="https://z-cdn-media.chatglm.cn/files/87e4e759-3898-4bd9-93f3-42078956a794.png?auth_key=1878848442-1a65b6a56ce44d8188d26c370725de81-0-3e86df522848abe81fc556fd03a5fe98"
+                <img src="/logo.jpg"
                      alt="Logo" class="hm-logo-img h-9 w-auto">
                 <span class="brand-wordmark brand-wordmark-sm shimmer-text"><%= settings.siteName %></span>
             </a>
@@ -92,10 +92,10 @@ const pageTitle = 'Beli ' + product.name;
 </nav>
 
 <div class="min-h-screen pt-16 pb-8 px-4">
-<div class="max-w-3xl mx-auto space-y-4">
+<div class="max-w-3xl mx-auto space-y-4 hm-buy-wrap">
 
     <!-- ── PRODUCT HEADER ── -->
-    <div class="glass-strong rounded-2xl overflow-hidden mt-4 fade-in-up">
+    <div class="glass-strong rounded-2xl overflow-hidden mt-4 fade-in-up hm-buy-head">
         <div class="h-1 w-full" style="background:linear-gradient(90deg,#7c3aed,#a855f7,#f472b6,#7c3aed);background-size:200% 100%;animation:shimmer 2s linear infinite;"></div>
         <div class="flex items-center gap-3 p-4">
             <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 border border-white/10">
@@ -139,6 +139,7 @@ const pageTitle = 'Beli ' + product.name;
         </div>
     </div>
 
+    <div class="hm-buy-cols"><div class="hm-buy-main">
     <!-- ── DESKRIPSI PRODUK ── -->
     <% if (product.description && product.description.trim()) { %>
     <div class="glass-strong rounded-2xl p-4 fade-in-up">
@@ -261,7 +262,7 @@ const pageTitle = 'Beli ' + product.name;
     <% } %>
 
     <!-- ── PILIH DURASI ── -->
-    <div class="fade-in-up">
+    <div class="fade-in-up hm-buy-variants">
         <div class="mb-3">
             <p class="text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">PILIH DURASI</p>
         </div>
@@ -301,6 +302,8 @@ const pageTitle = 'Beli ' + product.name;
         </div>
     </div>
 
+    </div><!-- /hm-buy-main -->
+    <div class="hm-buy-side">
     <!-- ── ORDER FORM ── -->
     <div class="glass-strong rounded-2xl p-5 space-y-4 fade-in-up">
         <!-- WHATSAPP -->
@@ -448,6 +451,9 @@ const pageTitle = 'Beli ' + product.name;
             </a>
         </div>
     </div>
+
+    </div><!-- /hm-buy-side -->
+    </div><!-- /hm-buy-cols -->
 
     <!-- ── ULASAN & RATING ── -->
     <div class="glass-strong rounded-2xl p-5 fade-in-up">
@@ -880,9 +886,9 @@ const pageTitle = 'Beli ' + product.name;
             wrap.innerHTML = `
                 <div style="background:#fff;padding:12px;border-radius:16px;display:inline-block;">
                     <img id="qrImg"
-                         src="https://api.qrserver.com/v1/create-qr-code/?size=210x210&color=000000&bgcolor=ffffff&qzone=1&data=${encodeURIComponent(qrString)}"
-                         style="display:block;width:210px;height:210px;border-radius:4px;"
-                         onerror="qrFallback('${encodeURIComponent(qrString)}')">
+                         src="${/^(https?:\/\/|data:image)/i.test(qrString) ? qrString : 'https://api.qrserver.com/v1/create-qr-code/?size=210x210&color=000000&bgcolor=ffffff&qzone=1&data=' + encodeURIComponent(qrString)}"
+                         style="display:block;width:210px;height:210px;border-radius:4px;object-fit:contain;"
+                         ${/^(https?:\/\/|data:image)/i.test(qrString) ? '' : `onerror="qrFallback('${encodeURIComponent(qrString)}')"`}>
                 </div>`;
         } else {
             wrap.innerHTML = `

@@ -170,3 +170,7 @@ Admin → Dashboard → Produk → Klik Edit → Halaman Edit Dedicated → Simp
 ## ✅ Status: SELESAI
 
 Semua fitur CRUD produk di admin panel sekarang berfungsi dengan baik dan terintegrasi dengan benar.
+## WijayaPay 404 "Cannot POST /web..." + BuatQris
+- Penyebab: Base URL WijayaPay di admin terisi URL webhook toko sendiri (`.../webhook/wijayapay`), sehingga request create/status masuk ke server sendiri.
+- Fix: `sanitizeGatewayBaseUrl()` mengabaikan Base URL yang mengandung `webhook`/`callback` atau domain toko sendiri (otomatis pakai `https://gateway.wijayapay.com`), form admin menolak input seperti itu dan membersihkan nilai lama, pesan error HTML diganti penjelasan yang jelas.
+- Baru: gateway BuatQris (lihat DOCS-BUATQRIS.md).

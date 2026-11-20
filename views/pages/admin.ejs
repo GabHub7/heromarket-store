@@ -895,7 +895,7 @@ textarea.hm-input{resize:vertical;min-height:80px;}
 
     <!-- QRIS Payment -->
     <div class="neon-card p-5 mb-3">
-        <% const qrisModeNorm = ['static','api','pakasir','wijayapay'].includes(settings.qrisMode) ? settings.qrisMode : (settings.qrisMode ? 'api' : 'static'); %>
+        <% const qrisModeNorm = ['static','api','pakasir','wijayapay','buatqris'].includes(settings.qrisMode) ? settings.qrisMode : (settings.qrisMode ? 'api' : 'static'); %>
         <div class="text-xs font-bold text-indigo-400 mb-4 flex items-center gap-2">
             <iconify-icon icon="mdi:qrcode-scan"></iconify-icon> Pengaturan QRIS
         </div>
@@ -921,6 +921,11 @@ textarea.hm-input{resize:vertical;min-height:80px;}
                 class="flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5
                 <%= qrisModeNorm==='wijayapay' ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-white/3 border-white/10 text-zinc-500' %>">
                 <iconify-icon icon="mdi:api"></iconify-icon> API (WijayaPay)
+            </button>
+            <button type="button" id="modeBuatqrisBtn" onclick="setQrisMode('buatqris')"
+                class="col-span-2 flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5
+                <%= qrisModeNorm==='buatqris' ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-white/3 border-white/10 text-zinc-500' %>">
+                <iconify-icon icon="mdi:api"></iconify-icon> API (BuatQris)
             </button>
         </div>
 
@@ -1122,7 +1127,14 @@ textarea.hm-input{resize:vertical;min-height:80px;}
                 </div>
             </div>
 
-            <form id="wijayapayCredsForm" class="space-y-2.5 p-3 rounded-xl bg-white/3 border border-white/10">
+            <% if (wijayapayConfigured.baseUrlBad) { %>
+            <div class="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-[11px] text-red-400 flex items-start gap-1.5">
+                <iconify-icon icon="mdi:alert" class="mt-0.5 flex-shrink-0"></iconify-icon>
+                <span><b>Base URL salah terdeteksi &amp; diabaikan:</b> <code class="font-mono break-all"><%= wijayapayConfigured.baseUrlBad %></code> adalah alamat webhook/toko sendiri, bukan alamat API WijayaPay. Itulah penyebab error <i>HTTP 404 Cannot POST</i>. Sistem sekarang otomatis memakai <code class="font-mono">https://gateway.wijayapay.com</code>. Klik <b>Simpan Kredensial WijayaPay</b> sekali (tanpa mengisi Base URL) untuk membersihkannya.</span>
+            </div>
+            <% } %>
+
+            <form id="wijayapayCredsForm" <%= wijayapayConfigured.baseUrlBad ? 'data-bad-base="1"' : '' %> class="space-y-2.5 p-3 rounded-xl bg-white/3 border border-white/10">
                 <div>
                     <div class="setting-row-label flex items-center justify-between">
                         <span>WijayaPay Base URL</span>
@@ -1171,6 +1183,109 @@ textarea.hm-input{resize:vertical;min-height:80px;}
             </button>
             <div class="text-[10px] text-zinc-600 -mt-1">Test membuat tagihan QRIS uji Rp1.000 lalu cek statusnya. Tagihan uji tidak perlu dibayar dan kedaluwarsa sendiri.</div>
             <div id="testResultWijayapay" class="hidden text-[11px] p-2.5 rounded-lg"></div>
+        </div>
+
+        <!-- BuatQris -->
+        <div id="sectionBuatqris" class="<%= qrisModeNorm==='buatqris' ? '' : 'hidden' %> space-y-3">
+            <div class="p-3 rounded-xl bg-indigo-500/8 border border-indigo-500/20 text-[11px] text-indigo-300 mb-2 space-y-1">
+                <div><iconify-icon icon="mdi:information-outline"></iconify-icon> Ambil <b>Account ID</b>, <b>Secret Token</b> (diawali <code class="font-mono">sk_live_</code>) dan <b>Signing Secret</b> di dashboard BuatQris &rarr; menu <b>Open API</b>. Bisa diisi di panel ini atau lewat env <code class="font-mono">BUATQRIS_ACCOUNT_ID</code>, <code class="font-mono">BUATQRIS_SECRET_TOKEN</code>, <code class="font-mono">BUATQRIS_SIGNING_SECRET</code> (yang di panel menang).</div>
+                <div class="pt-1 text-zinc-400">Secret Token dan Signing Secret adalah <b>dua kredensial berbeda</b>, jangan tertukar. Pembayaran lewat QRIS dinamis; nominal bayar pembeli = <code class="font-mono">total_amount</code> dari BuatQris (sudah termasuk kode unik).</div>
+            </div>
+
+            <div class="flex flex-col gap-1.5 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
+                <div class="text-[11px] text-amber-300 font-bold flex items-center gap-1">
+                    <iconify-icon icon="mdi:webhook"></iconify-icon> Webhook (Callback) URL untuk didaftarkan di BuatQris
+                </div>
+                <div class="text-[10px] text-zinc-500 leading-relaxed">
+                    Paste di dashboard BuatQris &rarr; Open API &rarr; Webhook / Callback. Webhook diverifikasi lewat header <code class="font-mono">X-BuatQris-Signature</code> (HMAC-SHA256 dengan Signing Secret). Tiap transaksi juga mengirim callback sendiri, jadi ini cadangan.
+                </div>
+                <div class="flex items-center gap-1.5 mt-1">
+                    <input id="buatqrisWebhookUrlInput" type="text" readonly value="<%= buatqrisWebhookUrl %>"
+                        class="flex-1 min-w-0 text-[11px] font-mono px-2.5 py-2 rounded-lg bg-black/30 border border-white/10 text-zinc-300 truncate">
+                    <button type="button" onclick="copyBuatqrisWebhookUrl()"
+                        class="flex-shrink-0 px-3 py-2 rounded-lg text-[11px] font-bold text-amber-300 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition-all flex items-center gap-1">
+                        <iconify-icon icon="mdi:content-copy"></iconify-icon> Copy
+                    </button>
+                </div>
+            </div>
+
+            <form id="buatqrisCredsForm" class="space-y-2.5 p-3 rounded-xl bg-white/3 border border-white/10">
+                <div>
+                    <div class="setting-row-label flex items-center justify-between">
+                        <span>Account ID</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded <%= buatqrisConfigured.accountId ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' %>">
+                            <%= buatqrisConfigured.accountId ? ('Aktif · dari ' + (buatqrisConfigured.accountIdSource==='panel' ? 'Panel' : 'Env Var')) : 'Kosong' %>
+                        </span>
+                    </div>
+                    <input type="text" name="buatqrisAccountId" class="hm-input" placeholder="<%= buatqrisConfigured.accountId ? (buatqrisConfigured.accountIdPreview + ' (isi ulang untuk ganti)') : 'Account ID dari dashboard BuatQris' %>" autocomplete="off">
+                </div>
+                <div>
+                    <div class="setting-row-label flex items-center justify-between">
+                        <span>Secret Token</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded <%= buatqrisConfigured.secretToken ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' %>">
+                            <%= buatqrisConfigured.secretToken ? ('Aktif · dari ' + (buatqrisConfigured.secretTokenSource==='panel' ? 'Panel' : 'Env Var')) : 'Kosong' %>
+                        </span>
+                    </div>
+                    <input type="password" name="buatqrisSecretToken" class="hm-input" placeholder="<%= buatqrisConfigured.secretTokenSource==='panel' && buatqrisConfigured.secretToken ? '•••••••••••••••• (sudah tersimpan, isi ulang untuk ganti)' : 'sk_live_...' %>" autocomplete="off">
+                </div>
+                <div>
+                    <div class="setting-row-label flex items-center justify-between">
+                        <span>Signing Secret (Webhook)</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded <%= buatqrisConfigured.signingSecret ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10' %>">
+                            <%= buatqrisConfigured.signingSecret ? ('Aktif · dari ' + (buatqrisConfigured.signingSecretSource==='panel' ? 'Panel' : 'Env Var')) : 'Kosong' %>
+                        </span>
+                    </div>
+                    <input type="password" name="buatqrisSigningSecret" class="hm-input" placeholder="<%= buatqrisConfigured.signingSecretSource==='panel' && buatqrisConfigured.signingSecret ? '•••••••••••••••• (sudah tersimpan, isi ulang untuk ganti)' : 'Signing Secret dari bagian Webhook / Callback' %>" autocomplete="off">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <div class="setting-row-label">Biaya layanan ditanggung</div>
+                        <select name="buatqrisFeeBy" class="hm-input">
+                            <option value="user" <%= buatqrisConfigured.feeBy==='user' ? 'selected' : '' %>>Penjual (potong saldo)</option>
+                            <option value="buyer" <%= buatqrisConfigured.feeBy==='buyer' ? 'selected' : '' %>>Pembeli (ditambah ke tagihan)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div class="setting-row-label">Metode QRIS</div>
+                        <select name="buatqrisQrisMethod" class="hm-input">
+                            <option value="" <%= !buatqrisConfigured.qrisMethod ? 'selected' : '' %>>Otomatis</option>
+                            <option value="qris_one" <%= buatqrisConfigured.qrisMethod==='qris_one' ? 'selected' : '' %>>QRIS 1</option>
+                            <option value="qris_two" <%= buatqrisConfigured.qrisMethod==='qris_two' ? 'selected' : '' %>>QRIS 2</option>
+                            <option value="qris_three" <%= buatqrisConfigured.qrisMethod==='qris_three' ? 'selected' : '' %>>QRIS 3</option>
+                            <option value="qris_four" <%= buatqrisConfigured.qrisMethod==='qris_four' ? 'selected' : '' %>>QRIS 4</option>
+                        </select>
+                    </div>
+                </div>
+                <label class="flex items-center gap-1.5 text-[11px] text-amber-300">
+                    <input type="checkbox" name="buatqrisSandbox" class="rounded" <%= buatqrisConfigured.sandbox ? 'checked' : '' %>>
+                    Mode Sandbox (test=1, tanpa uang asli) &mdash; <b>matikan sebelum toko dibuka!</b>
+                </label>
+                <label class="flex items-center gap-1.5 text-[10px] text-zinc-500">
+                    <input type="checkbox" id="buatqrisResetToggle" class="rounded">
+                    Kosongkan Account ID / Secret / Signing Secret dengan sengaja (reset ke environment variable)
+                </label>
+                <button type="submit" class="w-full py-2 rounded-xl text-xs font-bold text-black" style="background:linear-gradient(135deg,#6366f1,#818cf8)">
+                    <iconify-icon icon="mdi:content-save"></iconify-icon> Simpan Kredensial BuatQris
+                </button>
+            </form>
+
+            <% if (!buatqrisConfigured.accountId || !buatqrisConfigured.secretToken) { %>
+            <div class="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-[11px] text-red-400 flex items-start gap-1.5">
+                <iconify-icon icon="mdi:alert" class="mt-0.5 flex-shrink-0"></iconify-icon>
+                <span>Belum lengkap. Isi Account ID dan Secret Token lewat form di atas sebelum test koneksi.</span>
+            </div>
+            <% } else if (!buatqrisConfigured.signingSecret) { %>
+            <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 flex items-start gap-1.5">
+                <iconify-icon icon="mdi:alert" class="mt-0.5 flex-shrink-0"></iconify-icon>
+                <span>Signing Secret masih kosong: pembayaran baru terdeteksi lewat polling halaman bayar, webhook akan ditolak (401). Isi supaya otomatis instan.</span>
+            </div>
+            <% } %>
+
+            <button type="button" onclick="testBuatqrisApi()" class="w-full py-2 rounded-xl text-xs font-bold text-zinc-400 border border-white/10 bg-white/3 hover:bg-white/8 transition-all flex items-center justify-center gap-1.5">
+                <iconify-icon icon="mdi:wifi-check"></iconify-icon> Test Koneksi BuatQris
+            </button>
+            <div class="text-[10px] text-zinc-600 -mt-1">Test membuat transaksi <b>sandbox</b> Rp1.000 (tanpa uang asli) lalu cek statusnya, untuk memastikan kredensial benar.</div>
+            <div id="testResultBuatqris" class="hidden text-[11px] p-2.5 rounded-lg"></div>
         </div>
 
         <!-- Simpan Mode -->
@@ -2674,19 +2789,22 @@ function setQrisMode(mode) {
     document.getElementById('sectionApi').classList.toggle('hidden', mode !== 'api');
     document.getElementById('sectionPakasir').classList.toggle('hidden', mode !== 'pakasir');
     document.getElementById('sectionWijayapay').classList.toggle('hidden', mode !== 'wijayapay');
+    document.getElementById('sectionBuatqris').classList.toggle('hidden', mode !== 'buatqris');
     const btnClass = (active) => `flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${active ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-white/3 border-white/10 text-zinc-500'}`;
     document.getElementById('modeStaticBtn').className = btnClass(mode === 'static');
     document.getElementById('modeApiBtn').className = btnClass(mode === 'api');
     document.getElementById('modePakasirBtn').className = btnClass(mode === 'pakasir');
     document.getElementById('modeWijayapayBtn').className = btnClass(mode === 'wijayapay');
+    document.getElementById('modeBuatqrisBtn').className = btnClass(mode === 'buatqris') + ' col-span-2';
     // Auto-save mode -- FIX: sebelumnya manggil /admin/settings/pakasir yang
     // TIDAK ADA di codebase ini (404 diam-diam, mode gak pernah kesimpen).
     // /admin/settings/genspay cukup dipakai buat semua mode karena field
     // qrisMode yang disimpan sama untuk endpoint manapun.
-    api(mode === 'wijayapay' ? '/admin/settings/wijayapay' : '/admin/settings/genspay', { qrisMode: mode })
+    api(mode === 'wijayapay' ? '/admin/settings/wijayapay' : mode === 'buatqris' ? '/admin/settings/buatqris' : '/admin/settings/genspay', { qrisMode: mode })
         .then(d => {
-            if (d.success) toast(`Mode QRIS: ${mode === 'static' ? 'Statis' : mode === 'pakasir' ? 'Pakasir API v2' : mode === 'wijayapay' ? 'WijayaPay' : 'GensPay API'}`, 'success');
+            if (d.success) toast(`Mode QRIS: ${mode === 'static' ? 'Statis' : mode === 'pakasir' ? 'Pakasir API v2' : mode === 'wijayapay' ? 'WijayaPay' : mode === 'buatqris' ? 'BuatQris' : 'GensPay API'}`, 'success');
             else if (mode === 'wijayapay') toast((d.message || 'Gagal mengaktifkan WijayaPay') + ' -- isi kredensial lalu klik Simpan.', 'error');
+            else if (mode === 'buatqris') toast((d.message || 'Gagal mengaktifkan BuatQris') + ' -- isi kredensial lalu klik Simpan.', 'error');
         });
 }
 
@@ -2780,6 +2898,32 @@ async function testWijayapayApi() {
     if (d.success) {
         el.className = 'text-[11px] p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300';
         el.textContent = '✓ Koneksi berhasil! WijayaPay siap digunakan.\n' + lines.join('\n');
+    } else {
+        el.className = 'text-[11px] p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400';
+        el.textContent = '✗ ' + (d.message || 'Koneksi gagal') + (lines.length ? '\n' + lines.join('\n') : '');
+    }
+}
+
+function copyBuatqrisWebhookUrl() {
+    const input = document.getElementById('buatqrisWebhookUrlInput');
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value)
+        .then(() => toast('Webhook URL disalin! Paste ke Webhook / Callback di dashboard BuatQris.', 'success'))
+        .catch(() => document.execCommand('copy'));
+}
+
+async function testBuatqrisApi() {
+    const el = document.getElementById('testResultBuatqris');
+    el.className = 'text-[11px] p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300';
+    el.textContent = 'Menguji koneksi (buat sandbox -> status)...';
+    el.classList.remove('hidden');
+    const d = await api('/admin/qris/test-buatqris', {});
+    const lines = (d.steps || []).map(s => (s.ok ? '✓ ' : '✗ ') + s.step + ' — ' + s.detail);
+    el.style.whiteSpace = 'pre-wrap';
+    if (d.success) {
+        el.className = 'text-[11px] p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300';
+        el.textContent = '✓ Koneksi berhasil! BuatQris siap digunakan.\n' + lines.join('\n');
     } else {
         el.className = 'text-[11px] p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400';
         el.textContent = '✗ ' + (d.message || 'Koneksi gagal') + (lines.length ? '\n' + lines.join('\n') : '');
@@ -3090,10 +3234,33 @@ document.getElementById('wijayapayCredsForm').addEventListener('submit', async f
         const v = (fd.get(key) || '').trim();
         if (v || reset) data[key] = v;
     }
+    if (Object.keys(data).length === 0 && this.dataset.badBase) data.wijayapayBaseUrl = '';
     if (Object.keys(data).length === 0) { toast('Isi salah satu field, atau centang kotak reset dulu.', 'error'); return; }
     const d = await api('/admin/settings/wijayapay', data);
     if (d.success) {
         toast('Kredensial WijayaPay disimpan!', 'success');
+        setTimeout(() => location.reload(), 800);
+    } else {
+        toast(d.message, 'error');
+    }
+});
+
+// ── BUATQRIS CREDENTIALS ──
+document.getElementById('buatqrisCredsForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const fd = new FormData(this);
+    const reset = document.getElementById('buatqrisResetToggle').checked;
+    const data = {};
+    for (const key of ['buatqrisAccountId', 'buatqrisSecretToken', 'buatqrisSigningSecret']) {
+        const v = (fd.get(key) || '').trim();
+        if (v || reset) data[key] = v;
+    }
+    data.buatqrisFeeBy = fd.get('buatqrisFeeBy') || 'user';
+    data.buatqrisQrisMethod = fd.get('buatqrisQrisMethod') || '';
+    data.buatqrisSandbox = this.elements['buatqrisSandbox'].checked ? 'true' : 'false';
+    const d = await api('/admin/settings/buatqris', data);
+    if (d.success) {
+        toast('Pengaturan BuatQris disimpan!', 'success');
         setTimeout(() => location.reload(), 800);
     } else {
         toast(d.message, 'error');

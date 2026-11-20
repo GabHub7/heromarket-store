@@ -8,7 +8,7 @@ const pageTitle = 'Beranda';
     <div class="max-w-7xl mx-auto px-4">
         <div class="flex items-center justify-between h-16">
             <a href="/" class="flex items-center gap-3 flex-shrink-0">
-                <img src="https://z-cdn-media.chatglm.cn/files/87e4e759-3898-4bd9-93f3-42078956a794.png?auth_key=1878848442-1a65b6a56ce44d8188d26c370725de81-0-3e86df522848abe81fc556fd03a5fe98" alt="HM Logo" class="hm-logo-img h-12 w-auto object-contain">
+                <img src="/logo.jpg" alt="HM Logo" class="hm-logo-img h-12 w-auto object-contain">
                 <span class="brand-wordmark brand-wordmark-lg neon-text"><%= settings.siteName || 'HERO MARKET' %></span>
             </a>
             <div class="hidden md:flex items-center gap-3">
@@ -23,21 +23,16 @@ const pageTitle = 'Beranda';
                     <a href="/logout" class="nav-link text-xs font-medium text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5">
                         <iconify-icon icon="mdi:logout" class="text-sm"></iconify-icon> Logout
                     </a>
-                <% } else { %>
-                    <div class="w-px h-4 bg-white/10"></div>
-                    <a href="/login" class="nav-link text-xs font-medium text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5">
-                        <iconify-icon icon="mdi:login" class="text-sm"></iconify-icon> Login
-                    </a>
                 <% } %>
             </div>
             <div class="flex items-center gap-2">
                 <% if (user) { %>
                     <!-- CART ICON — hanya muncul saat sudah login -->
                     <button onclick="window.location.href='/keranjang'" class="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
-                        style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);">
-                        <iconify-icon icon="mdi:cart-variant" class="text-indigo-400 text-lg"></iconify-icon>
+                        style="background:var(--hm-surface);border:1px solid var(--hm-line);">
+                        <iconify-icon icon="mdi:cart-variant" class="text-lg" style="color:var(--hm-accent);"></iconify-icon>
                         <span id="cart-badge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full text-[9px] font-black text-white flex items-center justify-center px-1"
-                            style="background:linear-gradient(135deg,#ef4444,#dc2626);border:2px solid #08081a;box-shadow:0 0 8px rgba(239,68,68,.5);"></span>
+                            style="background:#ef4444;border:2px solid #060a1f;"></span>
                     </button>
                     <button id="mobile-menu-btn" type="button" onclick="openMenu()" class="hamburger-btn w-10 h-10 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" class="text-zinc-300">
@@ -47,10 +42,9 @@ const pageTitle = 'Beranda';
                         </svg>
                     </button>
                 <% } else { %>
-                    <div class="flex items-center gap-1.5">
-                        <a href="/login" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-300 hover:text-white border border-white/10 hover:border-indigo-400 transition-all">Login</a>
-                        <a href="/register" class="px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all hover:scale-105"
-                           style="background:linear-gradient(135deg,#7c3aed,#6366f1);box-shadow:0 2px 10px rgba(99,102,241,.4);">Daftar</a>
+                    <div class="flex items-center gap-1">
+                        <a href="/login" class="hm-nav-ghost">Masuk</a>
+                        <a href="/register" class="hm-nav-cta">Daftar</a>
                     </div>
                 <% } %>
             </div>
@@ -75,10 +69,7 @@ const pageTitle = 'Beranda';
                 <div class="absolute inset-0 pointer-events-none" style="background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.04) 3px,rgba(0,0,0,.04) 4px);z-index:2;"></div>
                 <div class="relative z-10 h-full flex flex-col justify-center px-5 sm:px-10 max-w-2xl">
                     <div class="flex items-center gap-2 mb-2.5" style="animation:slideUpIn .45s ease-out both;">
-                        <span class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black" style="background:rgba(16,185,129,.18);border:1px solid rgba(16,185,129,.45);color:#34d399;">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" style="animation:blink 1.4s infinite;"></span> LIVE
-                        </span>
-                        <span class="text-[9px] font-bold text-violet-400 tracking-[2px] uppercase">Premium Store</span>
+                        <span class="text-[10px] font-bold tracking-[2px] uppercase" style="color:#aab4ff;">Premium Store</span>
                     </div>
                     <div class="font-orbitron font-black text-white leading-none mb-2"
                          style="font-size:clamp(22px,6vw,44px);text-shadow:0 0 32px rgba(139,92,246,.65);animation:slideUpIn .45s .08s ease-out both;">
@@ -89,7 +80,7 @@ const pageTitle = 'Beranda';
                     </div>
                     <div class="flex items-center gap-2 flex-wrap" style="animation:slideUpIn .45s .24s ease-out both;">
                         <a href="#games" class="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-[11px] font-black text-white transition-all hover:scale-105 active:scale-95"
-                           style="background:linear-gradient(135deg,#7c3aed,#6366f1);box-shadow:0 3px 14px rgba(99,102,241,.45);">
+                           style="background:#fff;color:#0b1450;">
                             <iconify-icon icon="mdi:shopping" style="font-size:12px;"></iconify-icon> Lihat Produk
                         </a>
                     </div>
@@ -115,6 +106,20 @@ const pageTitle = 'Beranda';
             <div class="c-dot active"></div>
         </div>
     </div>
+    </div>
+</section>
+
+<!-- RIBBON SAMBUTAN + PENCARIAN -->
+<section class="relative hm-top-sec">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 hm-stack">
+        <div class="hm-ribbon">
+            <iconify-icon icon="solar:bell-bing-bold" style="color:var(--hm-accent);font-size:16px;flex-shrink:0;"></iconify-icon>
+            <span class="hm-ribbon-text">Selamat Datang di <b><%= settings.siteName || 'HERO MARKET' %></b> &nbsp; <%= settings.marqueeText || 'Layanan Game Mod Menu & Key Premium Terpercaya' %></span>
+        </div>
+        <div class="hm-search">
+            <input type="text" id="homeSearchInput" placeholder="Cari game atau produk favoritmu..." readonly onclick="openSearch()" onfocus="openSearch()" aria-label="Cari produk">
+            <button type="button" onclick="openSearch()" aria-label="Cari"><iconify-icon icon="mdi:magnify"></iconify-icon></button>
+        </div>
     </div>
 </section>
 
@@ -248,13 +253,11 @@ const pageTitle = 'Beranda';
 <section id="popular-products" class="relative py-10 sm:py-16">
     <div class="absolute top-0 right-0 w-[300px] h-[300px] bg-violet-700/[0.03] rounded-full blur-[100px] pointer-events-none"></div>
     <div class="relative max-w-7xl mx-auto px-3 sm:px-6">
-        <div class="mb-5 sm:mb-6">
-            <h2 class="font-display text-base sm:text-xl font-bold mb-1 text-left flex items-center gap-2">
-                <iconify-icon icon="solar:fire-bold" class="text-orange-400 text-lg sm:text-xl"></iconify-icon>Produk Populer
-            </h2>
-            <p class="text-white/25 text-[10px] sm:text-xs">Paling banyak terjual minggu ini</p>
+        <div class="hm-section-head">
+            <div class="hm-section-title"><span class="hm-bar"></span><div><h2>Produk Populer</h2><p>Koleksi pilihan terbaik khusus untukmu</p></div></div>
+            <a href="#games" class="hm-pill-link">Semua &rsaquo;</a>
         </div>
-        <div id="popular-track" class="grid grid-cols-3 gap-2 sm:gap-3">
+        <div id="popular-track" class="grid grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-5">
             <!-- skeletons -->
             <div class="glass rounded-xl border border-white/[0.04] overflow-hidden animate-pulse">
                 <div class="h-24 sm:h-32 bg-white/[0.03]"></div>
@@ -275,11 +278,8 @@ const pageTitle = 'Beranda';
 <!-- PRODUCTS -->
 <section id="games" class="relative py-10 sm:py-16 border-t border-white/[0.03]">
     <div class="relative max-w-7xl mx-auto px-3 sm:px-6">
-        <div class="mb-5 sm:mb-8">
-            <h2 class="font-display text-base sm:text-xl font-bold mb-1 text-left flex items-center gap-2">
-                <iconify-icon icon="solar:widget-bold" class="text-violet-400 text-lg sm:text-xl"></iconify-icon>Semua Produk
-            </h2>
-            <p class="text-white/25 text-[10px] sm:text-xs">Filter berdasarkan game</p>
+        <div class="hm-section-head">
+            <div class="hm-section-title"><span class="hm-bar"></span><div><h2>Semua Produk</h2><p>Filter berdasarkan game</p></div></div>
         </div>
 
         <% if (categories && categories.length > 0) { %>
@@ -333,7 +333,7 @@ const pageTitle = 'Beranda';
                         </div>
                         <% } %>
                         <% if (hasAndroid || hasIos) { %>
-                        <div class="absolute top-0 left-0 z-10">
+                        <div class="absolute z-10" style="top:8px;right:8px;">
                             <% if (hasAndroid) { %>
                                 <span class="platform-label">ANDROID</span>
                             <% } else if (hasIos) { %>
@@ -343,14 +343,11 @@ const pageTitle = 'Beranda';
                         <% } %>
                     </div>
                     <div class="p-2.5 sm:p-3.5">
-                        <h3 class="font-display font-bold text-[11px] sm:text-sm truncate mb-1.5 text-white"><%= product.name %></h3>
-                        <div class="flex justify-center items-center text-[8px] sm:text-[10px] mb-2.5 pb-2.5 border-b border-white/[0.05]">
-                            <span class="text-white/30">Terjual <span class="text-white/55 font-bold"><%= soldLabel %></span></span>
-                        </div>
+                        <h3 class="font-display font-bold text-[11px] sm:text-sm mb-1.5 text-white"><%= product.name %></h3>
+                        <div class="hm-card-sold"><iconify-icon icon="solar:bag-check-bold"></iconify-icon><%= soldLabel %> terjual</div>
                         <% if (!isOut) { %>
-                            <a href="/buy/<%= product.id %>"
-                               class="btn-primary w-full py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold text-white flex items-center justify-center gap-1.5">
-                                <iconify-icon icon="solar:cart-large-2-bold" class="text-[10px] sm:text-sm"></iconify-icon>Beli
+                            <a href="/buy/<%= product.id %>" class="hm-card-btn">
+                                <iconify-icon icon="solar:cart-large-2-bold"></iconify-icon>Beli
                             </a>
                         <% } else { %>
                             <button disabled class="w-full py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold cursor-not-allowed flex items-center justify-center gap-1.5"
@@ -501,17 +498,27 @@ const pageTitle = 'Beranda';
     </div>
 </section>
 
+<!-- FITUR -->
+<section class="relative hm-feat-sec">
+    <div class="max-w-5xl mx-auto px-3 sm:px-6">
+        <h2 class="hm-page-title"><%= settings.siteName || 'HERO MARKET' %> &mdash; Pusat Game Mod &amp; Key Terlengkap</h2>
+        <div class="hm-features">
+            <div class="hm-feature"><div class="hm-feature-ico"><iconify-icon icon="solar:monitor-smartphone-bold"></iconify-icon></div><h3>Produk Lengkap</h3><p>Mod menu, panel, dan key premium untuk berbagai game favorit dalam satu toko, tersedia untuk Android maupun iOS.</p></div>
+            <div class="hm-feature"><div class="hm-feature-ico"><iconify-icon icon="solar:bolt-bold"></iconify-icon></div><h3>Proses Instan</h3><p>Setelah pembayaran terkonfirmasi, key langsung dikirim otomatis. Harga bersahabat, fast respon, dan garansi sesuai ketentuan.</p></div>
+            <div class="hm-feature"><div class="hm-feature-ico"><iconify-icon icon="solar:shield-check-bold"></iconify-icon></div><h3>Aman &amp; Terpercaya</h3><p>Pembayaran lewat QRIS resmi dan riwayat pesanan tersimpan di akunmu. Butuh bantuan? CS siap membantu setiap hari.</p></div>
+        </div>
+    </div>
+</section>
+
 <!-- FOOTER -->
-<footer style="background:linear-gradient(180deg,rgba(6,5,15,0) 0%,rgba(6,5,15,1) 60%);border-top:1px solid rgba(139,92,246,0.12);">
-    <!-- Top glow line -->
-    <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.5),rgba(168,85,247,0.5),transparent);"></div>
+<footer>
 
     <div class="max-w-5xl mx-auto px-5 sm:px-8 pt-12 pb-8">
 
         <!-- Brand block + tagline -->
         <div class="flex flex-col items-center text-center mb-10">
             <div class="flex items-center gap-3 mb-3">
-                <img src="https://z-cdn-media.chatglm.cn/files/87e4e759-3898-4bd9-93f3-42078956a794.png?auth_key=1878848442-1a65b6a56ce44d8188d26c370725de81-0-3e86df522848abe81fc556fd03a5fe98"
+                <img src="/logo.jpg"
                      alt="Hero Market" class="h-12 w-auto" style="object-fit:contain;">
                 <div class="text-left">
                     <div class="brand-wordmark brand-wordmark-footer text-white leading-none"><%= settings.siteName || 'HERO MARKET' %></div>
@@ -906,8 +913,8 @@ const pageTitle = 'Beranda';
                 track.innerHTML = '<div class="col-span-3 flex flex-col items-center justify-center gap-2 text-center py-10"><iconify-icon icon="solar:box-outline" class="text-3xl text-white/10"></iconify-icon><p class="text-xs text-white/15">Belum ada produk tersedia</p></div>';
                 return;
             }
-            // Tampilkan max 6 produk (2 baris x 3 kolom)
-            track.innerHTML = popularProds.slice(0, 6).map((p, idx) => {
+            // Tampilkan max 12 produk (rapi di grid 3 kolom HP & 4 kolom desktop)
+            track.innerHTML = popularProds.slice(0, 12).map((p, idx) => {
                 const isOut = !(p.stock && p.stock > 0);
                 // BUG FIX: server kirim stok "auto/unlimited" sebagai sentinel
                 // angka UNLIMITED_STOCK (999999), BUKAN Infinity -- karena
@@ -924,12 +931,10 @@ const pageTitle = 'Beranda';
                         ${p.image ? `<img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover" loading="lazy" onerror="this.style.display='none'">` : `<div class="w-full h-full flex items-center justify-center" style="background:rgba(99,102,241,.06);"><iconify-icon icon="solar:gamepad-bold" style="font-size:28px;color:rgba(139,92,246,.4);"></iconify-icon></div>`}
                         ${renderProductBadges(p.safetyStatus, hasPlatform, true)}
                     </div>
-                    <div class="p-2">
-                        <h3 class="font-display font-bold text-[10px] sm:text-xs truncate mb-1">${p.name}</h3>
-                        <div class="flex justify-center items-center text-[8px] mb-1.5 pb-1.5 border-b border-white/[0.05]">
-                            <span class="text-white/30">Terjual <span class="text-white/50 font-bold">${soldFmt}</span></span>
-                        </div>
-                        <button class="btn-primary w-full py-1.5 rounded-lg text-[9px] sm:text-[10px] font-bold text-white flex items-center justify-center gap-1 ${isOut?'opacity-40 cursor-not-allowed':''}"
+                    <div class="p-2.5 sm:p-3.5">
+                        <h3 class="font-display font-bold text-[10px] sm:text-xs mb-1.5">${p.name}</h3>
+                        <div class="hm-card-sold"><iconify-icon icon="solar:bag-check-bold"></iconify-icon>${soldFmt} terjual</div>
+                        <button class="hm-card-btn ${isOut?'opacity-40 cursor-not-allowed':''}"
                             ${isOut ? 'disabled' : ''}>
                             <iconify-icon icon="${isOut ? 'solar:close-circle-bold' : 'solar:cart-large-2-bold'}" class="text-[9px] sm:text-xs"></iconify-icon>${isOut ? 'Habis' : 'Beli'}
                         </button>

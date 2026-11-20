@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' — ' : '' %><%= settings?.siteName || 'HERO MARKET' %></title>
     <meta name="description" content="<%= settings?.about || 'HERO MARKET - Layanan Game Mod Menu Premium Terpercaya' %>">
-    <meta name="theme-color" content="#0b0b1a">
+    <meta name="theme-color" content="#060a1f">
     <!-- OG tags: wajib ada supaya link preview (WhatsApp/Telegram) tidak kosong,
          termasuk untuk halaman yang butuh login (requireAuth) -- crawler preview
          tidak punya session, tapi tag ini tetap ke-render duluan sebelum redirect
@@ -283,16 +283,24 @@
     </style>
     
     <!-- Dynamic Theme Injection from Database -->
+    <%
+        // Nilai bawaan lama (hitam/ungu neon) dianggap "belum diatur" supaya tema baru
+        // (biru tua - ungu) langsung terpakai tanpa harus reset tema di admin.
+        const _legacyTheme = ['#0a0a0a','#151520','#7b2cbf','#9d4edd','#c77dff','rgba(157, 78, 221, 0.1)'];
+        const _tv = (v, d) => (!v || _legacyTheme.includes(String(v).trim().toLowerCase())) ? d : v;
+    %>
     <style>
         :root {
-            --neon-purple: <%= settings?.theme?.primaryColor || '#7b2cbf' %>;
-            --neon-violet: <%= settings?.theme?.secondaryColor || '#9d4edd' %>;
-            --accent-color: <%= settings?.theme?.accentColor || '#c77dff' %>;
-            --bg-dark: <%= settings?.theme?.backgroundColor || '#0a0a0a' %>;
-            --bg-card: <%= settings?.theme?.cardBackground || '#151520' %>;
-            --glow-color: <%= settings?.theme?.glowColor || 'rgba(157, 78, 221, 0.1)' %>;
+            --neon-purple: <%= _tv(settings?.theme?.primaryColor, '#4264e8') %>;
+            --neon-violet: <%= _tv(settings?.theme?.secondaryColor, '#7a50e6') %>;
+            --accent-color: <%= _tv(settings?.theme?.accentColor, '#aab4ff') %>;
+            --bg-dark: <%= _tv(settings?.theme?.backgroundColor, '#060a1f') %>;
+            --bg-card: <%= _tv(settings?.theme?.cardBackground, '#0d1536') %>;
+            --glow-color: <%= _tv(settings?.theme?.glowColor, 'rgba(66, 100, 232, 0.1)') %>;
         }
     </style>
+    <!-- Tema Midnight Indigo (biru tua - ungu): dimuat paling akhir supaya menang -->
+    <link rel="stylesheet" href="/css/hm-theme.css?v=20261120">
 </head>
 <body class="font-inter">
     <div id="toast-container"></div>
@@ -477,7 +485,7 @@
             html += `<div class="absolute bottom-0 left-0 z-10" style="max-width:100%;">${renderSafetyBadge(safetyStatus, compact)}</div>`;
         }
         if (platformLabel) {
-            html += `<div class="absolute top-0 left-0 z-10"><span class="platform-label">${platformLabel}</span></div>`;
+            html += `<div class="absolute z-10" style="top:8px;right:8px;"><span class="platform-label">${platformLabel}</span></div>`;
         }
         return html;
     }

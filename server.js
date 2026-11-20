@@ -485,7 +485,8 @@ const processingOrders = new Set();
 const genspayStatusCache = new Map(); // order_id -> { result, expiresAt }
 const GENSPAY_STATUS_CACHE_TTL_MS = 3000;
 // Pakasir v2 membatasi cek status 1x / 4 detik per transaksi -> cache 5 detik.
-const statusCacheTtl = (settings) => (settings && (settings.qrisMode === 'pakasir' || settings.qrisMode === 'wijayapay')) ? 5000 : GENSPAY_STATUS_CACHE_TTL_MS;
+// BuatQris membatasi api_check_status 1x / 20 detik per transaksi -> cache 21 detik.
+const statusCacheTtl = (settings) => (settings && settings.qrisMode === 'buatqris') ? 21000 : (settings && (settings.qrisMode === 'pakasir' || settings.qrisMode === 'wijayapay')) ? 5000 : GENSPAY_STATUS_CACHE_TTL_MS;
 
 async function checkPaymentStatusCached(orderId, amount, settings, txn) {
   const cached = genspayStatusCache.get(orderId);
@@ -631,6 +632,14 @@ app.post('/webhook/wijayapay', express.raw({ type: '*/*', limit: '1mb' }), (req,
   try { parsed = req.rawBodyForSignature ? JSON.parse(req.rawBodyForSignature) : {}; }
   catch (e) { try { parsed = Object.fromEntries(new URLSearchParams(req.rawBodyForSignature)); } catch (e2) { parsed = {}; } }
   req.body = parsed;
+  next();
+});
+
+// BuatQris: signature = HMAC-SHA256 dari BODY MENTAH -> simpan raw sebelum di-parse.
+app.post('/webhook/buatqris', express.raw({ type: '*/*', limit: '1mb' }), (req, res, next) => {
+  req.rawBodyForSignature = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '';
+  try { req.body = req.rawBodyForSignature ? JSON.parse(req.rawBodyForSignature) : {}; }
+  catch (e) { req.body = {}; }
   next();
 });
 
@@ -1195,10 +1204,30 @@ const cancelPakasirTransaction = async (txnId, settings) => {
 // -> { data, status_pembayaran: pending|paid|expired }. Webhook (POST/GET): { data:{ref_id,total_dibayar,...}, status:'paid' }
 // + header X-Signature (md5 yang sama); balasan WAJIB JSON { "status": true }. Tidak ada endpoint cancel.
 // Field settings FLAT: wijayapayMerchantCode, wijayapayApiKey, wijayapayBaseUrl (env WIJAYAPAY_MERCHANT_CODE/API_KEY/BASE_URL).
+// Base URL gateway HARUS alamat API milik gateway -- BUKAN URL webhook / domain toko sendiri.
+// (Bug nyata: Base URL WijayaPay terisi 'https://domain-toko/webhook/wijayapay' -> request create
+// malah masuk ke server sendiri dan jawabannya 'Cannot POST /webhook/wijayapay/api/...' (404).)
+// Nilai yang salah diabaikan (jatuh ke env / default) supaya toko tidak mati karena salah isi.
+function sanitizeGatewayBaseUrl(raw) {
+  const v = String(raw || '').trim().replace(/\/+$/, '');
+  if (!v) return '';
+  let u;
+  try { u = new URL(v); } catch (e) { return ''; }
+  if (!/^https?:$/.test(u.protocol)) return '';
+  if (/webhook|callback/i.test(u.pathname)) return '';
+  const host = u.hostname.replace(/^www\./, '').toLowerCase();
+  const own = [process.env.APP_URL, process.env.VERCEL_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]
+    .filter(Boolean)
+    .map(x => { try { return new URL(/^https?:/i.test(x) ? x : 'https://' + x).hostname.replace(/^www\./, '').toLowerCase(); } catch (e) { return ''; } });
+  if (own.includes(host)) return '';
+  return v;
+}
+const isBadGatewayBaseUrl = (raw) => !!String(raw || '').trim() && !sanitizeGatewayBaseUrl(raw);
+
 function getWijayapayCreds(settings) {
   const s = settings || {};
   return {
-    baseUrl: (((s.wijayapayBaseUrl || '').trim()) || (process.env.WIJAYAPAY_BASE_URL || '').trim() || 'https://gateway.wijayapay.com').replace(/\/+$/, ''),
+    baseUrl: (sanitizeGatewayBaseUrl(s.wijayapayBaseUrl) || sanitizeGatewayBaseUrl(process.env.WIJAYAPAY_BASE_URL) || 'https://gateway.wijayapay.com').replace(/\/+$/, ''),
     merchantCode: ((s.wijayapayMerchantCode || '').trim()) || (process.env.WIJAYAPAY_MERCHANT_CODE || '').trim(),
     apiKey: ((s.wijayapayApiKey || '').trim()) || (process.env.WIJAYAPAY_API_KEY || '').trim(),
   };
@@ -1236,7 +1265,9 @@ function wijayapayRequest(creds, method, path, { query, form, signRef } = {}) {
         try { json = data ? JSON.parse(data) : null; } catch (e) { /* bukan JSON */ }
         if (res.statusCode < 200 || res.statusCode >= 300 || (json && json.success === false)) {
           const m = json && (json.message || json.error);
-          return reject(new Error(typeof m === 'string' && m ? m : `WijayaPay menolak request (HTTP ${res.statusCode}): ${data.slice(0, 120)}`));
+          const looksHtml = /^\s*</.test(data);
+          const snippet = looksHtml ? `respons HTML, bukan JSON -- Base URL kemungkinan salah (sekarang: ${creds.baseUrl})` : data.slice(0, 120);
+          return reject(new Error(typeof m === 'string' && m ? m : `WijayaPay menolak request (HTTP ${res.statusCode}): ${snippet}`));
         }
         resolve(json);
       });
@@ -1291,6 +1322,143 @@ const checkPaymentStatusWijayapay = async (orderId, amount, settings, txn) => {
   return { status, order_id: d.ref_id || String(orderId), amount: Number.isFinite(amt) && amt > 0 ? amt : null, txn_id: d.trx_reference || (txn && txn.gatewayTxnId) || null };
 };
 
+
+// ── BuatQris (app.buatqris.site / api.buatqris.site) -- QRIS dinamis ──
+// Semua endpoint = SATU URL (POST, form-urlencoded), dibedakan lewat parameter `action`:
+//   api_create_qris  (account_id, secret_token, amount, fee_by, callback_url, qris_method, test)
+//   api_check_status (account_id, secret_token, transaction_id)  -- maks 1x / 20 detik per transaksi
+// Respons create: data.transaction_id, total_amount (yang dibayar pembeli), qr_url / qris_image (GAMBAR QR, bukan
+// string QRIS -- qris_string selalu null), expired_at. Webhook: POST JSON, header X-BuatQris-Signature =
+// 'sha256=' + HMAC-SHA256(body mentah, Signing Secret). Event: payment.success | payment.expired | payment.failed.
+// Field settings FLAT: buatqrisAccountId, buatqrisSecretToken, buatqrisSigningSecret, buatqrisBaseUrl,
+// buatqrisFeeBy ('user'|'buyer'), buatqrisQrisMethod ('' = otomatis), buatqrisSandbox (true/false).
+// Env: BUATQRIS_ACCOUNT_ID / BUATQRIS_SECRET_TOKEN / BUATQRIS_SIGNING_SECRET / BUATQRIS_BASE_URL.
+const BUATQRIS_DEFAULT_BASE = 'https://api.buatqris.site';
+const BUATQRIS_FALLBACK_BASES = ['https://app.buatqris.site/api'];
+const BUATQRIS_METHODS = ['qris_one', 'qris_two', 'qris_three', 'qris_four'];
+
+function getBuatqrisCreds(settings) {
+  const s = settings || {};
+  const pick = (a, b) => (String(a || '').trim()) || (String(b || '').trim());
+  const feeBy = String(s.buatqrisFeeBy || process.env.BUATQRIS_FEE_BY || 'user').trim().toLowerCase();
+  const method = String(s.buatqrisQrisMethod || process.env.BUATQRIS_QRIS_METHOD || '').trim().toLowerCase();
+  return {
+    baseUrl: (sanitizeGatewayBaseUrl(s.buatqrisBaseUrl) || sanitizeGatewayBaseUrl(process.env.BUATQRIS_BASE_URL) || BUATQRIS_DEFAULT_BASE).replace(/\/+$/, ''),
+    accountId: pick(s.buatqrisAccountId, process.env.BUATQRIS_ACCOUNT_ID),
+    secretToken: pick(s.buatqrisSecretToken, process.env.BUATQRIS_SECRET_TOKEN),
+    signingSecret: pick(s.buatqrisSigningSecret, process.env.BUATQRIS_SIGNING_SECRET),
+    feeBy: feeBy === 'buyer' ? 'buyer' : 'user',
+    qrisMethod: BUATQRIS_METHODS.includes(method) ? method : '',
+    sandbox: s.buatqrisSandbox === true || s.buatqrisSandbox === 'true'
+  };
+}
+
+// Satu kali POST ke satu base URL. Resolve { status, json, raw } (json null kalau bukan JSON).
+function buatqrisPost(baseUrl, form) {
+  return new Promise((resolve, reject) => {
+    let url;
+    try { url = new URL(baseUrl); } catch (e) { return reject(new Error('Base URL BuatQris tidak valid')); }
+    const lib = url.protocol === 'http:' ? require('http') : https;
+    const payload = new URLSearchParams(form).toString();
+    const req = lib.request({
+      hostname: url.hostname, port: url.port || (url.protocol === 'http:' ? 80 : 443),
+      path: url.pathname + url.search, method: 'POST', timeout: 15000,
+      headers: {
+        'User-Agent': 'HeroMarket/1.0', 'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(payload),
+        'X-App-Name': 'HeroMarket'
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        let json = null;
+        try { json = data ? JSON.parse(data) : null; } catch (e) { /* bukan JSON */ }
+        resolve({ status: res.statusCode, json, raw: data });
+      });
+    });
+    req.on('timeout', () => { req.destroy(); reject(new Error('BuatQris timeout')); });
+    req.on('error', e => reject(new Error('Network error: ' + e.message)));
+    req.write(payload);
+    req.end();
+  });
+}
+
+// Coba base URL utama, lalu cadangan kalau jaringan gagal / bukan JSON. Mengembalikan `data` kalau success:true.
+async function buatqrisRequest(creds, action, params = {}) {
+  if (!creds.accountId || !creds.secretToken) {
+    throw new Error('BuatQris belum dikonfigurasi -- isi Account ID & Secret Token lewat Admin Panel (Pengaturan QRIS) atau env BUATQRIS_ACCOUNT_ID/BUATQRIS_SECRET_TOKEN.');
+  }
+  const form = { action, account_id: creds.accountId, secret_token: creds.secretToken, ...params };
+  const bases = [creds.baseUrl, ...BUATQRIS_FALLBACK_BASES.filter(b => b !== creds.baseUrl)];
+  let last = null;
+  for (const base of bases) {
+    let r;
+    try { r = await buatqrisPost(base, form); }
+    catch (e) { last = e; continue; }
+    if (!r.json) { last = new Error(`BuatQris menjawab bukan JSON (HTTP ${r.status}) dari ${base}`); continue; }
+    const j = r.json;
+    if (r.status === 429 || j.error === 'rate_limited') {
+      const err = new Error(j.message || 'BuatQris rate limit');
+      err.rateLimited = true; err.retryAfter = Number(j.retry_after) || 20;
+      throw err;
+    }
+    if (j.success !== true) throw new Error(j.message || j.error || `BuatQris menolak request (HTTP ${r.status})`);
+    return j.data || {};
+  }
+  throw last || new Error('BuatQris tidak terjangkau');
+}
+
+// Gambar QR dari BuatQris (URL/data URI) dikirim lewat field yang sama dengan qr_string gateway lain;
+// frontend mengenali awalan http(s):// atau data:image dan menampilkannya langsung sebagai <img>.
+const createQRISPaymentBuatqris = async (orderId, amount, settings, callbackUrl, opts = {}) => {
+  const creds = getBuatqrisCreds(settings);
+  const form = {
+    amount: String(Math.round(Number(amount))),
+    description: `Pembayaran order ${orderId}`.slice(0, 100),
+    fee_by: creds.feeBy
+  };
+  if (creds.qrisMethod) form.qris_method = creds.qrisMethod;
+  if (callbackUrl && /^https:\/\//i.test(callbackUrl)) form.callback_url = callbackUrl;
+  if (creds.sandbox || opts.forceTest) form.test = '1';
+  const d = await buatqrisRequest(creds, 'api_create_qris', form);
+  const qr = d.qr_url || d.qris_image;
+  if (!qr || !d.transaction_id) throw new Error('Respons BuatQris tidak lengkap (qr_url/transaction_id tidak ditemukan).');
+  const total = Number(d.total_amount);
+  return {
+    qr_string: qr,
+    total_payment: Number.isFinite(total) && total > 0 ? total : Number(amount),
+    expired_at: d.expired_at || null,
+    txn_id: String(d.transaction_id),
+    fee: Number(d.admin_fee || 0)
+  };
+};
+
+// Hasil dinormalisasi: success -> 'completed' (sama seperti gateway lain). Kena batas 1x/20 dtk -> dianggap masih pending.
+const checkPaymentStatusBuatqris = async (orderId, amount, settings, txn) => {
+  const creds = getBuatqrisCreds(settings);
+  const trxId = (txn && txn.gatewayTxnId) ? String(txn.gatewayTxnId) : '';
+  if (!trxId) throw new Error('transaction_id BuatQris tidak tersimpan untuk order ini.');
+  let d;
+  try {
+    d = await buatqrisRequest(creds, 'api_check_status', { transaction_id: trxId });
+  } catch (e) {
+    if (e.rateLimited) return { status: 'pending', order_id: String(orderId), amount: null, txn_id: trxId };
+    throw e;
+  }
+  const raw = String(d.status || '').toLowerCase();
+  const status = raw === 'success' ? 'completed' : raw;
+  const amt = Number(d.total_amount);
+  return { status, order_id: String(orderId), amount: Number.isFinite(amt) && amt > 0 ? amt : null, txn_id: trxId };
+};
+
+// X-BuatQris-Signature: sha256=<hex> = HMAC-SHA256(body mentah, Signing Secret).
+function verifyBuatqrisSignature(creds, rawBody, received) {
+  if (!creds.signingSecret || !received) return false;
+  const calc = 'sha256=' + crypto.createHmac('sha256', creds.signingSecret).update(String(rawBody || ''), 'utf8').digest('hex');
+  return timingSafeStrEq(String(received).trim().toLowerCase(), calc.toLowerCase());
+}
+
 // Bandingkan secret tahan timing-attack (hash dulu supaya panjang sama).
 function timingSafeStrEq(a, b) {
   if (!a || !b) return false;
@@ -1300,23 +1468,25 @@ function timingSafeStrEq(a, b) {
 }
 
 // Path webhook sesuai mode QRIS aktif (mode lama 'stenly' sudah dihapus -> dianggap GensPay).
-const qrisWebhookPath = (settings) => (settings && settings.qrisMode === 'pakasir') ? 'pakasir' : (settings && settings.qrisMode === 'wijayapay') ? 'wijayapay' : 'genspay';
+const qrisWebhookPath = (settings) => (settings && settings.qrisMode === 'pakasir') ? 'pakasir' : (settings && settings.qrisMode === 'wijayapay') ? 'wijayapay' : (settings && settings.qrisMode === 'buatqris') ? 'buatqris' : 'genspay';
 
 // ══════════════════════════════════════════════════════════════════
 // PAYMENT GATEWAY DISPATCHER -- settings.qrisMode: 'static' | 'api' (GensPay,
-// default) | 'pakasir' (API v2) | 'wijayapay'. createQRISPayment/checkPaymentStatus tetap
+// default) | 'pakasir' (API v2) | 'wijayapay' | 'buatqris'. createQRISPayment/checkPaymentStatus tetap
 // dipanggil dengan nama & tanda tangan lama oleh semua call site; mode lain
 // (termasuk sisa nilai lama 'stenly') jatuh ke GensPay.
 // ══════════════════════════════════════════════════════════════════
 const createQRISPayment = (orderId, amount, settings, callbackUrl) => {
   if (settings?.qrisMode === 'pakasir') return createQRISPaymentPakasir(orderId, amount, settings, callbackUrl);
   if (settings?.qrisMode === 'wijayapay') return createQRISPaymentWijayapay(orderId, amount, settings, callbackUrl);
+  if (settings?.qrisMode === 'buatqris') return createQRISPaymentBuatqris(orderId, amount, settings, callbackUrl);
   return createQRISPaymentGenspay(orderId, amount, settings, callbackUrl);
 };
 
 const checkPaymentStatus = (orderId, amount, settings, txn) => {
   if (settings?.qrisMode === 'pakasir') return checkPaymentStatusPakasir(orderId, amount, settings, txn);
   if (settings?.qrisMode === 'wijayapay') return checkPaymentStatusWijayapay(orderId, amount, settings, txn);
+  if (settings?.qrisMode === 'buatqris') return checkPaymentStatusBuatqris(orderId, amount, settings, txn);
   return checkPaymentStatusGenspay(orderId, amount, settings);
 };
 
@@ -1765,6 +1935,78 @@ async function handleWijayapayWebhook(req, res) {
 }
 app.post('/webhook/wijayapay', handleWijayapayWebhook);
 app.get('/webhook/wijayapay', handleWijayapayWebhook);
+
+
+// ── BuatQris Webhook ──
+// Daftarkan di dashboard BuatQris -> Open API -> Webhook / Callback: https://domainkamu.com/webhook/buatqris
+// (tiap transaksi juga mengirim callback_url sendiri). Header X-BuatQris-Signature WAJIB valid (Signing Secret).
+// Event payment.success -> selesaikan order. Expired/failed dibiarkan ke polling /check-payment (yang menandai expired).
+// Balasan selalu 200 untuk kasus non-auth supaya BuatQris tidak mengulang terus.
+async function handleBuatqrisWebhook(req, res) {
+  try {
+    if (req.method === 'GET') return res.status(200).json({ ok: true, message: 'BuatQris webhook endpoint active' });
+    const settings = readDB('settings.json');
+    const creds = getBuatqrisCreds(settings);
+    const sig = req.headers['x-buatqris-signature'] || '';
+    if (!creds.signingSecret) {
+      console.error('[webhook/buatqris] Signing Secret belum diisi -- webhook ditolak (401).');
+      return res.status(401).json({ ok: false });
+    }
+    if (!verifyBuatqrisSignature(creds, req.rawBodyForSignature, sig)) {
+      await logWebhookDebug({ provider: 'buatqris', result: 'signature_invalid' });
+      return res.status(401).json({ ok: false });
+    }
+    const body = req.body || {};
+    const event = String(body.event || req.headers['x-buatqris-event'] || '');
+    const trxId = String(body.transaction_id || '');
+    if (!trxId || event !== 'payment.success') return res.status(200).json({ ok: true });
+    if (body.is_test === true && !creds.sandbox) {
+      console.warn(`[webhook/buatqris] event uji coba diabaikan (Mode Sandbox mati). trx=${trxId}`);
+      return res.status(200).json({ ok: true });
+    }
+    if (processingOrders.has('bq:' + trxId)) return res.status(200).json({ ok: true });
+    processingOrders.add('bq:' + trxId);
+    let txLock = null;
+    try {
+      const transactions = await readFresh('transactions.json');
+      const transaction = transactions.find(t => String(t.gatewayTxnId || '') === trxId && t.status === 'pending');
+      if (!transaction) {
+        console.warn(`[webhook/buatqris] payment.success tapi tidak ada transaksi pending. trx=${trxId}`);
+        return res.status(200).json({ ok: true });
+      }
+      if (processingOrders.has(transaction.id)) return res.status(200).json({ ok: true });
+      txLock = transaction.id; processingOrders.add(txLock);
+      const accepted = [Number(transaction.price), Number(transaction.totalPayment)].filter(n => Number.isFinite(n));
+      const paidAmt = Number(body.total_amount);
+      if (Number.isFinite(paidAmt) && paidAmt > 0 && !accepted.includes(paidAmt)) {
+        console.error(`[webhook/buatqris] nominal ${paidAmt} tidak cocok (${accepted.join(' / ')}) untuk trx=${trxId} -- ditolak`);
+        await logWebhookDebug({ provider: 'buatqris', result: 'amount_mismatch', orderId: transaction.orderId, amount: paidAmt, accepted });
+        return res.status(200).json({ ok: false });
+      }
+      // Konfirmasi ulang ke API (best effort): signature sudah valid, jadi error API tidak membatalkan.
+      try {
+        const v = await checkPaymentStatusBuatqris(transaction.orderId, transaction.price, settings, transaction);
+        if (v.status && v.status !== 'completed' && v.status !== 'pending') {
+          console.warn(`[webhook/buatqris] API bilang status=${v.status} -- diabaikan. trx=${trxId}`);
+          return res.status(200).json({ ok: true });
+        }
+      } catch (e) {
+        console.warn(`[webhook/buatqris] verifikasi API gagal (${e.message}); signature valid, lanjut.`);
+      }
+      console.log(`[webhook/buatqris] paid trx=${trxId}, transaksi=${transaction.id} -- memproses allocateKey...`);
+      await allocateKeyAndCompleteTransaction(transaction, transactions);
+    } finally {
+      if (txLock) processingOrders.delete(txLock);
+      processingOrders.delete('bq:' + trxId);
+    }
+    res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error('[webhook/buatqris] error:', e.message);
+    res.status(200).json({ ok: false });
+  }
+}
+app.post('/webhook/buatqris', handleBuatqrisWebhook);
+app.get('/webhook/buatqris', handleBuatqrisWebhook);
 
 // ── NOWPayments Webhook (IPN): notifikasi status pembayaran crypto ──
 // Daftarkan URL ini di dashboard NOWPayments sebagai IPN callback URL: https://domainkamu.com/webhook/nowpayments
@@ -4477,10 +4719,24 @@ app.get('/admin', requireAdmin, (req, res) => {
         baseUrlPreview: creds.baseUrl,
         merchantCodeSource: (settings.wijayapayMerchantCode || '').trim() ? 'panel' : 'env',
         apiKeySource: (settings.wijayapayApiKey || '').trim() ? 'panel' : 'env',
-        baseUrlSource: (settings.wijayapayBaseUrl || '').trim() ? 'panel' : 'env'
+        baseUrlSource: (settings.wijayapayBaseUrl || '').trim() && !isBadGatewayBaseUrl(settings.wijayapayBaseUrl) ? 'panel' : 'env',
+        baseUrlBad: isBadGatewayBaseUrl(settings.wijayapayBaseUrl) ? String(settings.wijayapayBaseUrl).trim() : ''
       };
     })(),
-    wijayapayWebhookUrl: `${getAppBaseUrl(req)}/webhook/wijayapay`
+    wijayapayWebhookUrl: `${getAppBaseUrl(req)}/webhook/wijayapay`,
+    buatqrisConfigured: (() => {
+      const c = getBuatqrisCreds(settings);
+      return {
+        accountId: !!c.accountId, secretToken: !!c.secretToken, signingSecret: !!c.signingSecret,
+        accountIdPreview: c.accountId, baseUrlPreview: c.baseUrl,
+        accountIdSource: (settings.buatqrisAccountId || '').trim() ? 'panel' : 'env',
+        secretTokenSource: (settings.buatqrisSecretToken || '').trim() ? 'panel' : 'env',
+        signingSecretSource: (settings.buatqrisSigningSecret || '').trim() ? 'panel' : 'env',
+        baseUrlSource: (settings.buatqrisBaseUrl || '').trim() && !isBadGatewayBaseUrl(settings.buatqrisBaseUrl) ? 'panel' : 'env',
+        feeBy: c.feeBy, qrisMethod: c.qrisMethod, sandbox: c.sandbox
+      };
+    })(),
+    buatqrisWebhookUrl: `${getAppBaseUrl(req)}/webhook/buatqris`
   });
 });
 
@@ -6223,9 +6479,12 @@ app.post('/admin/settings/wijayapay', requireAdmin, async (req, res) => {
   try {
     const { wijayapayMerchantCode, wijayapayApiKey, wijayapayBaseUrl, qrisMode } = req.body;
     const settings = await readFresh('settings.json');
+    // Bersihkan Base URL lama yang salah isi (mis. terisi URL webhook toko sendiri).
+    if (isBadGatewayBaseUrl(settings.wijayapayBaseUrl)) settings.wijayapayBaseUrl = '';
     if (wijayapayBaseUrl !== undefined) {
       const b = String(wijayapayBaseUrl).trim().replace(/\/+$/, '');
       if (b && !/^https:\/\//i.test(b)) return res.json({ success: false, message: 'Base URL harus diawali https://' });
+      if (b && !sanitizeGatewayBaseUrl(b)) return res.json({ success: false, message: 'Base URL salah: itu alamat webhook/toko sendiri, bukan alamat API WijayaPay. Kosongkan saja (otomatis https://gateway.wijayapay.com).' });
       settings.wijayapayBaseUrl = b;
     }
     if (wijayapayMerchantCode !== undefined) settings.wijayapayMerchantCode = String(wijayapayMerchantCode).trim();
@@ -6287,6 +6546,83 @@ app.post('/admin/qris/test-wijayapay', requireAdmin, async (req, res) => {
     }
     add('cancel', true, 'WijayaPay tidak menyediakan cancel -- tagihan uji kedaluwarsa sendiri.');
 
+    const ok = steps.every(x => x.ok);
+    res.json({ success: ok, steps, message: ok ? undefined : (steps.find(x => !x.ok) || {}).detail });
+  } catch (e) {
+    res.json({ success: false, steps, message: e.message });
+  }
+});
+
+
+// ── BuatQris Settings ──
+// Field yang TIDAK dikirim (undefined) = tidak diubah; string kosong = kosongkan (balik ke env var).
+app.post('/admin/settings/buatqris', requireAdmin, async (req, res) => {
+  try {
+    const { buatqrisAccountId, buatqrisSecretToken, buatqrisSigningSecret, buatqrisBaseUrl, buatqrisFeeBy, buatqrisQrisMethod, buatqrisSandbox, qrisMode } = req.body;
+    const settings = await readFresh('settings.json');
+    if (buatqrisBaseUrl !== undefined) {
+      const b = String(buatqrisBaseUrl).trim().replace(/\/+$/, '');
+      if (b && !/^https:\/\//i.test(b)) return res.json({ success: false, message: 'Base URL harus diawali https://' });
+      if (b && !sanitizeGatewayBaseUrl(b)) return res.json({ success: false, message: 'Base URL salah: itu alamat webhook/toko sendiri. Kosongkan saja (otomatis https://api.buatqris.site).' });
+      settings.buatqrisBaseUrl = b;
+    }
+    if (buatqrisAccountId !== undefined) settings.buatqrisAccountId = String(buatqrisAccountId).trim();
+    if (buatqrisSecretToken !== undefined) settings.buatqrisSecretToken = String(buatqrisSecretToken).trim();
+    if (buatqrisSigningSecret !== undefined) settings.buatqrisSigningSecret = String(buatqrisSigningSecret).trim();
+    if (buatqrisFeeBy !== undefined) {
+      const f = String(buatqrisFeeBy).trim().toLowerCase();
+      if (f && !['user', 'buyer'].includes(f)) return res.json({ success: false, message: 'Biaya layanan harus user (penjual) atau buyer (pembeli).' });
+      settings.buatqrisFeeBy = f;
+    }
+    if (buatqrisQrisMethod !== undefined) {
+      const m = String(buatqrisQrisMethod).trim().toLowerCase();
+      if (m && !BUATQRIS_METHODS.includes(m)) return res.json({ success: false, message: 'Metode QRIS tidak dikenal.' });
+      settings.buatqrisQrisMethod = m;
+    }
+    if (buatqrisSandbox !== undefined) settings.buatqrisSandbox = (buatqrisSandbox === true || buatqrisSandbox === 'true');
+    if (qrisMode) {
+      if (qrisMode === 'buatqris') {
+        const c = getBuatqrisCreds(settings);
+        if (!c.accountId || !c.secretToken) return res.json({ success: false, message: 'Isi Account ID & Secret Token BuatQris dulu sebelum mengaktifkan.' });
+      }
+      settings.qrisMode = qrisMode;
+    }
+    await writeDB('settings.json', settings);
+    const creds = getBuatqrisCreds(settings);
+    res.json({ success: true, configured: { accountId: !!creds.accountId, secretToken: !!creds.secretToken, signingSecret: !!creds.signingSecret } });
+  } catch (e) {
+    res.json({ success: false, message: e.message });
+  }
+});
+
+// Test: buat transaksi SANDBOX (test=1, tanpa uang asli) Rp1.000 -> cek status. Memastikan kredensial benar.
+app.post('/admin/qris/test-buatqris', requireAdmin, async (req, res) => {
+  const steps = [];
+  const add = (step, ok, detail) => steps.push({ step, ok, detail });
+  try {
+    const settings = readDB('settings.json');
+    const creds = getBuatqrisCreds(settings);
+    const okCfg = !!(creds.accountId && creds.secretToken);
+    add('config', okCfg, okCfg ? `Base URL: ${creds.baseUrl} · Account: ${creds.accountId} · Biaya: ${creds.feeBy === 'buyer' ? 'pembeli' : 'penjual'} · Sandbox: ${creds.sandbox ? 'ON' : 'off'}` : 'Account ID atau Secret Token kosong.');
+    if (!okCfg) return res.json({ success: false, steps, message: 'Account ID atau Secret Token kosong.' });
+    add('signing_secret', !!creds.signingSecret, creds.signingSecret ? 'Signing Secret terisi.' : 'Signing Secret KOSONG -- webhook pembayaran akan ditolak (401). Salin dari dashboard BuatQris (Open API -> Webhook / Callback).');
+
+    const orderId = 'test-' + Date.now().toString(36);
+    let created;
+    try {
+      created = await createQRISPaymentBuatqris(orderId, 1000, settings, null, { forceTest: true });
+      add('create', true, `Transaksi sandbox ${created.txn_id}, total bayar Rp${created.total_payment}, fee Rp${created.fee}`);
+      add('qr', true, 'Gambar QR diterima.');
+    } catch (e) {
+      add('create', false, e.message);
+      return res.json({ success: false, steps, message: e.message });
+    }
+    try {
+      const st = await checkPaymentStatusBuatqris(orderId, 1000, settings, { gatewayTxnId: created.txn_id });
+      add('status', st.status === 'pending', `Status transaksi uji: ${st.status || '(kosong)'}`);
+    } catch (e) {
+      add('status', false, e.message);
+    }
     const ok = steps.every(x => x.ok);
     res.json({ success: ok, steps, message: ok ? undefined : (steps.find(x => !x.ok) || {}).detail });
   } catch (e) {
