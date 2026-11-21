@@ -123,7 +123,7 @@ const pageTitle = 'Leaderboard';
                 <!-- Rank 2 -->
                 <% if (leaderboard[1]) { %>
                 <div class="rank-item rank-2 fade-in-up">
-                    <div class="avatar-ring mb-3"><div class="avatar-inner"><% if(leaderboard[1].photo){%><img src="<%= leaderboard[1].photo %>" class="user-avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%"><%}else{%><%= leaderboard[1].username.charAt(0).toUpperCase() %><%}%></div></div>
+                    <div class="avatar-ring mb-3"><div class="avatar-inner"><% if(leaderboard[1].photo){%><img src="<%= hmImg(leaderboard[1].photo,160) %>" class="user-avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%"><%}else{%><%= leaderboard[1].username.charAt(0).toUpperCase() %><%}%></div></div>
                     <div class="podium-base">
                         <div class="pbadge pb2">2</div>
                         <div class="pnum">2</div>
@@ -142,7 +142,7 @@ const pageTitle = 'Leaderboard';
                 <div class="rank-item rank-1 fade-in-up">
                     <div class="avatar-ring mb-3">
                         <div class="crown-wrap"><iconify-icon icon="mdi:crown"></iconify-icon></div>
-                        <div class="avatar-inner"><% if(leaderboard[0].photo){%><img src="<%= leaderboard[0].photo %>" class="user-avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%"><%}else{%><%= leaderboard[0].username.charAt(0).toUpperCase() %><%}%></div>
+                        <div class="avatar-inner"><% if(leaderboard[0].photo){%><img src="<%= hmImg(leaderboard[0].photo,160) %>" class="user-avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%"><%}else{%><%= leaderboard[0].username.charAt(0).toUpperCase() %><%}%></div>
                     </div>
                     <div class="podium-base">
                         <div class="pbadge pb1">1</div>
@@ -156,7 +156,7 @@ const pageTitle = 'Leaderboard';
                 <!-- Rank 3 -->
                 <% if (leaderboard[2]) { %>
                 <div class="rank-item rank-3 fade-in-up">
-                    <div class="avatar-ring mb-3"><div class="avatar-inner"><% if(leaderboard[2].photo){%><img src="<%= leaderboard[2].photo %>" class="user-avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%"><%}else{%><%= leaderboard[2].username.charAt(0).toUpperCase() %><%}%></div></div>
+                    <div class="avatar-ring mb-3"><div class="avatar-inner"><% if(leaderboard[2].photo){%><img src="<%= hmImg(leaderboard[2].photo,160) %>" class="user-avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%"><%}else{%><%= leaderboard[2].username.charAt(0).toUpperCase() %><%}%></div></div>
                     <div class="podium-base">
                         <div class="pbadge pb3">3</div>
                         <div class="pnum">3</div>
@@ -188,7 +188,7 @@ const pageTitle = 'Leaderboard';
                 <% leaderboard.slice(3).forEach((item, idx) => { %>
                 <div class="rank-row fade-in-up">
                     <div class="rnbadge">#<%= item.rank %></div>
-                    <% if(item.photo){ %><div class="ravatar overflow-hidden" style="border:2px solid rgba(255,255,255,.1)"><img src="<%= item.photo %>" class="user-avatar" style="width:42px;height:42px;"></div><% } else { %><div class="ravatar bg-gradient-to-br <%= palettes[idx % palettes.length] %>"><%= item.username.charAt(0).toUpperCase() %></div><% } %>
+                    <% if(item.photo){ %><div class="ravatar overflow-hidden" style="border:2px solid rgba(255,255,255,.1)"><img src="<%= hmImg(item.photo,160) %>" class="user-avatar" style="width:42px;height:42px;"></div><% } else { %><div class="ravatar bg-gradient-to-br <%= palettes[idx % palettes.length] %>"><%= item.username.charAt(0).toUpperCase() %></div><% } %>
                     <div class="flex-1 min-w-0">
                         <div class="text-sm font-bold text-white truncate"><%= item.username %></div>
                         <div class="flex items-center gap-3 mt-0.5">

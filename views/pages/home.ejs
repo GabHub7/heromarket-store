@@ -176,7 +176,7 @@ const pageTitle = 'Beranda';
         const adminSlides = slides.map((s,i)=>{
             const hl=s.link&&s.link!=='/';
             return `<div class="c-slide"${hl?` onclick="window.location='${s.link}'" style="cursor:pointer"`:''}>
-                <img class="c-img" src="${s.imageUrl}" alt="${s.title||''}" loading="lazy"
+                <img class="c-img" src="${hmImg(s.imageUrl,1200)}" alt="${s.title||''}" loading="lazy" decoding="async"
                      onerror="this.style.display='none';this.closest('.c-slide').style.background='linear-gradient(135deg,#12082a,#07071a)'">
                 <div class="c-overlay"></div>
                 <div class="c-body">
@@ -288,7 +288,7 @@ const pageTitle = 'Beranda';
                     <% if (origIdx===0) { %><div class="absolute -top-5 sm:-top-6 text-2xl sm:text-3xl" style="filter:drop-shadow(0 0 8px #fbbf24)"><iconify-icon icon="solar:crown-bold" style="color:gold"></iconify-icon></div><% } %>
                     <% if (u.photo) { %>
                     <div class="<%= heights2[i] %> <%= origIdx===0?'glow-first':'' %> rounded-full overflow-hidden shadow-lg relative z-10" style="border:2px solid rgba(255,255,255,.18)">
-                        <img src="<%= u.photo %>" class="w-full h-full object-cover" alt="<%= u.username %>">
+                        <img src="<%= hmImg(u.photo,160) %>" class="w-full h-full object-cover" alt="<%= u.username %>">
                     </div>
                     <% } else { %>
                     <div class="<%= heights2[i] %> <%= origIdx===0?'glow-first':'' %> rounded-full bg-gradient-to-br <%= avatarGrads2[origIdx] %> flex items-center justify-center font-bold text-white shadow-lg relative z-10 text-sm sm:text-base"><%= initials2 %></div>
@@ -310,7 +310,7 @@ const pageTitle = 'Beranda';
                 <span class="text-white/30 font-bold w-6 text-center text-xs"><%= rankNum %></span>
                 <% if (u.photo) { %>
                 <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" style="border:2px solid rgba(255,255,255,.12)">
-                    <img src="<%= u.photo %>" class="w-full h-full object-cover" alt="<%= u.username %>">
+                    <img src="<%= hmImg(u.photo,160) %>" class="w-full h-full object-cover" alt="<%= u.username %>">
                 </div>
                 <% } else { %>
                 <div class="w-8 h-8 rounded-full bg-gradient-to-br <%= avatarGrads2[(i+3)%avatarGrads2.length] %> flex items-center justify-center text-[9px] font-bold text-white"><%= initials2 %></div>
@@ -538,7 +538,7 @@ const pageTitle = 'Beranda';
                 const initials = name.charAt(0).toUpperCase();
                 const grad = avatarColors[idx % avatarColors.length];
                 const avatarHtml = t.photo
-                    ? `<img src="${t.photo}" class="w-9 h-9 rounded-xl object-cover flex-shrink-0" style="border:2px solid rgba(139,92,246,.3);">`
+                    ? `<img src="${hmImg(t.photo,160)}" class="w-9 h-9 rounded-xl object-cover flex-shrink-0" style="border:2px solid rgba(139,92,246,.3);">`
                     : `<div class="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-black flex-shrink-0" style="background:linear-gradient(135deg,${grad});">${initials}</div>`;
                 const starsHtml = Array.from({length:5}, (_,i) =>
                     `<iconify-icon icon="${i < t.rating ? 'mdi:star' : 'mdi:star-outline'}" style="font-size:11px;color:${i < t.rating ? '#fbbf24' : '#3f3f46'};"></iconify-icon>`
@@ -642,7 +642,7 @@ const pageTitle = 'Beranda';
                     const sz = heights[i];
                     const mg = origIdx===0 ? '-mt-4 sm:-mt-6' : '';
                     const avatarHtml2 = u.photo
-                        ? `<div class="${sz} ${isFirst?'glow-first':''} rounded-full overflow-hidden shadow-lg relative z-10" style="border:2px solid rgba(255,255,255,.18)"><img src="${u.photo}" class="w-full h-full object-cover" alt="${name}"></div>`
+                        ? `<div class="${sz} ${isFirst?'glow-first':''} rounded-full overflow-hidden shadow-lg relative z-10" style="border:2px solid rgba(255,255,255,.18)"><img src="${hmImg(u.photo,160)}" class="w-full h-full object-cover" alt="${name}"></div>`
                         : `<div class="${sz} ${isFirst?'glow-first':''} rounded-full bg-gradient-to-br ${avatarGrads[origIdx]} flex items-center justify-center font-bold ${isFirst?'text-black':'text-white'} shadow-lg relative z-10 text-sm sm:text-base">${initials}</div>`;
                     return `<div class="flex flex-col items-center ${mg} relative z-10">
                         <div class="relative flex flex-col items-center mb-2">
@@ -665,7 +665,7 @@ const pageTitle = 'Beranda';
                 const txCount = u.totalTransactions || 0;
                 const initials = name.substring(0,2).toUpperCase();
                 const avatarHtml3 = u.photo
-                    ? `<div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" style="border:2px solid rgba(255,255,255,.12)"><img src="${u.photo}" class="w-full h-full object-cover" alt="${name}"></div>`
+                    ? `<div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" style="border:2px solid rgba(255,255,255,.12)"><img src="${hmImg(u.photo,160)}" class="w-full h-full object-cover" alt="${name}"></div>`
                     : `<div class="w-8 h-8 rounded-full bg-gradient-to-br ${avatarGrads[(i+3)%avatarGrads.length]} flex items-center justify-center text-[9px] font-bold text-white">${initials}</div>`;
                 return `<div class="flex items-center gap-3 p-2 sm:p-2.5 rounded-lg hover:bg-white/[0.02] transition-colors">
                     <span class="text-white/30 font-bold w-6 text-center text-xs">${i+4}</span>
@@ -707,7 +707,7 @@ const pageTitle = 'Beranda';
                 const soldFmt = (p.dummySold||0) >= 1000 ? ((p.dummySold||0)/1000).toFixed(1).replace('.0','')+'K' : String(p.dummySold||0);
                 return `<div class="popular-card glass rounded-xl overflow-hidden border border-white/[0.06] cursor-pointer" data-category="${p.category||''}" onclick="location.href='/buy/${p.id}'">
                     <div class="relative overflow-hidden" style="height:clamp(80px,20vw,120px);">
-                        ${p.image ? `<img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.style.display='none'">` : `<div class="w-full h-full flex items-center justify-center" style="background:rgba(99,102,241,.06);"><iconify-icon icon="solar:gamepad-bold" style="font-size:28px;color:rgba(139,92,246,.4);"></iconify-icon></div>`}
+                        ${p.image ? `<img src="${hmImg(p.image,480)}" alt="${p.name}" class="w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.style.display='none'">` : `<div class="w-full h-full flex items-center justify-center" style="background:rgba(99,102,241,.06);"><iconify-icon icon="solar:gamepad-bold" style="font-size:28px;color:rgba(139,92,246,.4);"></iconify-icon></div>`}
                         ${renderProductBadges(p.safetyStatus, hasPlatform, true)}
                     </div>
                     <div class="p-2.5 sm:p-3.5">

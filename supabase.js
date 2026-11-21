@@ -173,15 +173,30 @@ const seedSupabase = async (client) => {
 
 
 // ── UPLOAD IMAGE ke Supabase Storage ─────────────────────
+let _sharpLib = null;
+try { _sharpLib = require('sharp'); } catch (e) { _sharpLib = null; }
+
 const uploadImage = async (fileBuffer, filename, contentType) => {
   const client = getClient();
   if (!client) throw new Error('Supabase tidak terkonfigurasi');
+
+  // PERFORMA: perkecil & ubah ke WebP sebelum disimpan (maks 1280px). Foto 3-5 MB jadi ~60-150 KB.
+  // GIF dilewati (animasi). Gagal kompres -> pakai file asli.
+  if (_sharpLib && /^image\/(jpeg|jpg|png|webp)$/i.test(contentType || '')) {
+    try {
+      fileBuffer = await _sharpLib(fileBuffer, { failOn: 'none' }).rotate()
+        .resize({ width: 1280, withoutEnlargement: true }).webp({ quality: 78 }).toBuffer();
+      contentType = 'image/webp';
+      filename = String(filename).replace(/\.[a-z0-9]+$/i, '') + '.webp';
+    } catch (e) { /* pakai file asli */ }
+  }
 
   const cleanName = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
   const { data, error } = await client.storage
     .from('product-images')
     .upload(cleanName, fileBuffer, {
       contentType,
+      cacheControl: '31536000',
       upsert: false
     });
 

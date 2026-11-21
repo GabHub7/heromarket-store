@@ -696,6 +696,76 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: '7d', etag: tru
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads'), { maxAge: '7d', etag: true }));
 app.use('/uploads/avatars', express.static(path.join(__dirname, 'public/uploads/avatars'), { maxAge: '7d', etag: true }));
 
+// ── Versi aset otomatis (cache-busting): ?v=<hash isi file>. Browser memakai cache 7 hari untuk
+// /css/*, jadi tanpa ini perubahan CSS tidak terlihat sampai cache habis (footer "berantakan" dst).
+const _assetVCache = {};
+app.locals.assetV = (rel) => {
+  if (_assetVCache[rel]) return _assetVCache[rel];
+  try {
+    const buf = fs.readFileSync(path.join(__dirname, 'public', rel));
+    return (_assetVCache[rel] = require('crypto').createHash('md5').update(buf).digest('hex').slice(0, 8));
+  } catch (e) { return '1'; }
+};
+
+// ── Proxy gambar: /img?u=<url>&w=<lebar> -> WebP kecil, cache CDN 1 tahun ──
+// Gambar produk/banner di Supabase bisa 1-5 MB. Halaman beranda memuat belasan -> berat & scroll patah-patah.
+// Di sini diperkecil sesuai kebutuhan tampilan. Vercel CDN menyimpan hasilnya (s-maxage), jadi fungsi
+// hanya jalan sekali per gambar+ukuran. Hanya host yang ada di database (produk/pengaturan) yang diizinkan.
+let _imgSharp = null;
+try { _imgSharp = require('sharp'); } catch (e) { _imgSharp = null; }
+const IMG_WIDTHS = [160, 320, 480, 640, 800, 1200];
+const _imgHosts = { t: 0, set: new Set() };
+async function getAllowedImageHosts() {
+  if (Date.now() - _imgHosts.t < 5 * 60 * 1000 && _imgHosts.set.size) return _imgHosts.set;
+  const set = new Set();
+  try {
+    if (process.env.SUPABASE_URL) set.add(new URL(process.env.SUPABASE_URL).hostname.toLowerCase());
+    const [prods, sett] = await Promise.all([readSmart('products.json'), readSmart('settings.json')]);
+    const txt = JSON.stringify(prods || []) + JSON.stringify(sett || {});
+    for (const m of txt.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)) set.add(m[1].toLowerCase());
+  } catch (e) { /* pakai yang ada */ }
+  _imgHosts.t = Date.now(); _imgHosts.set = set;
+  return set;
+}
+const _privHost = (h) => /^(localhost|0\.0\.0\.0)$/i.test(h) || /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) || h.includes(':') || h.endsWith('.internal') || h.endsWith('.local');
+app.get('/img', async (req, res) => {
+  const raw = String(req.query.u || '');
+  const redirectOriginal = () => { res.set('Cache-Control', 'public, max-age=300'); return res.redirect(302, raw); };
+  try {
+    let url;
+    try { url = new URL(raw); } catch (e) { return res.status(400).end(); }
+    if (!/^https?:$/.test(url.protocol) || _privHost(url.hostname)) return res.status(400).end();
+    const hosts = await getAllowedImageHosts();
+    if (!hosts.has(url.hostname.toLowerCase())) return res.status(403).end();
+    if (!_imgSharp) return redirectOriginal();
+    const want = Math.max(1, parseInt(req.query.w, 10) || 480);
+    const width = IMG_WIDTHS.find(x => x >= want) || IMG_WIDTHS[IMG_WIDTHS.length - 1];
+    const ac = new AbortController();
+    const to = setTimeout(() => ac.abort(), 8000);
+    let r;
+    try { r = await fetch(url.href, { signal: ac.signal, headers: { 'User-Agent': 'HeroMarketImg/1.0', 'Accept': 'image/*' } }); }
+    finally { clearTimeout(to); }
+    if (!r.ok) return redirectOriginal();
+    const ct = String(r.headers.get('content-type') || '').toLowerCase();
+    if (!ct.startsWith('image/') || ct.includes('gif') || ct.includes('svg')) return redirectOriginal();
+    const len = parseInt(r.headers.get('content-length') || '0', 10);
+    if (len > 25 * 1024 * 1024) return redirectOriginal();
+    const input = Buffer.from(await r.arrayBuffer());
+    if (input.length > 25 * 1024 * 1024) return redirectOriginal();
+    const out = await _imgSharp(input, { failOn: 'none' }).rotate()
+      .resize({ width, withoutEnlargement: true }).webp({ quality: 72, effort: 3 }).toBuffer();
+    res.set({ 'Content-Type': 'image/webp', 'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable' });
+    return res.send(out);
+  } catch (e) {
+    return redirectOriginal();
+  }
+});
+// Helper untuk view EJS: hmImg(url, lebar) -> URL proxy (path lokal dikembalikan apa adanya)
+app.locals.hmImg = (u, w) => {
+  const v = String(u || '');
+  return /^https?:\/\//i.test(v) ? '/img?w=' + (w || 480) + '&u=' + encodeURIComponent(v) : v;
+};
+
 app.use(cookieSession({
   name: 'hm_session',
   secret: process.env.SESSION_SECRET || 'hero-market-dev-only-not-for-prod',
@@ -2830,7 +2900,8 @@ const bannerCarouselUpload = multer({
 });
 
 app.get('/api/banners', async (req, res) => {
-  const settings = await readFresh('settings.json');
+  const settings = await readSmart('settings.json');
+  res.set('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=300');
   res.json((settings.banners || []).filter(b => b.active !== false));
 });
 
