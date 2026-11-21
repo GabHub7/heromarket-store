@@ -67,7 +67,7 @@ if (typeof window !== 'undefined') {
                     </button>
                 </form>
 
-                <% if (settings?.google?.clientId) { %>
+                <% if (typeof googleEnabled !== 'undefined' ? googleEnabled : settings?.google?.clientId) { %>
                 <div class="flex items-center gap-3 my-5">
                     <div class="flex-1 h-px bg-white/10"></div>
                     <span class="text-[10px] text-zinc-600 uppercase tracking-wider">atau</span>

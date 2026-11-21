@@ -3,348 +3,203 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Reseller VIP — <%= settings.siteName %></title>
-<script src="https://cdn.tailwindcss.com"></script>
+<meta name="theme-color" content="#060a1f">
+<title>Upgrade Reseller — <%= settings.siteName %></title>
+<link rel="preconnect" href="https://api.iconify.design" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"></noscript>
+<link rel="stylesheet" href="/css/hm-theme.css?v=<%= assetV('css/hm-theme.css') %>">
+<link rel="stylesheet" href="/css/hm-reseller.css?v=<%= assetV('css/hm-reseller.css') %>">
 <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js" defer></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
-<script>tailwind.config={theme:{extend:{fontFamily:{inter:['Inter','sans-serif'],orbitron:['Orbitron','sans-serif']}}}}</script>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Inter',sans-serif;background:#0a0a0a;color:#e0e0e0;min-height:100dvh;padding-bottom:40px;}
-body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(123,44,191,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(123,44,191,.015) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
-body>*{position:relative;z-index:1;}
-@keyframes shimmerGold{0%{background-position:0% 50%}100%{background-position:200% 50%}}
-@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes slideInBottom{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
-.shimmer-gold{background:linear-gradient(90deg,#fbbf24,#f59e0b,#fde68a,#f59e0b,#fbbf24);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmerGold 2.5s linear infinite;}
-.shimmer-purple{background:linear-gradient(90deg,#818cf8,#a78bfa,#c084fc);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.fade-in-up{animation:fadeInUp .35s ease-out both;}
-.animate-spin{animation:spin 1s linear infinite;}
-.neon-card{background:#151520;border:1px solid rgba(123,44,191,.25);border-radius:14px;}
-.hm-input{width:100%;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);color:#fff;font-size:13px;transition:all .2s;font-family:'Inter',sans-serif;}
-.hm-input:focus{outline:none;border-color:rgba(99,102,241,.6);background:rgba(99,102,241,.06);}
-.gold-card{background:linear-gradient(135deg,rgba(234,179,8,.1),rgba(251,191,36,.04));border:1px solid rgba(234,179,8,.25);box-shadow:0 0 30px rgba(234,179,8,.08);}
-.benefit-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.05);}
-.benefit-row:last-child{border-bottom:none;}
-.topup-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#e0e0e0;transition:all .15s;}
-.topup-chip:hover{background:rgba(234,179,8,.12);border-color:rgba(234,179,8,.4);color:#fbbf24;}
-.topup-chip.active{background:rgba(234,179,8,.18);border-color:rgba(234,179,8,.5);color:#fbbf24;}
-
-/* Toast */
-#toast-wrap{position:fixed;top:66px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
-.toast-item{padding:10px 14px;border-radius:12px;background:#151520;font-size:12px;max-width:280px;border:1px solid;animation:fadeInUp .3s ease-out both;}
-.toast-success{border-color:rgba(16,185,129,.4);color:#34d399;}
-.toast-error{border-color:rgba(239,68,68,.4);color:#f87171;}
-</style>
 </head>
-<body class="font-inter">
-<div id="toast-wrap"></div>
-
-<!-- NAVBAR -->
-<nav class="fixed top-0 left-0 right-0 z-50 bg-[#0d0d20]/95 backdrop-blur-md border-b border-white/5">
-    <div class="max-w-2xl mx-auto px-4">
-        <div class="flex items-center justify-between h-14">
-            <a href="/" class="flex items-center gap-2.5">
-                <span class="brand-wordmark brand-wordmark-sm shimmer-purple"><%= settings.siteName %></span>
-            </a>
-            <a href="/" class="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 transition-all">
-                <iconify-icon icon="mdi:arrow-left" class="text-sm"></iconify-icon> Kembali
-            </a>
-        </div>
+<body>
+<nav id="navbar" class="rs-nav">
+    <a href="/" class="rs-brand"><%= settings.siteName || 'HERO MARKET' %></a>
+    <div class="rs-nav-r">
+        <% if (user) { %>
+            <% if (pricing.current >= 1) { %><a href="/reseller/panel" class="rs-link">Panel</a><% } %>
+            <a href="/" class="rs-link">Beranda</a>
+        <% } else { %>
+            <a href="/login?redirect=/reseller" class="rs-link">Masuk</a>
+            <a href="/register" class="rs-cta">Daftar</a>
+        <% } %>
     </div>
 </nav>
 
-<div class="min-h-screen pt-16 pb-10 px-4">
-<div class="max-w-2xl mx-auto space-y-4">
+<main class="rs-wrap">
+    <h1 class="rs-title">Upgrade Reseller</h1>
+    <p class="rs-sub">Beli akses harga spesial, langsung pakai di katalog.</p>
 
-<!-- ── HERO ── -->
-<div class="gold-card rounded-2xl overflow-hidden mt-4 fade-in-up" style="animation-delay:.05s">
-    <div class="h-1.5 w-full" style="background:linear-gradient(90deg,#f59e0b,#fbbf24,#fde68a,#f59e0b);background-size:200%;animation:shimmerGold 2s linear infinite;"></div>
-    <div class="p-6 text-center">
-        <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-             style="background:linear-gradient(135deg,#d97706,#fbbf24);box-shadow:0 0 30px rgba(251,191,36,.4)">
-            <iconify-icon icon="mdi:crown" class="text-black text-3xl"></iconify-icon>
-        </div>
-        <div class="font-orbitron text-xl font-black shimmer-gold mb-2">RESELLER VIP</div>
-        <p class="text-sm text-zinc-400 leading-relaxed">
-            <%= settings.resellerNote || 'Bergabung dan nikmati harga eksklusif untuk semua produk!' %>
-        </p>
-    </div>
-</div>
-
-<% if (user && user.is_reseller) { %>
-<!-- ── SUDAH RESELLER ── -->
-<div class="neon-card p-6 text-center fade-in-up" style="border-color:rgba(234,179,8,.3)">
-    <iconify-icon icon="mdi:check-decagram" class="text-4xl text-yellow-400 block mx-auto mb-3"></iconify-icon>
-    <div class="font-orbitron text-base font-black text-yellow-400 mb-1">KAMU SUDAH RESELLER VIP!</div>
-    <p class="text-xs text-zinc-400 mb-5">Diskon <strong class="text-yellow-400"><%= settings.resellerDiscount || 20 %>%</strong> aktif otomatis di semua pembelian kamu.</p>
-    <% if (user.reseller_code) { %>
-    <div class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-sm font-black mb-2"
-         style="background:rgba(234,179,8,.1);border:1px solid rgba(234,179,8,.3);color:#fbbf24">
-        <iconify-icon icon="mdi:identifier" class="text-base"></iconify-icon>
-        <%= user.reseller_code %>
-    </div>
-    <p class="text-[10px] text-zinc-600">Kode identitas reseller kamu</p>
+    <% if (need) { %>
+    <div class="rs-note warn">API dan dokumentasi API khusus <b>Reseller Tier 2</b>. Upgrade dulu di bawah untuk membukanya.</div>
     <% } %>
-    <a href="/reseller/panel" class="mt-5 inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-black text-black"
-       style="background:linear-gradient(135deg,#d97706,#fbbf24);box-shadow:0 4px 20px rgba(251,191,36,.35)">
-        <iconify-icon icon="mdi:view-dashboard"></iconify-icon> Buka Seller Panel
-    </a>
-</div>
+    <% if (!enabled) { %>
+    <div class="rs-note warn">Pendaftaran reseller sedang ditutup oleh admin.</div>
+    <% } %>
 
-</div>
-
-<% } else { %>
-
-<!-- BENEFIT LIST ── -->
-<div class="neon-card p-5 fade-in-up" style="animation-delay:.1s">
-    <h2 class="text-sm font-black text-white mb-4 flex items-center gap-2">
-        <iconify-icon icon="mdi:star-circle" class="text-yellow-400 text-lg"></iconify-icon>
-        Keuntungan Reseller VIP
-    </h2>
-    <div class="benefit-row">
-        <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-             style="background:rgba(234,179,8,.15);border:1px solid rgba(234,179,8,.25)">
-            <iconify-icon icon="mdi:tag-multiple" class="text-yellow-400 text-base"></iconify-icon>
-        </div>
-        <div>
-            <div class="text-sm font-bold text-white">Diskon <span class="text-yellow-400"><%= settings.resellerDiscount || 20 %>%</span> Otomatis Semua Produk</div>
-            <div class="text-[11px] text-zinc-500 mt-0.5">Harga reseller langsung terpotong tanpa perlu input kode apapun.</div>
-        </div>
+    <% if (pricing.current >= 2) { %>
+    <div class="rs-card">
+        <div class="rs-label">Status kamu</div>
+        <ul class="rs-list">
+            <li><span class="rs-tick">✓</span><span><b>Reseller Tier 2 aktif</b> — harga khusus reseller, akses API, dan dokumentasi sudah terbuka. Berlaku selamanya.</span></li>
+        </ul>
     </div>
-    <div class="benefit-row">
-        <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-             style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.25)">
-            <iconify-icon icon="mdi:lightning-bolt" class="text-indigo-400 text-base"></iconify-icon>
-        </div>
-        <div>
-            <div class="text-sm font-bold text-white">Harga Langsung Terpotong di Checkout</div>
-            <div class="text-[11px] text-zinc-500 mt-0.5">Harga normal dicoret, harga reseller tampil di setiap pilihan paket.</div>
-        </div>
+    <div class="rs-row" style="margin-bottom:16px;">
+        <a href="/reseller/panel" class="rs-ghost"><iconify-icon icon="mdi:storefront-outline"></iconify-icon> Panel &amp; Saldo</a>
+        <a href="/reseller/api" class="rs-ghost"><iconify-icon icon="mdi:key-variant"></iconify-icon> API Key</a>
+        <a href="/docs/api" class="rs-ghost"><iconify-icon icon="mdi:book-open-variant"></iconify-icon> Dokumentasi</a>
     </div>
-    <div class="benefit-row">
-        <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-             style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.25)">
-            <iconify-icon icon="mdi:identifier" class="text-emerald-400 text-base"></iconify-icon>
-        </div>
-        <div>
-            <div class="text-sm font-bold text-white">Kode Reseller Unik</div>
-            <div class="text-[11px] text-zinc-500 mt-0.5">Kode identitas reseller sebagai tanda keanggotaan VIP.</div>
-        </div>
-    </div>
-    <div class="benefit-row">
-        <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-             style="background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.25)">
-            <iconify-icon icon="mdi:crown" class="text-purple-400 text-base"></iconify-icon>
-        </div>
-        <div>
-            <div class="text-sm font-bold text-white">Badge VIP di Profil & Leaderboard</div>
-            <div class="text-[11px] text-zinc-500 mt-0.5">Status VIP tampil di badge profil dan halaman admin.</div>
-        </div>
-    </div>
-</div>
-
-<!-- ── HARGA & BAYAR ── -->
-<div class="gold-card rounded-2xl p-6 fade-in-up" style="animation-delay:.15s">
-    <div class="text-center mb-6">
-        <div class="text-xs text-zinc-500 uppercase tracking-widest mb-2">Biaya Keanggotaan Reseller VIP</div>
-        <div class="font-orbitron text-4xl font-black shimmer-gold mb-1">
-            Rp <%= (settings.resellerPrice || 50000).toLocaleString('id-ID') %>
-        </div>
-        <div class="text-[11px] text-zinc-500">Bayar sekali · Diskon <strong class="text-yellow-400"><%= settings.resellerDiscount || 20 %>%</strong> berlaku selamanya</div>
-    </div>
-
-    <% if (!user) { %>
-    <a href="/login?redirect=/reseller"
-       class="flex items-center justify-center gap-2 w-full py-4 rounded-xl text-sm font-black text-black"
-       style="background:linear-gradient(135deg,#d97706,#fbbf24);box-shadow:0 4px 20px rgba(251,191,36,.35)">
-        <iconify-icon icon="mdi:login" class="text-lg"></iconify-icon> Login untuk Bergabung
-    </a>
-    <p class="text-[10px] text-zinc-600 text-center mt-3">Belum punya akun? <a href="/register" class="text-indigo-400 underline">Daftar gratis</a></p>
     <% } else { %>
-    <button id="joinBtn" onclick="handleJoin()"
-        class="flex items-center justify-center gap-2 w-full py-4 rounded-xl text-sm font-black text-black"
-        style="background:linear-gradient(135deg,#d97706,#fbbf24);box-shadow:0 4px 20px rgba(251,191,36,.35)">
-        <iconify-icon icon="mdi:crown" class="text-lg"></iconify-icon> Daftar Sekarang — Bayar via QRIS
-    </button>
-    <% } %>
-</div>
 
-<% } %>
-</div><!-- /max-w -->
-</div>
+    <div class="rs-tiers" id="tiers">
+        <button type="button" class="rs-tier <%= pricing.current >= 1 ? 'done' : '' %>" data-tier="1" onclick="pickTier(1)">
+            <div class="rs-tier-name">Tier 1</div>
+            <div class="rs-tier-tag">Harga murah</div>
+            <div class="rs-tier-price">Rp <%= pricing.tier1.toLocaleString('id-ID') %></div>
+            <div class="rs-tier-note">sekali bayar</div>
+            <% if (pricing.current >= 1) { %><span class="rs-badge-on">Aktif</span><% } else { %><span class="rs-tier-check">✓</span><% } %>
+        </button>
+        <button type="button" class="rs-tier" data-tier="2" onclick="pickTier(2)">
+            <div class="rs-tier-name">Tier 2</div>
+            <div class="rs-tier-tag">Harga murah + API</div>
+            <div class="rs-tier-price">Rp <%= (pricing.current === 1 ? pricing.upgrade2 : pricing.tier2).toLocaleString('id-ID') %></div>
+            <div class="rs-tier-note"><%= pricing.current === 1 ? 'upgrade dari Tier 1 (selisih)' : 'sekali bayar' %></div>
+            <span class="rs-tier-check">✓</span>
+        </button>
+    </div>
 
-<!-- ── PAYMENT MODAL ── -->
-<div id="payModal" class="fixed inset-0 z-[9999] hidden">
-    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closePayment()"></div>
-    <div class="absolute inset-0 flex flex-col justify-end pointer-events-none">
-        <div class="pointer-events-auto bg-[#0f0f25] rounded-t-3xl border-t border-x border-yellow-500/20 shadow-2xl w-full"
-             style="max-height:90dvh;overflow-y:auto;animation:slideInBottom .3s ease-out both;padding-bottom:calc(24px + env(safe-area-inset-bottom));">
-            <div class="h-1 w-full rounded-t-3xl" style="background:linear-gradient(90deg,#d97706,#fbbf24,#fde68a);background-size:200%;animation:shimmerGold 2s linear infinite;"></div>
-            <div class="flex justify-center pt-3 pb-1"><div class="w-10 h-1 rounded-full bg-white/15"></div></div>
-            <div class="flex items-center justify-between px-5 py-3 border-b border-white/5">
-                <h3 class="text-sm font-bold text-white flex items-center gap-2" id="payModalTitle">
-                    <iconify-icon icon="mdi:crown" class="text-yellow-400"></iconify-icon> Pembayaran Reseller VIP
-                </h3>
-                <button onclick="closePayment()" class="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white">
-                    <iconify-icon icon="mdi:close"></iconify-icon>
-                </button>
+    <div class="rs-card">
+        <div class="rs-label">Yang kamu dapat</div>
+        <ul class="rs-list" id="benefits"></ul>
+    </div>
+
+    <div class="rs-card">
+        <div class="rs-total">
+            <div>
+                <div class="rs-label muted">Total</div>
+                <div class="rs-total-price" id="totalPrice">Rp 0</div>
             </div>
-            <div class="p-5 text-center">
-                <div id="qrCodeWrap" class="flex justify-center mb-4">
-                    <iconify-icon icon="mdi:loading" class="text-3xl text-yellow-400 animate-spin"></iconify-icon>
-                </div>
-                <div class="rounded-xl p-3 mb-3" style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
-                    <div class="text-[10px] text-zinc-500 mb-0.5">Kode Pesanan</div>
-                    <div class="text-lg font-mono font-black text-yellow-400 tracking-widest" id="orderCodeShow">—</div>
-                </div>
-                <div class="text-xs font-bold text-indigo-300 mb-2" id="payAmountShow"></div>
-                <div id="payStatusRow" class="flex items-center justify-center gap-2">
-                    <div class="w-2 h-2 rounded-full bg-yellow-400" style="animation:spin 1s linear infinite;"></div>
-                    <span class="text-xs text-zinc-400">Menunggu pembayaran...</span>
-                </div>
-            </div>
+            <div class="rs-total-note" id="totalNote">Sekali bayar</div>
         </div>
     </div>
+
+    <% if (user) { %>
+    <button type="button" class="rs-pay" id="payBtn" onclick="handleJoin()" <%= enabled ? '' : 'disabled' %>>Bayar Sekarang</button>
+    <% } else { %>
+    <a href="/login?redirect=/reseller" class="rs-pay">Login untuk Daftar</a>
+    <% } %>
+    <p class="rs-sub" style="margin:14px 0 0;font-size:11px;text-align:center;">Pembayaran lewat QRIS. Status aktif otomatis setelah pembayaran terkonfirmasi.</p>
+    <% } %>
+</main>
+
+<!-- MODAL PEMBAYARAN -->
+<div class="rs-modal" id="payModal" onclick="if(event.target===this)closePayment()">
+    <div class="rs-sheet">
+        <h3 id="payTitle">Pembayaran Reseller</h3>
+        <div id="qrWrap" style="margin-bottom:6px;"></div>
+        <div class="rs-code"><small>Kode Pesanan</small><b id="orderCodeShow">—</b></div>
+        <div style="font-size:13px;font-weight:700;color:#c4ccff;" id="payAmountShow"></div>
+        <div class="rs-status" id="payStatusRow">Menunggu pembayaran…</div>
+        <button type="button" class="rs-ghost" style="margin:16px auto 0;width:100%;" onclick="closePayment()">Tutup</button>
+    </div>
 </div>
+<div class="rs-toast" id="toast"></div>
 
 <script>
+const P = <%- JSON.stringify({ tier1: pricing.tier1, tier2: pricing.tier2, upgrade2: pricing.upgrade2, current: pricing.current, discount: pricing.discount }) %>;
+let tier = P.current === 1 ? 2 : (P.current === 0 ? 1 : 2);
 let payInterval = null;
-let currentMode = 'join';
 
-function showToast(msg, type='info') {
-    const wrap = document.getElementById('toast-wrap');
-    const el = document.createElement('div');
-    el.className = `toast-item toast-${type}`;
-    el.textContent = msg;
-    wrap.appendChild(el);
-    setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3500);
+const BENEFITS = {
+  1: [
+    ['Harga key lebih murah', 'Setiap produk punya harga khusus reseller (hemat sekitar ' + P.discount + '% atau harga khusus per produk), langsung dipotong saat checkout.', true],
+    ['Beli pakai saldo', 'Top up saldo sekali, lalu belanja key kapan saja tanpa scan QRIS tiap order.', true],
+    ['Panel reseller', 'Riwayat key, mutasi saldo, dan ringkasan pembelian dalam satu tempat.', true],
+    ['Sekali bayar', 'Aktif selamanya, tanpa langganan bulanan.', true],
+    ['Belum bisa disambungkan ke web lain', 'Tier 1 hanya untuk belanja di web ini. Butuh integrasi otomatis? Pilih Tier 2.', false]
+  ],
+  2: [
+    ['Semua benefit Tier 1', 'Harga key lebih murah, beli pakai saldo, dan panel reseller.', true],
+    ['API Reseller', 'Buat API key sendiri lalu ambil katalog, stok, dan order key otomatis lewat API.', true],
+    ['Auto-restock ke web lain', 'Sambungkan ke web toko kamu: Hero Market jadi provider auto-restock, key terkirim langsung saat ada pembelian.', true],
+    ['Dokumentasi API', 'Dokumentasi lengkap (khusus Tier 2) berikut contoh curl dan Node.js.', true],
+    ['Sekali bayar', 'Aktif selamanya, tanpa langganan bulanan.', true]
+  ]
+};
+
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function render() {
+  document.querySelectorAll('.rs-tier').forEach(el => el.classList.toggle('on', Number(el.dataset.tier) === tier && !(P.current >= Number(el.dataset.tier))));
+  const ul = document.getElementById('benefits'); if (!ul) return;
+  ul.innerHTML = BENEFITS[tier].map(b => '<li class="' + (b[2] ? '' : 'off') + '"><span class="rs-tick ' + (b[2] ? '' : 'no') + '">' + (b[2] ? '✓' : '–') + '</span><span><b>' + esc(b[0]) + '</b> — ' + esc(b[1]) + '</span></li>').join('');
+  const price = tier === 1 ? P.tier1 : P.upgrade2;
+  document.getElementById('totalPrice').textContent = 'Rp ' + price.toLocaleString('id-ID');
+  document.getElementById('totalNote').textContent = (tier === 2 && P.current === 1) ? 'Selisih upgrade' : 'Sekali bayar';
+  const btn = document.getElementById('payBtn');
+  if (btn) {
+    const already = P.current >= tier;
+    btn.disabled = already || btn.hasAttribute('data-closed');
+    btn.textContent = already ? 'Sudah Aktif' : (tier === 2 && P.current === 1 ? 'Upgrade ke Tier 2' : 'Bayar Sekarang');
+  }
+}
+function pickTier(t) { if (P.current >= t) return; tier = t; render(); }
+
+function toast(msg, type) {
+  const w = document.getElementById('toast'), el = document.createElement('div');
+  el.className = type || ''; el.textContent = msg; w.appendChild(el);
+  setTimeout(() => el.remove(), 3800);
 }
 
 async function handleJoin() {
-    const btn = document.getElementById('joinBtn');
-    if (!btn) return;
-    btn.disabled = true;
-    btn.innerHTML = '<iconify-icon icon="mdi:loading" class="animate-spin text-lg text-black"></iconify-icon> <span class="text-black">Membuat pesanan...</span>';
-    try {
-        const res = await fetch('/reseller/join', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: '{}'
-        });
-        const data = await res.json();
-        if (data.success) {
-            currentMode = 'join';
-            showPaymentModal(data.qrString, data.orderCode, data.refId, data.isStatic, data.qrisStaticImage, data.totalPayment || <%= settings.resellerPrice || 50000 %>);
-        } else {
-            showToast(data.message || 'Gagal membuat pesanan', 'error');
-            btn.disabled = false;
-            btn.innerHTML = '<iconify-icon icon="mdi:crown" class="text-lg text-black"></iconify-icon> <span class="text-black">Daftar Sekarang — Bayar via QRIS</span>';
-        }
-    } catch(e) {
-        showToast('Koneksi error', 'error');
-        btn.disabled = false;
-        btn.innerHTML = '<iconify-icon icon="mdi:crown" class="text-lg text-black"></iconify-icon> <span class="text-black">Daftar Sekarang — Bayar via QRIS</span>';
-    }
+  const btn = document.getElementById('payBtn'); if (!btn || btn.disabled) return;
+  const label = btn.textContent; btn.disabled = true; btn.textContent = 'Membuat pesanan…';
+  try {
+    const res = await fetch('/reseller/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tier }) });
+    const d = await res.json();
+    if (d.success) showPayment(d);
+    else { toast(d.message || 'Gagal membuat pesanan', 'err'); }
+  } catch (e) { toast('Koneksi error, coba lagi.', 'err'); }
+  btn.disabled = false; btn.textContent = label; render();
 }
 
-document.querySelectorAll('.topup-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-        document.querySelectorAll('.topup-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        document.getElementById('topupNominal').value = chip.dataset.val;
-    });
-});
-
-async function handleTopup() {
-    const nominal = parseInt(document.getElementById('topupNominal').value);
-    if (!nominal || nominal < 10000) { showToast('Minimal topup Rp10.000', 'error'); return; }
-    const btn = document.getElementById('topupBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<iconify-icon icon="mdi:loading" class="animate-spin text-lg text-black"></iconify-icon> <span class="text-black">Membuat pesanan...</span>';
-    try {
-        const res = await fetch('/reseller/topup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nominal })
-        });
-        const data = await res.json();
-        if (data.success) {
-            currentMode = 'topup';
-            showPaymentModal(data.qrString, data.orderCode, data.refId, data.isStatic, data.qrisStaticImage, nominal);
-        } else {
-            showToast(data.message || 'Gagal membuat pesanan topup', 'error');
-        }
-    } catch(e) {
-        showToast('Koneksi error', 'error');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<iconify-icon icon="mdi:plus-circle" class="text-lg text-black"></iconify-icon> <span class="text-black">Topup Saldo — Bayar via QRIS</span>';
-    }
-}
-
-function showPaymentModal(qrString, code, refId, isStatic, staticImg, amount) {
-    document.getElementById('payModal').classList.remove('hidden');
-    document.getElementById('orderCodeShow').textContent = code;
-    document.getElementById('payAmountShow').textContent = 'Total: Rp ' + (amount||0).toLocaleString('id-ID');
-    document.body.style.overflow = 'hidden';
-    document.getElementById('payModalTitle').innerHTML = currentMode === 'topup'
-        ? '<iconify-icon icon="mdi:wallet" class="text-yellow-400"></iconify-icon> Pembayaran Topup Saldo'
-        : '<iconify-icon icon="mdi:crown" class="text-yellow-400"></iconify-icon> Pembayaran Reseller VIP';
-
-    if (isStatic && staticImg) {
-        document.getElementById('qrCodeWrap').innerHTML =
-            `<div class="text-center">
-                <div style="background:#fff;padding:12px;border-radius:16px;display:inline-block;">
-                    <img src="${staticImg}" style="display:block;max-width:200px;max-height:200px;object-fit:contain;border-radius:6px;">
-                </div>
-                <div class="mt-2 text-[10px] text-yellow-400 flex items-center justify-center gap-1">
-                    <iconify-icon icon="mdi:information-outline" class="text-xs"></iconify-icon>
-                    Konfirmasi pembayaran ke admin via WA/Telegram
-                </div>
-            </div>`;
-        document.getElementById('payStatusRow').innerHTML =
-            '<iconify-icon icon="mdi:clock-outline" class="text-yellow-400"></iconify-icon><span class="text-xs text-zinc-400">Menunggu konfirmasi admin</span>';
-    } else if (qrString) {
-        document.getElementById('qrCodeWrap').innerHTML =
-            `<div style="background:#fff;padding:12px;border-radius:16px;">
-                <img src="${/^(https?:\/\/|data:image)/i.test(qrString) ? qrString : 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&color=000000&bgcolor=ffffff&data=' + encodeURIComponent(qrString)}"
-                     style="display:block;width:200px;height:200px;border-radius:6px;">
-             </div>`;
-    } else {
-        document.getElementById('qrCodeWrap').innerHTML =
-            `<div class="w-48 h-24 rounded-xl flex items-center justify-center text-center p-4 text-xs text-zinc-500" style="border:1px solid rgba(255,255,255,.1)">
-                QRIS belum dikonfigurasi. Hubungi admin.
-            </div>`;
-    }
-
-    if (refId && !isStatic) payInterval = setInterval(() => checkPay(refId), 6000);
+function showPayment(d) {
+  document.getElementById('payModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('payTitle').textContent = d.tier === 2 ? 'Pembayaran Reseller Tier 2' : 'Pembayaran Reseller Tier 1';
+  document.getElementById('orderCodeShow').textContent = d.orderCode || '—';
+  document.getElementById('payAmountShow').textContent = 'Total: Rp ' + (d.totalPayment || 0).toLocaleString('id-ID');
+  const wrap = document.getElementById('qrWrap'), st = document.getElementById('payStatusRow');
+  if (d.isStatic && d.qrisStaticImage) {
+    wrap.innerHTML = '<div class="rs-qr"><img alt="QRIS" src="' + encodeURI(d.qrisStaticImage) + '"></div>';
+    st.textContent = 'Setelah membayar, konfirmasi ke admin via WA/Telegram. Aktif setelah dikonfirmasi.';
+  } else if (d.qrString) {
+    const isImg = /^(https?:\/\/|data:image)/i.test(d.qrString);
+    wrap.innerHTML = '<div class="rs-qr"><img alt="QRIS" src="' + (isImg ? d.qrString : 'https://api.qrserver.com/v1/create-qr-code/?size=210x210&data=' + encodeURIComponent(d.qrString)) + '"></div>';
+    st.textContent = 'Menunggu pembayaran…';
+    if (payInterval) clearInterval(payInterval);
+    payInterval = setInterval(() => checkPay(d.refId), 6000);
+  } else {
+    wrap.innerHTML = '<div class="rs-note warn">QRIS belum dikonfigurasi. Hubungi admin.</div>';
+  }
 }
 
 async function checkPay(refId) {
-    try {
-        const r = await fetch(`/check-payment/${refId}`);
-        const d = await r.json();
-        if (d.success && d.status === 'done') {
-            clearInterval(payInterval);
-            document.getElementById('payStatusRow').innerHTML =
-                '<iconify-icon icon="mdi:check-circle" class="text-emerald-400 text-xl"></iconify-icon><span class="text-sm font-bold text-emerald-400">Pembayaran berhasil!</span>';
-            if (currentMode === 'topup') {
-                showToast('💰 Topup berhasil! Saldo kamu sudah bertambah', 'success');
-            } else {
-                showToast('🎉 Selamat! Kamu sekarang Reseller VIP!', 'success');
-            }
-            setTimeout(() => { closePayment(); window.location.reload(); }, 2000);
-        }
-    } catch(e) {}
+  try {
+    const r = await fetch('/check-payment/' + refId); const d = await r.json();
+    if (d.success && d.status === 'done') {
+      clearInterval(payInterval);
+      document.getElementById('payStatusRow').innerHTML = '<b style="color:#34d399">Pembayaran berhasil! Reseller aktif.</b>';
+      toast('Selamat, akun reseller kamu aktif!', 'ok');
+      setTimeout(() => location.href = '/reseller', 1800);
+    }
+  } catch (e) {}
 }
-
 function closePayment() {
-    if (payInterval) clearInterval(payInterval);
-    document.getElementById('payModal').classList.add('hidden');
-    document.body.style.overflow = '';
+  if (payInterval) clearInterval(payInterval);
+  document.getElementById('payModal').classList.remove('open');
+  document.body.style.overflow = '';
 }
+render();
 </script>
 </body>
 </html>

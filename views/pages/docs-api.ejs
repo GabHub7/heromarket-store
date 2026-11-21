@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#060a1f">
+<meta name="robots" content="noindex">
+<title>Dokumentasi API Reseller — <%= settings.siteName %></title>
+<link rel="preconnect" href="https://api.iconify.design" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"></noscript>
+<link rel="stylesheet" href="/css/hm-theme.css?v=<%= assetV('css/hm-theme.css') %>">
+<link rel="stylesheet" href="/css/hm-reseller.css?v=<%= assetV('css/hm-reseller.css') %>">
+</head>
+<body>
+<nav id="navbar" class="rs-nav">
+    <a href="/" class="rs-brand"><%= settings.siteName || 'HERO MARKET' %></a>
+    <div class="rs-nav-r">
+        <a href="/reseller/api" class="rs-link">API Key</a>
+        <a href="/reseller/panel" class="rs-link">Panel</a>
+    </div>
+</nav>
+
+<main class="rs-wrap wide">
+    <h1 class="rs-title">Dokumentasi API Reseller</h1>
+    <p class="rs-sub">Reseller API v1 — katalog flat per SKU, saldo wallet, order dengan Idempotency-Key, key dikirim langsung di respons. Khusus Reseller Tier 2.</p>
+
+    <div class="rs-toc">
+        <a href="#mulai">Mulai cepat</a><a href="#auth">Autentikasi</a><a href="#format">Format respons</a><a href="#sku">SKU</a>
+        <a href="#endpoint">Endpoint</a><a href="#idem">Idempotency</a><a href="#error">Kode error</a><a href="#contoh">Contoh kode</a><a href="#restock">Auto-restock</a>
+    </div>
+
+    <h2 class="rs-h2" id="mulai">Mulai cepat</h2>
+    <div class="rs-card">
+        <ul class="rs-list">
+            <li><span class="rs-tick">1</span><span>Buka <a href="/reseller/api" style="color:var(--hm-accent)"><b>API Key</b></a> lalu buat key. Key utuh hanya tampil sekali.</span></li>
+            <li><span class="rs-tick">2</span><span>Isi saldo di <a href="/reseller/panel" style="color:var(--hm-accent)"><b>Panel Reseller</b></a>. Order memotong saldo wallet.</span></li>
+            <li><span class="rs-tick">3</span><span>Panggil <code>GET /products</code> untuk melihat SKU dan harga, lalu <code>POST /orders</code> untuk membeli.</span></li>
+        </ul>
+    </div>
+    <p class="rs-p">Base URL: <span class="rs-mono"><%= baseUrl %></span></p>
+
+    <h2 class="rs-h2" id="auth">Autentikasi</h2>
+    <p class="rs-p">Kirim API key di header <code style="font-family:monospace">Authorization</code>. Jangan kirim lewat query string.</p>
+    <div class="rs-pre">Authorization: Bearer rk_live_&lt;48 karakter hex&gt;</div>
+    <p class="rs-p">Rate limit 120 request per menit per key (429 <code>BUSY</code>). Maksimal 20 unit per order.</p>
+
+    <h2 class="rs-h2" id="format">Format respons</h2>
+    <p class="rs-p">Semua respons JSON. Uang dalam Rupiah bilangan bulat, <code>currency: "IDR"</code>.</p>
+<div class="rs-pre">// sukses
+{ "data": { ... } }
+
+// gagal
+{ "error": { "code": "INSUFFICIENT_BALANCE", "message": "Saldo tidak cukup. ..." } }</div>
+
+    <h2 class="rs-h2" id="sku">SKU (apiCode)</h2>
+    <p class="rs-p">Satu SKU = satu produk + satu durasi, formatnya <code style="font-family:monospace">&lt;productId&gt;.&lt;angka&gt;&lt;unit&gt;</code> dengan unit <code style="font-family:monospace">d</code> (hari), <code style="font-family:monospace">h</code> (jam), <code style="font-family:monospace">m</code> (menit). Contoh: <code style="font-family:monospace">p17.30d</code>. Ambil daftar SKU dari <code>GET /products</code>, jangan ditebak.</p>
+
+    <h2 class="rs-h2" id="endpoint">Endpoint</h2>
+
+    <div class="rs-ep"><span class="rs-m get">GET</span><span class="rs-path">/me</span></div>
+    <p class="rs-p">Info akun dan batas pemakaian.</p>
+<div class="rs-pre">{ "data": { "username": "toko-kamu", "role": "RESELLER", "currency": "IDR",
+  "keyPrefix": "rk_live_ab12…f9e0", "rateLimitRpm": 120, "maxQuantity": 20 } }</div>
+
+    <div class="rs-ep"><span class="rs-m get">GET</span><span class="rs-path">/balance</span></div>
+    <p class="rs-p">Saldo wallet terbaru (dibaca segar, bukan cache).</p>
+<div class="rs-pre">{ "data": { "balance": 250000, "currency": "IDR" } }</div>
+
+    <div class="rs-ep"><span class="rs-m get">GET</span><span class="rs-path">/products</span></div>
+    <p class="rs-p">Katalog flat: 1 item = 1 produk + 1 durasi. Harga sudah harga reseller. Hanya produk aktif.</p>
+<div class="rs-pre">{ "data": { "currency": "IDR", "priceTier": "reseller", "items": [
+  { "apiCode": "p17.30d", "name": "ZETTA 30 DAYS", "product": "ZETTA", "productApiCode": "p17",
+    "category": "freefire", "label": "30 DAYS", "days": 30, "unit": "d", "amount": 30,
+    "price": 280000, "currency": "IDR", "stock": 12, "inStock": true, "is_maintenance": false }
+] } }</div>
+    <div class="rs-scroll"><table class="rs-table">
+        <tr><th>Field</th><th>Arti</th></tr>
+        <tr><td class="rs-td"><code>stock</code></td><td>Jumlah key tersedia, atau <code>null</code> kalau stok live dari provider (tanpa batas / tidak diketahui).</td></tr>
+        <tr><td class="rs-td"><code>inStock</code></td><td><code>true</code> kalau bisa dipesan (tidak maintenance dan stok &gt; 0 atau <code>null</code>).</td></tr>
+        <tr><td class="rs-td"><code>is_maintenance</code></td><td><code>true</code> kalau produk sedang offline.</td></tr>
+        <tr><td class="rs-td"><code>days</code></td><td>Durasi dalam hari (bisa pecahan untuk varian jam/menit). Gunakan <code>unit</code> + <code>amount</code> untuk nilai persisnya.</td></tr>
+    </table></div>
+
+    <div class="rs-ep"><span class="rs-m get">GET</span><span class="rs-path">/stock?sku=p17.30d</span></div>
+<div class="rs-pre">{ "data": { "apiCode": "p17.30d", "stock": 12, "inStock": true, "is_maintenance": false } }</div>
+    <p class="rs-p">SKU tidak ada: 404 <code>UNKNOWN_SKU</code>.</p>
+
+    <div class="rs-ep"><span class="rs-m post">POST</span><span class="rs-path">/orders</span></div>
+    <p class="rs-p">Beli key. Header <code>Idempotency-Key</code> <b>wajib</b> (maks 100 karakter, unik per order).</p>
+<div class="rs-pre">POST /orders
+Authorization: Bearer rk_live_...
+Idempotency-Key: order-2026-0001
+Content-Type: application/json
+
+{ "sku": "p17.30d", "quantity": 2, "target": "ref-pelanggan-123" }</div>
+    <p class="rs-p"><code>quantity</code> bulat 1–20 (default 1). <code>target</code> opsional (maks 80 karakter), dicatat sebagai referensi.</p>
+<div class="rs-pre">{ "data": { "id": "9c1d…", "code": "HM123456", "status": "FULFILLED", "sku": "p17.30d",
+  "quantity": 2, "price": 560000, "unitPrice": 280000, "currency": "IDR",
+  "keys": ["KEY-AAAA", "KEY-BBBB"], "balance": 190000, "createdAt": "2026-11-21T08:00:00.000Z" } }</div>
+    <p class="rs-p"><b>PARTIAL:</b> kalau stok hanya cukup sebagian, order tetap dibuat dengan <code>status: "PARTIAL"</code>, <code>quantity</code> = jumlah yang terkirim, dan kamu <b>hanya ditagih yang terkirim</b>. Tidak ada key terkirim sama sekali: 409 <code>BUSY</code> dan saldo tidak berubah.</p>
+
+    <div class="rs-ep"><span class="rs-m get">GET</span><span class="rs-path">/orders?page=1&amp;limit=20</span></div>
+    <p class="rs-p">Riwayat order API milikmu, terbaru dulu. <code>limit</code> 1–50. Key tidak ikut di daftar.</p>
+<div class="rs-pre">{ "data": { "page": 1, "limit": 20, "total": 1, "hasMore": false, "items": [
+  { "id": "9c1d…", "code": "HM123456", "status": "FULFILLED", "sku": "p17.30d",
+    "quantity": 2, "price": 560000, "keysCount": 2, "createdAt": "2026-11-21T08:00:00.000Z" } ] } }</div>
+
+    <div class="rs-ep"><span class="rs-m get">GET</span><span class="rs-path">/orders/:id</span></div>
+    <p class="rs-p">Detail satu order (pakai <code>id</code> atau <code>code</code>) lengkap dengan <code>keys</code>. Bukan milikmu: 404 <code>NOT_FOUND</code>.</p>
+
+    <h2 class="rs-h2" id="idem">Idempotency &amp; retry aman</h2>
+    <p class="rs-p">Kalau koneksi putus sebelum kamu menerima respons order, <b>kirim ulang request yang sama persis dengan Idempotency-Key yang sama</b>. Kamu akan menerima order yang sama dan saldo tidak dipotong dua kali. Key sama dengan SKU berbeda ditolak (422 <code>IDEMPOTENCY_MISMATCH</code>). Buat key baru hanya untuk order baru.</p>
+    <p class="rs-p">Hanya satu order diproses per reseller dalam satu waktu. Kalau ada yang sedang berjalan kamu menerima 409 <code>PURCHASE_PENDING</code>: tunggu sebentar lalu ulangi dengan key yang sama.</p>
+
+    <h2 class="rs-h2" id="error">Kode error</h2>
+    <div class="rs-scroll"><table class="rs-table">
+        <tr><th>HTTP</th><th>code</th><th>Arti</th></tr>
+        <tr><td class="rs-td">400</td><td class="rs-td"><code>IDEMPOTENCY_REQUIRED</code></td><td>Header Idempotency-Key kosong atau lebih dari 100 karakter.</td></tr>
+        <tr><td class="rs-td">400</td><td class="rs-td"><code>DURATION_REQUIRED</code></td><td>sku kosong atau formatnya salah.</td></tr>
+        <tr><td class="rs-td">400</td><td class="rs-td"><code>INVALID_QTY</code></td><td>quantity bukan bilangan bulat 1–20.</td></tr>
+        <tr><td class="rs-td">400</td><td class="rs-td"><code>PRODUCT_MAINTENANCE</code></td><td>Produk sedang maintenance.</td></tr>
+        <tr><td class="rs-td">401</td><td class="rs-td"><code>UNAUTHORIZED</code></td><td>API key kosong, salah, diganti, atau dicabut.</td></tr>
+        <tr><td class="rs-td">402</td><td class="rs-td"><code>INSUFFICIENT_BALANCE</code></td><td>Saldo kurang. Pesan memuat jumlah yang dibutuhkan dan saldomu.</td></tr>
+        <tr><td class="rs-td">403</td><td class="rs-td"><code>FORBIDDEN</code></td><td>Bukan Reseller Tier 2 aktif, atau API sedang dimatikan admin.</td></tr>
+        <tr><td class="rs-td">404</td><td class="rs-td"><code>UNKNOWN_SKU</code></td><td>SKU tidak ada.</td></tr>
+        <tr><td class="rs-td">404</td><td class="rs-td"><code>NOT_FOUND</code></td><td>Order atau endpoint tidak ditemukan.</td></tr>
+        <tr><td class="rs-td">409</td><td class="rs-td"><code>BUSY</code></td><td>Stok habis / tidak tersedia. Saldo tidak berubah.</td></tr>
+        <tr><td class="rs-td">409</td><td class="rs-td"><code>PURCHASE_PENDING</code></td><td>Masih ada order lain yang diproses.</td></tr>
+        <tr><td class="rs-td">422</td><td class="rs-td"><code>IDEMPOTENCY_MISMATCH</code></td><td>Idempotency-Key sudah dipakai untuk SKU lain.</td></tr>
+        <tr><td class="rs-td">429</td><td class="rs-td"><code>BUSY</code></td><td>Lebih dari 120 request per menit. Coba lagi setelah <code>Retry-After</code> detik.</td></tr>
+        <tr><td class="rs-td">500</td><td class="rs-td"><code>INTERNAL</code></td><td>Kesalahan server. Aman diulang dengan Idempotency-Key yang sama.</td></tr>
+    </table></div>
+
+    <h2 class="rs-h2" id="contoh">Contoh kode</h2>
+    <p class="rs-p">curl:</p>
+<div class="rs-pre">KEY="rk_live_xxxxxxxx"
+BASE="<%= baseUrl %>"
+
+curl -s "$BASE/products" -H "Authorization: Bearer $KEY"
+
+curl -s -X POST "$BASE/orders" \
+  -H "Authorization: Bearer $KEY" \
+  -H "Idempotency-Key: order-2026-0001" \
+  -H "Content-Type: application/json" \
+  -d '{"sku":"p17.30d","quantity":1}'</div>
+    <p class="rs-p">Node.js (retry aman):</p>
+<div class="rs-pre">const BASE = '<%= baseUrl %>';
+const KEY = process.env.HM_API_KEY;
+
+async function buy(sku, quantity, idem) {
+  for (let attempt = 1; attempt &lt;= 4; attempt++) {
+    try {
+      const res = await fetch(BASE + '/orders', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + KEY,
+          'Idempotency-Key': idem,           // SAMA di setiap percobaan
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ sku, quantity })
+      });
+      const body = await res.json();
+      if (res.ok) return body.data;                       // 200 / 201
+      const code = body.error &amp;&amp; body.error.code;
+      const retryable = res.status &gt;= 500 || code === 'PURCHASE_PENDING' || res.status === 429;
+      if (!retryable) throw new Error(code + ': ' + body.error.message);
+    } catch (e) {
+      if (attempt === 4) throw e;                         // jaringan putus: ulangi dengan key yang sama
+    }
+    await new Promise(r =&gt; setTimeout(r, 1000 * attempt));
+  }
+}</div>
+
+    <h2 class="rs-h2" id="restock">Menyambungkan ke web toko lain (auto-restock)</h2>
+    <div class="rs-card">
+        <ul class="rs-list">
+            <li><span class="rs-tick">1</span><span><b>Sinkron katalog:</b> panggil <code>GET /products</code> berkala (mis. tiap beberapa menit) dan petakan <code>apiCode</code> ke produk di webmu. Gunakan <code>stock</code> / <code>inStock</code> untuk menampilkan ketersediaan.</span></li>
+            <li><span class="rs-tick">2</span><span><b>Saat pelanggan membeli di webmu:</b> panggil <code>POST /orders</code> dengan <code>Idempotency-Key</code> turunan dari ID order webmu (mis. <code>web-order-&lt;id&gt;</code>) supaya retry tidak bikin order ganda.</span></li>
+            <li><span class="rs-tick">3</span><span><b>Teruskan key:</b> ambil <code>data.keys</code> dari respons lalu kirim ke pelanggan. Status <code>PARTIAL</code> berarti hanya sebagian terkirim; tangani sisanya (refund atau tunggu restock).</span></li>
+            <li><span class="rs-tick">4</span><span><b>Jaga saldo:</b> cek <code>GET /balance</code> dan top up sebelum habis. Saldo kurang menghasilkan 402 dan tidak ada yang dipotong.</span></li>
+        </ul>
+    </div>
+    <p class="rs-p" style="margin-top:24px;font-size:12px;color:var(--hm-faint);">Butuh bantuan integrasi? Hubungi admin lewat kontak di halaman utama.</p>
+</main>
+</body>
+</html>

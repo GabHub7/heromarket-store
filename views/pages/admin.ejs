@@ -445,6 +445,12 @@ textarea.hm-input{resize:vertical;min-height:80px;}
                 <% } %>
             </div>
             <div class="flex flex-col gap-1.5 flex-shrink-0">
+                <select onchange="setResellerTier('<%= u.id %>','<%= u.username %>',this.value)" class="py-1 px-1.5 text-[10px] rounded-lg border border-white/10 bg-black/30 text-zinc-300 font-semibold" title="Tier reseller">
+                    <% const _t = u.is_reseller ? (Number(u.reseller_tier) >= 2 ? 2 : 1) : 0; %>
+                    <option value="0" <%= _t === 0 ? 'selected' : '' %>>Member</option>
+                    <option value="1" <%= _t === 1 ? 'selected' : '' %>>Tier 1</option>
+                    <option value="2" <%= _t === 2 ? 'selected' : '' %>>Tier 2 (API)</option>
+                </select>
                 <button onclick="toggleReseller('<%= u.id %>','<%= u.username %>')"
                     class="py-1 px-2 text-[10px] rounded-lg border transition-all font-semibold <%= u.is_reseller ? 'bg-yellow-500/15 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/25' : 'bg-white/5 border-white/15 text-zinc-400 hover:bg-indigo-500/15 hover:text-indigo-400 hover:border-indigo-500/30' %>"
                     id="reseller-btn-<%= u.id %>">
@@ -1519,9 +1525,23 @@ textarea.hm-input{resize:vertical;min-height:80px;}
                     <input type="number" name="resellerPrice" value="<%= settings.resellerPrice || 50000 %>" min="1000" class="hm-input" placeholder="50000">
                 </div>
                 <div>
+                    <div class="setting-row-label">Biaya Tier 2 / API (Rp)</div>
+                    <input type="number" name="resellerTier2Price" value="<%= settings.resellerTier2Price || 150000 %>" min="1000" class="hm-input" placeholder="150000">
+                </div>
+                <div>
                     <div class="setting-row-label">Diskon Reseller (%)</div>
                     <input type="number" name="resellerDiscount" value="<%= settings.resellerDiscount || 20 %>" min="1" max="99" class="hm-input" placeholder="20">
                 </div>
+            </div>
+            <div class="flex items-center justify-between p-3 rounded-xl" style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.18)">
+                <div>
+                    <div class="text-xs font-semibold text-white">Aktifkan Reseller API v1 (Tier 2)</div>
+                    <div class="text-[10px] text-zinc-500 mt-0.5">Matikan untuk menolak semua request /api/v1 (403 FORBIDDEN) tanpa mencabut key</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="resellerV1Enabled" id="resellerV1Toggle" class="sr-only peer" <%= (settings.resellerV1Enabled !== false) ? 'checked' : '' %>>
+                    <div class="w-9 h-5 bg-zinc-700 rounded-full peer peer-checked:bg-indigo-500 transition-all after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                </label>
             </div>
             <div>
                 <div class="setting-row-label">Minimal Topup Saldo (Rp)</div>
@@ -3139,6 +3159,15 @@ async function saveTopupPackages() {
     else toast(d.message, 'error');
 }
 
+// ── ATUR TIER RESELLER (0 / 1 / 2) ──
+async function setResellerTier(id, username, tier) {
+    const label = tier === '2' ? 'Tier 2 (API)' : tier === '1' ? 'Tier 1' : 'Member biasa (cabut reseller)';
+    if (!confirm(`Ubah "${username}" menjadi ${label}?` + (tier !== '2' ? '\nAPI key miliknya (kalau ada) akan dicabut.' : ''))) { location.reload(); return; }
+    const d = await api(`/admin/user/set-reseller-tier/${id}`, { tier });
+    if (d.success) { toast(`${username} sekarang ${label}`, 'success'); setTimeout(() => location.reload(), 700); }
+    else { toast(d.message, 'error'); setTimeout(() => location.reload(), 900); }
+}
+
 // ── TOGGLE RESELLER USER ──
 async function toggleReseller(id, username) {
     const action = document.getElementById(`reseller-btn-${id}`)?.textContent?.trim().includes('Cabut') ? 'cabut' : 'jadikan';
@@ -3298,6 +3327,8 @@ document.getElementById('resellerSettingsForm').addEventListener('submit', async
     const data = {
         resellerEnabled: document.getElementById('resellerEnabledToggle').checked ? 'true' : 'false',
         resellerPrice: fd.get('resellerPrice'),
+        resellerTier2Price: fd.get('resellerTier2Price'),
+        resellerV1Enabled: document.getElementById('resellerV1Toggle').checked ? 'true' : 'false',
         resellerDiscount: fd.get('resellerDiscount'),
         resellerNote: fd.get('resellerNote'),
         resellerTopupMin: fd.get('resellerTopupMin')

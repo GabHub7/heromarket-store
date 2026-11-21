@@ -8,7 +8,7 @@
 :root{
   --hm-bg:#060a1f;            /* biru tua gelap */
   --hm-bg-2:#0a0f2e;
-  --hm-bg-3:#100e33;          /* ujung bawah condong ungu */
+  --hm-bg-3:#0b0a2b;          /* ujung bawah condong ungu */
   --hm-surface:#0d1536;       /* kartu */
   --hm-surface-2:#121b45;     /* kartu terangkat / input */
   --hm-line:rgba(140,152,255,.14);
@@ -17,9 +17,9 @@
   --hm-muted:#8b94c4;
   --hm-faint:#5f688f;
   --hm-blue:#4264e8;
-  --hm-violet:#7a50e6;
-  --hm-accent:#aab4ff;
-  --hm-grad:linear-gradient(135deg,#3f62e6 0%,#6f4fe6 100%);
+  --hm-violet:#46309f;
+  --hm-accent:#a9b6ff;
+  --hm-grad:linear-gradient(135deg,#3558dc 0%,#46309f 100%);
   --hm-radius:18px;
   --bg-dark:#060a1f;
   --bg-card:#0d1536;
@@ -119,7 +119,7 @@ body::before,body::after{display:none !important;}               /* hilangkan gr
 /* ── Judul section dengan bar aksen (seperti referensi) ── */
 .hm-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;}
 .hm-section-title{display:flex;align-items:center;gap:12px;min-width:0;}
-.hm-bar{width:4px;align-self:stretch;min-height:34px;border-radius:4px;background:linear-gradient(180deg,#4f6dff,#7a50e6);flex-shrink:0;}
+.hm-bar{width:4px;align-self:stretch;min-height:34px;border-radius:4px;background:linear-gradient(180deg,#4f6dff,#46309f);flex-shrink:0;}
 .hm-section-title h2{font-size:18px;font-weight:800;font-style:italic;text-transform:uppercase;letter-spacing:-.005em;color:#fff;line-height:1.15;}
 .hm-section-title p{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--hm-faint);margin-top:3px;}
 @media(min-width:640px){.hm-section-title h2{font-size:22px;}}
@@ -132,7 +132,7 @@ body::before,body::after{display:none !important;}               /* hilangkan gr
   border-radius:22px !important;
 }
 #carousel-wrap:hover{box-shadow:none !important;}
-#c-slide-default{background:linear-gradient(120deg,#0b1450 0%,#1a1670 55%,#34208c 100%) !important;}
+#c-slide-default{background:linear-gradient(120deg,#091244 0%,#141068 55%,#241a72 100%) !important;}
 #c-slide-default>div[style*="bannerPulse"]{animation:none !important;opacity:.55;}
 #c-slide-default>div[style*="repeating-linear-gradient"]{display:none;}
 #c-slide-default .font-orbitron{text-shadow:none !important;text-transform:uppercase;}
@@ -241,7 +241,7 @@ body::before,body::after{display:none !important;}               /* hilangkan gr
 }
 .hm-footer-inner{max-width:1180px;margin:0 auto;padding:56px 24px 28px;}
 .hm-footer-grid{display:grid;gap:36px;grid-template-columns:1fr;}
-@media(min-width:768px){.hm-footer-grid{grid-template-columns:2fr 1fr 1fr;gap:48px;}}
+@media(min-width:768px){.hm-footer-grid{grid-template-columns:2fr repeat(auto-fit,minmax(110px,1fr));gap:40px;}}
 .hm-footer-brand .brand-wordmark{font-size:26px;color:#fff;line-height:1;}
 .hm-footer-brand p{margin-top:22px;max-width:380px;font-size:12px;line-height:1.85;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6f79a8;}
 .hm-footer-social{display:flex;gap:12px;margin-top:24px;}
@@ -286,7 +286,7 @@ section[id="leaderboard-home"],section[id="games"]{border-color:transparent !imp
   display:flex;align-items:center;gap:10px;font-size:15px !important;font-weight:800 !important;font-style:italic;
   letter-spacing:0 !important;text-transform:uppercase;color:#fff !important;
 }
-.hm-buy-variants>.mb-3 p::before{content:'';width:4px;height:22px;border-radius:4px;background:linear-gradient(180deg,#4f6dff,#7a50e6);}
+.hm-buy-variants>.mb-3 p::before{content:'';width:4px;height:22px;border-radius:4px;background:linear-gradient(180deg,#4f6dff,#46309f);}
 #pkg-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
 @media(min-width:640px){#pkg-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
 .pkg-card{

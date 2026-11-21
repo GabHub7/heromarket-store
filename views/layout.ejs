@@ -295,7 +295,7 @@
     <style>
         :root {
             --neon-purple: <%= _tv(settings?.theme?.primaryColor, '#4264e8') %>;
-            --neon-violet: <%= _tv(settings?.theme?.secondaryColor, '#7a50e6') %>;
+            --neon-violet: <%= _tv(settings?.theme?.secondaryColor, '#46309f') %>;
             --accent-color: <%= _tv(settings?.theme?.accentColor, '#aab4ff') %>;
             --bg-dark: <%= _tv(settings?.theme?.backgroundColor, '#060a1f') %>;
             --bg-card: <%= _tv(settings?.theme?.cardBackground, '#0d1536') %>;
@@ -382,11 +382,11 @@
                             <% if (isAdmin) { %>
                             <span class="text-[8px] font-black px-1.5 py-0.5 rounded" style="background:rgba(234,88,12,.25);color:#fb923c;border:1px solid rgba(234,88,12,.4)">ADMIN</span>
                             <% } else if (user.is_reseller) { %>
-                            <span class="text-[8px] font-black px-1.5 py-0.5 rounded" style="background:rgba(234,179,8,.2);color:#fbbf24;border:1px solid rgba(234,179,8,.3)">VIP</span>
+                            <span class="text-[8px] font-black px-1.5 py-0.5 rounded" style="background:rgba(99,102,241,.2);color:#aab4ff;border:1px solid rgba(99,102,241,.35)">TIER <%= getResellerTier(user) %></span>
                             <% } %>
                         </div>
                         <div class="text-[10px] mt-0.5 <%= isAdmin ? 'text-orange-400' : 'text-zinc-500' %>">
-                            <%= isAdmin ? 'Administrator' : (user.is_reseller ? 'Reseller VIP' : 'Member') %>
+                            <%= isAdmin ? 'Administrator' : (user.is_reseller ? ('Reseller Tier ' + getResellerTier(user)) : 'Member') %>
                         </div>
                     </div>
                 </div>
@@ -411,6 +411,22 @@
                 </a>
                 <a href="/cek-pesanan" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium">
                     <iconify-icon icon="mdi:receipt-text-check" class="text-indigo-400 text-lg"></iconify-icon> Cek Pesanan
+                </a>
+                <% } %>
+                <% if (!isAdmin) { %>
+                <% const _rt = (typeof user !== 'undefined' && user) ? getResellerTier(user) : 0; %>
+                <% if (_rt >= 1) { %>
+                <a href="/reseller/panel" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium">
+                    <iconify-icon icon="mdi:storefront-outline" class="text-indigo-400 text-lg"></iconify-icon> Panel Reseller
+                </a>
+                <% } %>
+                <% if (_rt >= 2) { %>
+                <a href="/reseller/api" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium">
+                    <iconify-icon icon="mdi:api" class="text-indigo-400 text-lg"></iconify-icon> API Reseller
+                </a>
+                <% } %>
+                <a href="/reseller" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium">
+                    <iconify-icon icon="mdi:crown-outline" class="text-indigo-400 text-lg"></iconify-icon> <%= _rt >= 2 ? 'Paket Reseller' : (_rt === 1 ? 'Upgrade ke Tier 2' : 'Jadi Reseller') %>
                 </a>
                 <% } %>
 

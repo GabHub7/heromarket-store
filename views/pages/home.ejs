@@ -411,6 +411,14 @@ const pageTitle = 'Beranda';
                     <a href="/leaderboard" aria-label="Leaderboard"><iconify-icon icon="mdi:trophy-outline"></iconify-icon></a>
                 </div>
             </div>
+            <% if (categories && categories.length > 0) { %>
+            <div class="hm-footer-col">
+                <h4>Game</h4>
+                <% categories.forEach(cat => { %>
+                <a href="/?cat=<%= encodeURIComponent(cat) %>#popular-products"><%= categoryLabels[cat] || cat.toUpperCase() %></a>
+                <% }) %>
+            </div>
+            <% } %>
             <div class="hm-footer-col">
                 <h4>Informasi</h4>
                 <a href="#popular-products">Produk Populer</a>
@@ -430,6 +438,14 @@ const pageTitle = 'Beranda';
         </div>
     </div>
 </footer>
+
+<script>
+// Tautan footer "Game" (?cat=...) langsung menyaring daftar produk sesuai game (ML, FF, dst.)
+window.addEventListener('load', function () {
+    var c = new URLSearchParams(location.search).get('cat');
+    if (c && typeof filterProducts === 'function') filterProducts(c);
+});
+</script>
 
 <!-- FLOATING SOCIAL BUTTONS — fixed kanan bawah, tidak berubah posisi saat scroll.
      Posisi juga ditulis inline di sini (selain di <style>) sebagai jaga-jaga supaya

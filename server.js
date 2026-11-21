@@ -31,6 +31,8 @@ if (!process.env.GENSPAY_BASE_URL || !process.env.GENSPAY_API_KEY) {
 const db = require('./supabase');
 const resellerApi = require('./reseller-api');
 const partnerApi = require('./partner-api');
+const resellerV1 = require('./reseller-v1');
+const { getResellerTier } = resellerV1;
 const providerStore = require('./provider-store');
 const providerRegistry = require('./providers');
 
@@ -883,6 +885,10 @@ app.use(async (req, res, next) => {
     res.locals.settings = readDB('settings.json'); // fallback cache lama kalau Supabase lagi down
   }
   res.locals.isAdmin = req.session?.isAdmin || false;
+  // Tombol "Masuk dengan Google" muncul kalau Client ID ada di pengaturan admin ATAU di env GOOGLE_CLIENT_ID
+  // (sebelumnya hanya cek pengaturan admin, padahal flow OAuth-nya mendukung env juga).
+  res.locals.googleEnabled = !!(res.locals.settings?.google?.clientId || process.env.GOOGLE_CLIENT_ID);
+  res.locals.getResellerTier = getResellerTier;
   next();
 });
 
@@ -2644,17 +2650,29 @@ app.get('/auth/google/callback', async (req, res) => {
 });
 
 // ── RESELLER ──
+// Harga paket reseller: Tier 1 = resellerPrice, Tier 2 = resellerTier2Price (upgrade dari Tier 1 bayar selisih).
+function getResellerPricing(settings, user) {
+  const p1 = Number(settings.resellerPrice) || 50000;
+  const p2 = Math.max(Number(settings.resellerTier2Price) || 150000, p1 + 1000);
+  const cur = getResellerTier(user);
+  return {
+    tier1: p1, tier2: p2, current: cur,
+    upgrade2: cur === 1 ? Math.max(1000, p2 - p1) : p2,
+    discount: Number.isFinite(Number(settings.resellerDiscount)) ? Number(settings.resellerDiscount) : 20
+  };
+}
+
+// ── RESELLER: halaman Upgrade (Tier 1 & Tier 2) ──
 app.get('/reseller', (req, res) => {
-  // Menu seller dihapus dari web toko: seller belanja di web seller (heroitbest).
-  // Link lama /reseller dialihkan ke sana (atur lewat env SELLER_WEB_URL).
-  return res.redirect(process.env.SELLER_WEB_URL || 'https://heroitbest.web.id');
-  // FIX: pakai res.locals.settings (sudah di-refresh readSmart oleh middleware
-  // global) bukan readDB() mentah lagi, supaya perubahan admin (QRIS, NOWPayments,
-  // dll) langsung kepakai tanpa nunggu instance ini restart.
   const settings = res.locals.settings;
   const user = getSessionUser(req);
-  if (user && user.is_reseller) return res.redirect('/reseller/panel');
-  res.render('pages/reseller', { layout: false, settings, user });
+  const isAdminSess = !!req.session?.isAdmin;
+  res.render('pages/reseller', {
+    layout: false, settings, user: isAdminSess ? null : user,
+    pricing: getResellerPricing(settings, isAdminSess ? null : user),
+    enabled: settings.resellerEnabled !== false,
+    need: req.query.need === '2'
+  });
 });
 
 app.get('/reseller/panel', requireAuth, (req, res) => {
@@ -2703,6 +2721,7 @@ app.get('/reseller/panel', requireAuth, (req, res) => {
   res.render('pages/seller-panel', {
     layout: false, settings, user,
     isReseller: !!user.is_reseller,
+    resellerTier: getResellerTier(user),
     products,
     keyTx: keyTx.slice(0, 100),
     breakdown,
@@ -2719,10 +2738,17 @@ app.post('/reseller/join', requireAuth, async (req, res) => {
     const users = readDB('users.json');
     const user = users.find(u => u.id === req.session.userId);
     if (!user) return res.json({ success: false, message: 'User tidak ditemukan' });
-    if (user.is_reseller) return res.json({ success: false, message: 'Kamu sudah menjadi Reseller VIP!' });
-
     const settings = readDB('settings.json');
-    const price = settings.resellerPrice || 50000;
+    if (settings.resellerEnabled === false) return res.json({ success: false, message: 'Pendaftaran reseller sedang ditutup.' });
+    const wantTier = parseInt(req.body && req.body.tier, 10) === 2 ? 2 : 1;
+    const curTier = getResellerTier(user);
+    if (curTier >= wantTier) {
+      return res.json({ success: false, message: curTier === 2 ? 'Kamu sudah Reseller Tier 2.' : 'Kamu sudah Reseller Tier 1. Pilih Tier 2 untuk upgrade.' });
+    }
+    // Hindari tagihan ganda: pakai ulang pesanan upgrade yang masih pending (<30 menit) untuk tier yang sama
+    const pricing = getResellerPricing(settings, user);
+    const price = wantTier === 1 ? pricing.tier1 : pricing.upgrade2;
+    const tierName = wantTier === 1 ? 'Daftar Reseller Tier 1' : (curTier === 1 ? 'Upgrade ke Reseller Tier 2' : 'Daftar Reseller Tier 2');
     const orderId = `RES-${Date.now()}`;
     const refId = uuidv4();
     const orderCode = generateOrderCode();
@@ -2748,8 +2774,8 @@ app.post('/reseller/join', requireAuth, async (req, res) => {
     const transactions = await readFresh('transactions.json');
     transactions.push({
       id: refId, orderId, code: orderCode,
-      userId: user.id, type: 'reseller',
-      productName: 'Upgrade Reseller VIP',
+      userId: user.id, type: 'reseller', resellerTier: wantTier,
+      productName: tierName,
       customerName: user.username, wa: user.wa,
       price, totalPayment: price, qrString, isStatic, gatewayTxnId: gwTxnId,
       status: 'pending', key: null,
@@ -2757,7 +2783,7 @@ app.post('/reseller/join', requireAuth, async (req, res) => {
     });
     await writeDB('transactions.json', transactions);
 
-    res.json({ success: true, refId, orderId, qrString, orderCode, isStatic,
+    res.json({ success: true, refId, orderId, qrString, orderCode, isStatic, totalPayment: price, tier: wantTier,
       qrisStaticImage: isStatic ? settings.qrisStaticImage : null });
   } catch (e) {
     res.json({ success: false, message: e.message });
@@ -3906,8 +3932,9 @@ const allocateKeyAndCompleteTransaction = async (transaction, transactions) => {
     if (u) {
       u.is_reseller = true;
       u.role = 'reseller';
-      u.reseller_since = new Date().toISOString();
-      u.reseller_code = 'RSL-' + u.username.toUpperCase().slice(0, 4) + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
+      u.reseller_tier = Math.max(getResellerTier(u) || 0, Number(transaction.resellerTier) === 2 ? 2 : 1); // tidak pernah turun tier
+      u.reseller_since = u.reseller_since || new Date().toISOString();
+      u.reseller_code = u.reseller_code || ('RSL-' + u.username.toUpperCase().slice(0, 4) + '-' + crypto.randomBytes(2).toString('hex').toUpperCase());
       await writeDB('users.json', users);
     }
     transaction.status = 'done';
@@ -6192,6 +6219,86 @@ async function touchPartnerUsage(partnerId) {
   } catch { /* non-fatal */ }
 }
 
+// ══════════ RESELLER TIER 2: dashboard API key + dokumentasi + API v1 ══════════
+const requireTier2 = (req, res, next) => {
+  const user = getSessionUser(req);
+  if (!user || req.session?.isAdmin) return res.redirect('/login?redirect=' + encodeURIComponent(req.originalUrl));
+  if (getResellerTier(user) < 2) return res.redirect('/reseller?need=2');
+  req.tier2User = user;
+  next();
+};
+
+app.get('/reseller/api', requireTier2, async (req, res) => {
+  const users = await readFresh('users.json');
+  const u = users.find(x => x.id === req.tier2User.id) || req.tier2User;
+  res.render('pages/reseller-api', {
+    layout: false, settings: res.locals.settings, user: u,
+    hasKey: !!u.apiKeyHash, keyPrefix: u.apiKeyPrefix || null, keyCreatedAt: u.apiKeyCreatedAt || null,
+    apiEnabled: res.locals.settings.resellerV1Enabled !== false,
+    baseUrl: `${getAppBaseUrl(req)}/api/v1`
+  });
+});
+
+// Buat / ganti key. Key utuh dikembalikan SEKALI; yang disimpan hanya hash SHA-256 + prefix. Key lama langsung mati.
+app.post('/reseller/api/key', requireTier2, async (req, res) => {
+  try {
+    const k = resellerV1.generateApiKey();
+    let found = false;
+    await updateCollectionAtomic('users.json', (users) => {
+      const u = users.find(x => x.id === req.tier2User.id);
+      if (!u || getResellerTier(u) < 2) return null;
+      u.apiKeyHash = k.hash; u.apiKeyPrefix = k.prefix; u.apiKeyCreatedAt = new Date().toISOString();
+      found = true;
+      return users;
+    });
+    if (!found) return res.json({ success: false, message: 'Akun tidak ditemukan atau bukan Tier 2.' });
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, key: k.key, prefix: k.prefix });
+  } catch (e) {
+    res.json({ success: false, message: 'Gagal membuat API key.' });
+  }
+});
+
+app.post('/reseller/api/key/revoke', requireTier2, async (req, res) => {
+  try {
+    await updateCollectionAtomic('users.json', (users) => {
+      const u = users.find(x => x.id === req.tier2User.id);
+      if (!u) return null;
+      delete u.apiKeyHash; delete u.apiKeyPrefix; delete u.apiKeyCreatedAt;
+      return users;
+    });
+    res.json({ success: true });
+  } catch (e) {
+    res.json({ success: false, message: 'Gagal mencabut API key.' });
+  }
+});
+
+// Dokumentasi API: KHUSUS Reseller Tier 2
+app.get('/docs/api', requireTier2, (req, res) => {
+  res.render('pages/docs-api', { layout: false, settings: res.locals.settings, user: req.tier2User, baseUrl: `${getAppBaseUrl(req)}/api/v1` });
+});
+
+// Stok per opsi untuk API v1: angka (manual / provider terbatas) atau null (provider tanpa batas / tidak diketahui)
+async function getOptionStockForApi(settings, product, opt) {
+  if (opt.stockSource === 'auto') {
+    const rs = await resellerApi.getRealStockForProduct(settings, product, opt.days);
+    return rs && rs.stockMode === 'limited' ? rs.stock : null;
+  }
+  const keys = product.keys || [];
+  const optMinutes = getOptionDurationMinutes(opt);
+  const dayKeys = optMinutes > 0
+    ? keys.filter(k => { const parts = k.split(':'); return parts.length > 1 && parseKeyDurationMinutes(parts[parts.length - 1]) === optMinutes; })
+    : [];
+  return dayKeys.length > 0 ? dayKeys.length : keys.filter(k => !k.includes(':')).length;
+}
+
+// Reseller API v1 (Bearer rk_live_..., khusus Tier 2) -- lihat reseller-v1.js
+resellerV1.mount(app, express, {
+  readFresh, readSmart, writeDB, adjustUserBalance, allocateKeyAndCompleteTransaction, processingOrders,
+  getOptionDurationMinutes, formatDurationLabel, getOptionStock: getOptionStockForApi,
+  uuidv4, generateOrderCode, formatDate
+});
+
 app.get('/api/reseller/balance', partnerAuth, async (req, res) => {
   touchPartnerUsage(req.partner.id);
   res.json({ success: true, data: { balance: req.partner.balance, currency: 'IDR', partnerName: req.partner.name } });
@@ -6737,7 +6844,7 @@ app.post('/admin/settings/coin', requireAdmin, async (req, res) => {
 
 app.post('/admin/settings/reseller', requireAdmin, async (req, res) => {
   try {
-    const { resellerEnabled, resellerPrice, resellerDiscount, resellerNote, resellerTopupMin } = req.body;
+    const { resellerEnabled, resellerPrice, resellerTier2Price, resellerV1Enabled, resellerDiscount, resellerNote, resellerTopupMin } = req.body;
     const settings = await readFresh('settings.json');
     settings.resellerEnabled = resellerEnabled === 'true' || resellerEnabled === true;
     if (resellerPrice !== undefined && resellerPrice !== '') {
@@ -6745,6 +6852,12 @@ app.post('/admin/settings/reseller', requireAdmin, async (req, res) => {
       if (isNaN(price) || price < 0) return res.json({ success: false, message: 'Harga reseller tidak valid' });
       settings.resellerPrice = price;
     }
+    if (resellerTier2Price !== undefined && resellerTier2Price !== '') {
+      const p2 = parseInt(resellerTier2Price);
+      if (isNaN(p2) || p2 < 0) return res.json({ success: false, message: 'Harga Tier 2 tidak valid' });
+      settings.resellerTier2Price = p2;
+    }
+    if (resellerV1Enabled !== undefined) settings.resellerV1Enabled = resellerV1Enabled === 'true' || resellerV1Enabled === true;
     if (resellerDiscount !== undefined && resellerDiscount !== '') {
       const discount = parseInt(resellerDiscount);
       if (isNaN(discount) || discount < 0 || discount > 100) return res.json({ success: false, message: 'Diskon harus antara 0-100%' });
@@ -6795,6 +6908,30 @@ app.post('/admin/user/adjust-balance/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// Admin: atur tier reseller manual (0 = cabut, 1 = Tier 1, 2 = Tier 2). Turun ke bawah Tier 2 otomatis mencabut API key.
+app.post('/admin/user/set-reseller-tier/:id', requireAdmin, async (req, res) => {
+  try {
+    const tier = parseInt(req.body.tier, 10);
+    if (![0, 1, 2].includes(tier)) return res.json({ success: false, message: 'Tier harus 0, 1, atau 2' });
+    const users = await readFresh('users.json');
+    const user = users.find(u => u.id === req.params.id);
+    if (!user) return res.json({ success: false, message: 'User tidak ditemukan' });
+    if (tier === 0) {
+      user.is_reseller = false; user.role = 'user';
+      delete user.reseller_tier;
+    } else {
+      user.is_reseller = true; user.role = 'reseller'; user.reseller_tier = tier;
+      user.reseller_since = user.reseller_since || new Date().toISOString();
+      user.reseller_code = user.reseller_code || ('RSL-' + user.username.toUpperCase().slice(0, 4) + '-' + crypto.randomBytes(2).toString('hex').toUpperCase());
+    }
+    if (tier < 2) { delete user.apiKeyHash; delete user.apiKeyPrefix; delete user.apiKeyCreatedAt; }
+    await writeDB('users.json', users);
+    res.json({ success: true, tier });
+  } catch (e) {
+    res.json({ success: false, message: e.message });
+  }
+});
+
 app.post('/admin/user/toggle-reseller/:id', requireAdmin, async (req, res) => {
   try {
     const users = await readFresh('users.json');
@@ -6802,7 +6939,9 @@ app.post('/admin/user/toggle-reseller/:id', requireAdmin, async (req, res) => {
     if (!user) return res.json({ success: false, message: 'User tidak ditemukan' });
     user.is_reseller = !user.is_reseller;
     user.role = user.is_reseller ? 'reseller' : 'user';
+    if (!user.is_reseller) { delete user.reseller_tier; delete user.apiKeyHash; delete user.apiKeyPrefix; delete user.apiKeyCreatedAt; }
     if (user.is_reseller) {
+      user.reseller_tier = user.reseller_tier || 1;
       user.reseller_since = user.reseller_since || new Date().toISOString();
       user.reseller_code = user.reseller_code || ('RSL-' + user.username.toUpperCase().slice(0, 4) + '-' + crypto.randomBytes(2).toString('hex').toUpperCase());
     }
@@ -6828,6 +6967,7 @@ app.post('/admin/transaction/confirm/:id', requireAdmin, async (req, res) => {
       if (u) {
         u.is_reseller = true;
         u.role = 'reseller';
+        u.reseller_tier = Math.max(getResellerTier(u) || 0, Number(transaction.resellerTier) === 2 ? 2 : 1);
         u.reseller_since = u.reseller_since || new Date().toISOString();
         u.reseller_code = u.reseller_code || ('RSL-' + u.username.toUpperCase().slice(0, 4) + '-' + crypto.randomBytes(2).toString('hex').toUpperCase());
         await writeDB('users.json', users);

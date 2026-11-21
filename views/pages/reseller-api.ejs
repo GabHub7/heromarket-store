@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#060a1f">
+<meta name="robots" content="noindex">
+<title>API Reseller — <%= settings.siteName %></title>
+<link rel="preconnect" href="https://api.iconify.design" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"></noscript>
+<link rel="stylesheet" href="/css/hm-theme.css?v=<%= assetV('css/hm-theme.css') %>">
+<link rel="stylesheet" href="/css/hm-reseller.css?v=<%= assetV('css/hm-reseller.css') %>">
+<script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js" defer></script>
+</head>
+<body>
+<nav id="navbar" class="rs-nav">
+    <a href="/" class="rs-brand"><%= settings.siteName || 'HERO MARKET' %></a>
+    <div class="rs-nav-r">
+        <a href="/reseller/panel" class="rs-link">Panel</a>
+        <a href="/docs/api" class="rs-link">Dokumentasi</a>
+    </div>
+</nav>
+
+<main class="rs-wrap">
+    <h1 class="rs-title">API Reseller</h1>
+    <p class="rs-sub">Sambungkan web tokomu ke Hero Market. Katalog, stok, dan order key berjalan otomatis lewat API.</p>
+
+    <% if (!apiEnabled) { %>
+    <div class="rs-note warn">API sedang dimatikan sementara oleh admin. Semua request akan ditolak (403) sampai diaktifkan lagi.</div>
+    <% } %>
+
+    <div class="rs-card">
+        <div class="rs-label">Koneksi</div>
+        <dl class="rs-kv">
+            <dt>Base URL</dt>
+            <dd><span class="rs-mono" id="baseUrl"><%= baseUrl %></span> <button type="button" class="rs-copy" onclick="copyText('baseUrl')">Salin</button></dd>
+            <dt>Akun</dt><dd><%= user.username %> · Reseller Tier 2</dd>
+            <dt>Saldo</dt><dd>Rp <%= (user.balance || 0).toLocaleString('id-ID') %> <a href="/reseller/panel" style="color:var(--hm-accent);font-size:12px;margin-left:6px;">Top up</a></dd>
+            <dt>Batas</dt><dd>120 request/menit per key · maks 20 unit per order</dd>
+        </dl>
+    </div>
+
+    <div class="rs-card">
+        <div class="rs-label">API Key</div>
+        <dl class="rs-kv" id="keyInfo">
+            <dt>Status</dt>
+            <dd id="keyStatus"><%= hasKey ? 'Aktif' : 'Belum dibuat' %></dd>
+            <dt>Key</dt>
+            <dd><span class="rs-mono" id="keyPrefix"><%= hasKey ? keyPrefix : '—' %></span></dd>
+            <% if (hasKey && keyCreatedAt) { %>
+            <dt>Dibuat</dt><dd><%= new Date(keyCreatedAt).toLocaleString('id-ID') %></dd>
+            <% } %>
+        </dl>
+
+        <div id="newKeyBox" style="display:none;margin-top:16px;">
+            <div class="rs-note warn" style="margin-bottom:10px;">Simpan key ini sekarang. Demi keamanan, key utuh <b>hanya tampil sekali</b> dan tidak bisa dilihat lagi.</div>
+            <div class="rs-keybox"><span class="rs-mono" id="newKey"></span><button type="button" class="rs-copy" onclick="copyText('newKey')">Salin</button></div>
+        </div>
+
+        <div class="rs-row" style="margin-top:18px;">
+            <button type="button" class="rs-pay" id="genBtn" onclick="genKey()" style="padding:15px;letter-spacing:.14em;"><%= hasKey ? 'Ganti API Key' : 'Buat API Key' %></button>
+            <% if (hasKey) { %><button type="button" class="rs-ghost" id="revokeBtn" onclick="revokeKey()" style="color:#fca5a5;">Cabut Key</button><% } %>
+        </div>
+        <p class="rs-sub" style="font-size:11px;margin:12px 0 0;">Membuat key baru otomatis mematikan key lama. Jangan bagikan key dan jangan dimasukkan ke URL atau repositori publik.</p>
+    </div>
+
+    <div class="rs-card">
+        <div class="rs-label">Coba cepat</div>
+        <div class="rs-pre">curl <%= baseUrl %>/balance \
+  -H "Authorization: Bearer rk_live_xxxxxxxx"</div>
+        <a href="/docs/api" class="rs-ghost" style="margin-top:14px;"><iconify-icon icon="mdi:book-open-variant"></iconify-icon> Buka Dokumentasi API</a>
+    </div>
+</main>
+<div class="rs-toast" id="toast"></div>
+
+<script>
+function toast(msg, type) {
+  const w = document.getElementById('toast'), el = document.createElement('div');
+  el.className = type || ''; el.textContent = msg; w.appendChild(el); setTimeout(() => el.remove(), 3500);
+}
+function copyText(id) {
+  const t = document.getElementById(id).textContent;
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Disalin', 'ok')).catch(() => {
+    const r = document.createRange(); r.selectNode(document.getElementById(id)); getSelection().removeAllRanges(); getSelection().addRange(r); toast('Tekan Ctrl+C untuk menyalin');
+  });
+}
+async function genKey() {
+  const has = <%= hasKey ? 'true' : 'false' %> || document.getElementById('keyStatus').textContent === 'Aktif';
+  if (has && !confirm('Ganti API key? Key lama langsung berhenti bekerja, pastikan web yang terhubung segera memakai key baru.')) return;
+  const b = document.getElementById('genBtn'); b.disabled = true;
+  try {
+    const r = await fetch('/reseller/api/key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const d = await r.json();
+    if (d.success) {
+      document.getElementById('newKey').textContent = d.key;
+      document.getElementById('newKeyBox').style.display = 'block';
+      document.getElementById('keyStatus').textContent = 'Aktif';
+      document.getElementById('keyPrefix').textContent = d.prefix;
+      b.textContent = 'Ganti API Key';
+      toast('API key dibuat. Salin sekarang!', 'ok');
+    } else toast(d.message || 'Gagal', 'err');
+  } catch (e) { toast('Koneksi error', 'err'); }
+  b.disabled = false;
+}
+async function revokeKey() {
+  if (!confirm('Cabut API key? Web yang memakai key ini akan langsung ditolak (401).')) return;
+  try {
+    const r = await fetch('/reseller/api/key/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const d = await r.json();
+    if (d.success) { toast('API key dicabut', 'ok'); setTimeout(() => location.reload(), 800); } else toast(d.message || 'Gagal', 'err');
+  } catch (e) { toast('Koneksi error', 'err'); }
+}
+</script>
+</body>
+</html>
