@@ -8,7 +8,6 @@ const pageTitle = 'Beranda';
     <div class="max-w-7xl mx-auto px-4">
         <div class="flex items-center justify-between h-16">
             <a href="/" class="flex items-center gap-3 flex-shrink-0">
-                <img src="/logo.jpg" alt="HM Logo" class="hm-logo-img h-12 w-auto object-contain">
                 <span class="brand-wordmark brand-wordmark-lg neon-text"><%= settings.siteName || 'HERO MARKET' %></span>
             </a>
             <div class="hidden md:flex items-center gap-3">
@@ -109,45 +108,24 @@ const pageTitle = 'Beranda';
     </div>
 </section>
 
-<!-- RIBBON SAMBUTAN + PENCARIAN -->
+<!-- RIBBON SAMBUTAN + PENCARIAN + KATEGORI -->
 <section class="relative hm-top-sec">
-    <div class="max-w-7xl mx-auto px-3 sm:px-6 hm-stack">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6">
         <div class="hm-ribbon">
-            <iconify-icon icon="solar:bell-bing-bold" style="color:var(--hm-accent);font-size:16px;flex-shrink:0;"></iconify-icon>
             <span class="hm-ribbon-text">Selamat Datang di <b><%= settings.siteName || 'HERO MARKET' %></b> &nbsp; <%= settings.marqueeText || 'Layanan Game Mod Menu & Key Premium Terpercaya' %></span>
         </div>
         <div class="hm-search">
             <input type="text" id="homeSearchInput" placeholder="Cari game atau produk favoritmu..." readonly onclick="openSearch()" onfocus="openSearch()" aria-label="Cari produk">
             <button type="button" onclick="openSearch()" aria-label="Cari"><iconify-icon icon="mdi:magnify"></iconify-icon></button>
         </div>
-    </div>
-</section>
-
-<!-- STATS SECTION -->
-<section class="relative py-6 sm:py-10">
-    <div class="relative max-w-7xl mx-auto px-3 sm:px-6">
-        <div class="grid grid-cols-4 gap-1.5 sm:gap-4">
-            <div class="stat-card rounded-xl sm:rounded-3xl p-2 sm:p-7 text-center transition-all duration-300 hover:scale-[1.03] hover:brightness-110"
-                 style="background:#141428;border:1px solid rgba(255,255,255,.05);">
-                <div class="font-orbitron font-black text-base sm:text-4xl mb-0.5 sm:mb-1.5" style="color:#fff;"><span id="stat-pelanggan">0</span><span style="color:#a78bfa;">+</span></div>
-                <div class="text-white/40 text-[8px] sm:text-xs font-medium tracking-wide">Pelanggan</div>
-            </div>
-            <div class="stat-card rounded-xl sm:rounded-3xl p-2 sm:p-7 text-center transition-all duration-300 hover:scale-[1.03] hover:brightness-110"
-                 style="background:#141428;border:1px solid rgba(255,255,255,.05);">
-                <div class="font-orbitron font-black text-base sm:text-4xl mb-0.5 sm:mb-1.5" style="color:#fff;">24<span style="color:#f97316;">/</span>7</div>
-                <div class="text-white/40 text-[8px] sm:text-xs font-medium tracking-wide">Support</div>
-            </div>
-            <div class="stat-card rounded-xl sm:rounded-3xl p-2 sm:p-7 text-center transition-all duration-300 hover:scale-[1.03] hover:brightness-110"
-                 style="background:#141428;border:1px solid rgba(255,255,255,.05);">
-                <div class="font-orbitron font-black text-base sm:text-4xl mb-0.5 sm:mb-1.5" style="color:#fff;"><span id="stat-produk">0</span></div>
-                <div class="text-white/40 text-[8px] sm:text-xs font-medium tracking-wide">Produk</div>
-            </div>
-            <div class="stat-card rounded-xl sm:rounded-3xl p-2 sm:p-7 text-center transition-all duration-300 hover:scale-[1.03] hover:brightness-110"
-                 style="background:#141428;border:1px solid rgba(255,255,255,.05);">
-                <div class="font-orbitron font-black text-base sm:text-4xl mb-0.5 sm:mb-1.5" style="color:#fff;">100<span style="color:#a78bfa;">%</span></div>
-                <div class="text-white/40 text-[8px] sm:text-xs font-medium tracking-wide">Terpercaya</div>
-            </div>
+        <% if (categories && categories.length > 0) { %>
+        <div class="hm-pills filter-scroll">
+            <button onclick="filterProducts('all')" class="prod-filter active bg-violet-600 text-white whitespace-nowrap" data-pf="all">Semua</button>
+            <% categories.forEach(cat => { %>
+            <button onclick="filterProducts('<%= cat %>')" class="prod-filter bg-white/5 text-white/40 whitespace-nowrap" data-pf="<%= cat %>"><%= categoryLabels[cat] || cat.toUpperCase() %></button>
+            <% }) %>
         </div>
+        <% } %>
     </div>
 </section>
 
@@ -250,9 +228,9 @@ const pageTitle = 'Beranda';
 </script>
 
 <!-- PRODUK POPULER GRID -->
-<section id="popular-products" class="relative py-10 sm:py-16">
-    <div class="absolute top-0 right-0 w-[300px] h-[300px] bg-violet-700/[0.03] rounded-full blur-[100px] pointer-events-none"></div>
-    <div class="relative max-w-7xl mx-auto px-3 sm:px-6">
+<section id="popular-products" class="relative hm-pop-sec">
+    <span id="games" style="position:relative;top:-80px;display:block;height:0;"></span>
+        <div class="relative max-w-7xl mx-auto px-3 sm:px-6">
         <div class="hm-section-head">
             <div class="hm-section-title"><span class="hm-bar"></span><div><h2>Produk Populer</h2><p>Koleksi pilihan terbaik khusus untukmu</p></div></div>
             <a href="#games" class="hm-pill-link">Semua &rsaquo;</a>
@@ -272,100 +250,6 @@ const pageTitle = 'Beranda';
                 <div class="p-2 sm:p-3 space-y-2"><div class="h-3 bg-white/[0.04] rounded-lg w-4/5"></div><div class="h-2.5 bg-white/[0.03] rounded-lg w-3/5"></div><div class="h-8 bg-white/[0.04] rounded-xl mt-2"></div></div>
             </div>
         </div>
-    </div>
-</section>
-
-<!-- PRODUCTS -->
-<section id="games" class="relative py-10 sm:py-16 border-t border-white/[0.03]">
-    <div class="relative max-w-7xl mx-auto px-3 sm:px-6">
-        <div class="hm-section-head">
-            <div class="hm-section-title"><span class="hm-bar"></span><div><h2>Semua Produk</h2><p>Filter berdasarkan game</p></div></div>
-        </div>
-
-        <% if (categories && categories.length > 0) { %>
-        <div class="filter-scroll flex gap-2 mb-6 sm:mb-8 overflow-x-auto pb-1" style="-ms-overflow-style:none;scrollbar-width:none;">
-            <div class="filter-sticky-left">
-                <button onclick="filterProducts('all')" class="prod-filter px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-semibold transition-all whitespace-nowrap bg-violet-600 text-white" data-pf="all">Semua</button>
-            </div>
-            <% categories.forEach(cat => { %>
-                <button onclick="filterProducts('<%= cat %>')" class="prod-filter flex-shrink-0 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-semibold transition-all whitespace-nowrap bg-white/5 text-white/40 hover:text-white hover:bg-white/8" data-pf="<%= cat %>">
-                    <%= categoryLabels[cat] || cat.toUpperCase() %>
-                </button>
-            <% }) %>
-        </div>
-        <% } %>
-
-        <div id="product-grid" class="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-5">
-            <% products.forEach((product, pIdx) => {
-                const stock = product.stock || 0;
-                const isOut = stock === 0;
-                const isLow = stock > 0 && stock <= 5 && stock !== Infinity;
-                const hasAndroid = product.platforms && product.platforms.includes('android');
-                const hasIos = product.platforms && product.platforms.includes('ios');
-                // BUG FIX: stock bisa Infinity untuk produk stockSource
-                // 'auto' -- jangan tampilkan literal "Infinity" ke user.
-                const displayStock = stock === Infinity ? 'Tersedia' : stock;
-                const displaySold  = product.dummySold || 0;
-                const soldLabel    = displaySold >= 1000 ? (displaySold/1000).toFixed(1).replace('.0','') + 'K' : String(displaySold);
-            %>
-                <div class="product-card glass rounded-2xl overflow-hidden border border-white/[0.06]" data-category="<%= product.category %>">
-                    <div class="relative overflow-hidden h-28 sm:h-40">
-                        <% if (product.image) { %>
-                            <img src="<%= product.image %>" alt="<%= product.name %>" class="w-full h-full object-cover" loading="lazy"
-                                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-                            <div class="absolute inset-0 items-center justify-center hidden" style="background:rgba(99,102,241,.06);">
-                                <iconify-icon icon="solar:gamepad-bold" class="text-2xl text-violet-400/40"></iconify-icon>
-                            </div>
-                        <% } else { %>
-                            <div class="w-full h-full flex items-center justify-center" style="background:rgba(99,102,241,.06);">
-                                <iconify-icon icon="solar:gamepad-bold" class="text-2xl text-violet-400/40"></iconify-icon>
-                            </div>
-                        <% } %>
-                        <% if (product.safetyStatus) { %>
-                        <div class="absolute bottom-0 left-0 z-10" style="max-width:100%;">
-                            <% if (product.safetyStatus === 'safe') { %>
-                                <span class="safety-label safe safety-label-bottom safety-label-compact"><iconify-icon icon="mdi:shield-check"></iconify-icon> Safe</span>
-                            <% } else if (product.safetyStatus === 'risk') { %>
-                                <span class="safety-label risk safety-label-bottom safety-label-compact"><iconify-icon icon="mdi:alert"></iconify-icon> Risk</span>
-                            <% } else if (product.safetyStatus === 'maintenance') { %>
-                                <span class="safety-label maintenance safety-label-bottom safety-label-compact"><iconify-icon icon="mdi:wrench"></iconify-icon> Maintenance</span>
-                            <% } %>
-                        </div>
-                        <% } %>
-                        <% if (hasAndroid || hasIos) { %>
-                        <div class="absolute z-10" style="top:8px;right:8px;">
-                            <% if (hasAndroid) { %>
-                                <span class="platform-label">ANDROID</span>
-                            <% } else if (hasIos) { %>
-                                <span class="platform-label">iOS</span>
-                            <% } %>
-                        </div>
-                        <% } %>
-                    </div>
-                    <div class="p-2.5 sm:p-3.5">
-                        <h3 class="font-display font-bold text-[11px] sm:text-sm mb-1.5 text-white"><%= product.name %></h3>
-                        <div class="hm-card-sold"><iconify-icon icon="solar:bag-check-bold"></iconify-icon><%= soldLabel %> terjual</div>
-                        <% if (!isOut) { %>
-                            <a href="/buy/<%= product.id %>" class="hm-card-btn">
-                                <iconify-icon icon="solar:cart-large-2-bold"></iconify-icon>Beli
-                            </a>
-                        <% } else { %>
-                            <button disabled class="w-full py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold cursor-not-allowed flex items-center justify-center gap-1.5"
-                                style="background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.06);">
-                                <iconify-icon icon="solar:close-circle-bold" class="text-[10px] sm:text-sm"></iconify-icon>Habis
-                            </button>
-                        <% } %>
-                    </div>
-                </div>
-            <% }) %>
-        </div>
-
-        <% if (products.length === 0) { %>
-        <div class="col-span-2 sm:col-span-3 lg:col-span-4 text-center py-16">
-            <iconify-icon icon="solar:box-minimalistic-bold" class="text-3xl text-white/10 mb-3 block mx-auto"></iconify-icon>
-            <p class="text-white/15 text-xs">Belum ada produk tersedia</p>
-        </div>
-        <% } %>
     </div>
 </section>
 
@@ -510,145 +394,40 @@ const pageTitle = 'Beranda';
     </div>
 </section>
 
-<!-- FOOTER -->
-<footer>
-
-    <div class="max-w-5xl mx-auto px-5 sm:px-8 pt-12 pb-8">
-
-        <!-- Brand block + tagline -->
-        <div class="flex flex-col items-center text-center mb-10">
-            <div class="flex items-center gap-3 mb-3">
-                <img src="/logo.jpg"
-                     alt="Hero Market" class="h-12 w-auto" style="object-fit:contain;">
-                <div class="text-left">
-                    <div class="brand-wordmark brand-wordmark-footer text-white leading-none"><%= settings.siteName || 'HERO MARKET' %></div>
-                    <div class="text-[11px] text-violet-400 tracking-[0.2em] uppercase mt-1 font-semibold">Premium Store</div>
-                </div>
-            </div>
-            <p class="text-white/35 text-sm leading-relaxed max-w-sm mt-1">
-                <%= settings.about ? settings.about.substring(0,110) : 'Platform kunci mod menu premium terpercaya #1 di Indonesia.' %>
-            </p>
-
-            <!-- Social icons -->
-            <div class="flex gap-3 mt-5">
-                <% if (settings.contact && settings.contact.whatsapp) { %>
-                <a href="https://wa.me/<%= settings.contact.whatsapp %>" target="_blank"
-                   class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white/50 hover:text-green-400 transition-all"
-                   style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);">
-                    <iconify-icon icon="mdi:whatsapp" class="text-base"></iconify-icon>
-                    WhatsApp
-                </a>
-                <% } %>
-                <% if (settings.contact && settings.contact.telegram) { %>
-                <a href="https://t.me/<%= settings.contact.telegram %>" target="_blank"
-                   class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white/50 hover:text-blue-400 transition-all"
-                   style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);">
-                    <iconify-icon icon="mdi:telegram" class="text-base"></iconify-icon>
-                    Telegram
-                </a>
-                <% } %>
-                <a href="#"
-                   class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white/50 hover:text-violet-400 transition-all"
-                   style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);">
-                    <iconify-icon icon="ic:baseline-sports-esports" class="text-base"></iconify-icon>
-                    Game Store
-                </a>
-            </div>
-        </div>
-
-        <!-- Divider -->
-        <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.07),transparent);margin-bottom:2rem;"></div>
-
-        <!-- 3 kolom - responsive -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-6 mb-10">
-
-            <!-- Produk -->
-            <div>
-                <h4 class="text-white text-sm font-bold mb-4 flex items-center gap-2">
-                    <iconify-icon icon="mdi:gamepad-variant" class="text-violet-400"></iconify-icon>
-                    Produk
-                </h4>
-                <div class="space-y-3">
-                    <a href="#games" class="flex items-center gap-2 text-white/45 text-[13px] hover:text-white/80 transition-colors group">
-                        <span class="w-1 h-1 rounded-full bg-violet-500/50 group-hover:bg-violet-400 transition-colors flex-shrink-0"></span>
-                        Mod Free Fire
-                    </a>
-                    <a href="#games" class="flex items-center gap-2 text-white/45 text-[13px] hover:text-white/80 transition-colors group">
-                        <span class="w-1 h-1 rounded-full bg-violet-500/50 group-hover:bg-violet-400 transition-colors flex-shrink-0"></span>
-                        Mod PUBG
-                    </a>
-                    <a href="#games" class="flex items-center gap-2 text-white/45 text-[13px] hover:text-white/80 transition-colors group">
-                        <span class="w-1 h-1 rounded-full bg-violet-500/50 group-hover:bg-violet-400 transition-colors flex-shrink-0"></span>
-                        Mod Mobile Legends
-                    </a>
-                    <a href="#games" class="flex items-center gap-2 text-white/45 text-[13px] hover:text-white/80 transition-colors group">
-                        <span class="w-1 h-1 rounded-full bg-violet-500/50 group-hover:bg-violet-400 transition-colors flex-shrink-0"></span>
-                        Semua Produk
-                    </a>
-                </div>
-            </div>
-
-            <!-- Bantuan -->
-            <div>
-                <h4 class="text-white text-sm font-bold mb-4 flex items-center gap-2">
-                    <iconify-icon icon="mdi:help-circle" class="text-violet-400"></iconify-icon>
-                    Bantuan
-                </h4>
-                <div class="space-y-3">
-                    <a href="/leaderboard" class="flex items-center gap-2 text-white/45 text-[13px] hover:text-white/80 transition-colors group">
-                        <span class="w-1 h-1 rounded-full bg-violet-500/50 group-hover:bg-violet-400 transition-colors flex-shrink-0"></span>
-                        Leaderboard
-                    </a>
-                    <a href="/login" class="flex items-center gap-2 text-white/45 text-[13px] hover:text-white/80 transition-colors group">
-                        <span class="w-1 h-1 rounded-full bg-violet-500/50 group-hover:bg-violet-400 transition-colors flex-shrink-0"></span>
-                        Login / Daftar
-                    </a>
+<!-- FOOTER (gaya VIP Best Mods) -->
+<footer class="hm-footer">
+    <div class="hm-footer-inner">
+        <div class="hm-footer-grid">
+            <div class="hm-footer-brand">
+                <div class="brand-wordmark brand-wordmark-footer"><%= settings.siteName || 'HERO MARKET' %></div>
+                <p><%= settings.about ? settings.about.substring(0,160) : 'Pusat cheat game dan panel termurah terlengkap. Fast code, instan 24 jam.' %></p>
+                <div class="hm-footer-social">
                     <% if (settings.contact && settings.contact.whatsapp) { %>
-                    <a href="https://wa.me/<%= settings.contact.whatsapp %>" class="flex items-center gap-2 text-white/45 text-[13px] hover:text-white/80 transition-colors group">
-                        <span class="w-1 h-1 rounded-full bg-violet-500/50 group-hover:bg-violet-400 transition-colors flex-shrink-0"></span>
-                        Kontak CS
-                    </a>
+                    <a href="https://wa.me/<%= settings.contact.whatsapp %>" target="_blank" rel="noopener" aria-label="WhatsApp"><iconify-icon icon="mdi:phone-outline"></iconify-icon></a>
                     <% } %>
+                    <% if (settings.contact && settings.contact.telegram) { %>
+                    <a href="<%= settings.contact.telegram.startsWith('http') ? settings.contact.telegram : 'https://t.me/' + settings.contact.telegram.replace('@','') %>" target="_blank" rel="noopener" aria-label="Telegram"><iconify-icon icon="mdi:send-outline"></iconify-icon></a>
+                    <% } %>
+                    <a href="/leaderboard" aria-label="Leaderboard"><iconify-icon icon="mdi:trophy-outline"></iconify-icon></a>
                 </div>
             </div>
-
-            <!-- Pembayaran -->
-            <div>
-                <h4 class="text-white text-sm font-bold mb-4 flex items-center gap-2">
-                    <iconify-icon icon="mdi:credit-card" class="text-violet-400"></iconify-icon>
-                    Pembayaran
-                </h4>
-                <div class="flex flex-wrap gap-2">
-                    <% ['QRIS','GoPay','OVO','DANA','ShopeePay','BCA'].forEach(p => { %>
-                    <div class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-white/50"
-                         style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);"><%= p %></div>
-                    <% }) %>
-                </div>
-                <div class="mt-4 flex items-center gap-2">
-                    <iconify-icon icon="mdi:shield-check" class="text-green-400 text-sm"></iconify-icon>
-                    <span class="text-[12px] text-white/35 font-medium">Pembayaran 100% Aman</span>
-                </div>
+            <div class="hm-footer-col">
+                <h4>Informasi</h4>
+                <a href="#popular-products">Produk Populer</a>
+                <a href="/cek-pesanan">Cek Pesanan</a>
+                <a href="/leaderboard">Leaderboard</a>
+            </div>
+            <div class="hm-footer-col">
+                <h4>Layanan</h4>
+                <% if (settings.contact && settings.contact.whatsapp) { %><a href="https://wa.me/<%= settings.contact.whatsapp %>" target="_blank" rel="noopener">Bantuan / CS</a><% } %>
+                <a href="/reseller">Kerjasama</a>
+                <a href="/login">Masuk / Daftar</a>
             </div>
         </div>
-
-        <!-- Bottom bar -->
-        <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);margin-bottom:1.5rem;"></div>
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p class="text-white/25 text-xs text-center sm:text-left">
-                &copy; 2026 <span class="text-white/40 font-semibold"><%= settings.siteName || 'Hero Market' %></span>. All rights reserved.
-            </p>
-            <div class="flex items-center gap-4">
-                <div class="flex items-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full" style="background:#22c55e;box-shadow:0 0 8px #22c55e88;"></span>
-                    <span class="text-white/30 text-xs font-medium">Server Online</span>
-                </div>
-                <div id="footer-stat-sold-wrap" class="flex items-center gap-1.5 text-white/20 text-xs">
-                    <iconify-icon icon="mdi:lightning-bolt" class="text-yellow-500/60 text-sm"></iconify-icon>
-                    <span id="footer-stat-sold-inline">—</span> terjual
-                </div>
-            </div>
+        <div class="hm-footer-bottom">
+            &copy; 2026 <%= settings.siteName || 'HERO MARKET' %>. All rights reserved.
+            <span id="footer-stat-sold-wrap" style="display:none;"><span id="footer-stat-sold-inline">—</span></span>
         </div>
-
     </div>
 </footer>
 
@@ -913,8 +692,8 @@ const pageTitle = 'Beranda';
                 track.innerHTML = '<div class="col-span-3 flex flex-col items-center justify-center gap-2 text-center py-10"><iconify-icon icon="solar:box-outline" class="text-3xl text-white/10"></iconify-icon><p class="text-xs text-white/15">Belum ada produk tersedia</p></div>';
                 return;
             }
-            // Tampilkan max 12 produk (rapi di grid 3 kolom HP & 4 kolom desktop)
-            track.innerHTML = popularProds.slice(0, 12).map((p, idx) => {
+            // Tampilkan semua produk aktif (urut populer), bisa difilter lewat kategori di atas
+            track.innerHTML = popularProds.map((p, idx) => {
                 const isOut = !(p.stock && p.stock > 0);
                 // BUG FIX: server kirim stok "auto/unlimited" sebagai sentinel
                 // angka UNLIMITED_STOCK (999999), BUKAN Infinity -- karena
@@ -926,9 +705,9 @@ const pageTitle = 'Beranda';
                 const stockLabel = p.stock >= 999999 ? 'Tersedia' : (p.stock||0);
                 const hasPlatform = (p.platforms && p.platforms.length > 0) ? String(p.platforms[0]).toUpperCase() : '';
                 const soldFmt = (p.dummySold||0) >= 1000 ? ((p.dummySold||0)/1000).toFixed(1).replace('.0','')+'K' : String(p.dummySold||0);
-                return `<div class="popular-card glass rounded-xl overflow-hidden border border-white/[0.06] cursor-pointer" onclick="location.href='/buy/${p.id}'">
+                return `<div class="popular-card glass rounded-xl overflow-hidden border border-white/[0.06] cursor-pointer" data-category="${p.category||''}" onclick="location.href='/buy/${p.id}'">
                     <div class="relative overflow-hidden" style="height:clamp(80px,20vw,120px);">
-                        ${p.image ? `<img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover" loading="lazy" onerror="this.style.display='none'">` : `<div class="w-full h-full flex items-center justify-center" style="background:rgba(99,102,241,.06);"><iconify-icon icon="solar:gamepad-bold" style="font-size:28px;color:rgba(139,92,246,.4);"></iconify-icon></div>`}
+                        ${p.image ? `<img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.style.display='none'">` : `<div class="w-full h-full flex items-center justify-center" style="background:rgba(99,102,241,.06);"><iconify-icon icon="solar:gamepad-bold" style="font-size:28px;color:rgba(139,92,246,.4);"></iconify-icon></div>`}
                         ${renderProductBadges(p.safetyStatus, hasPlatform, true)}
                     </div>
                     <div class="p-2.5 sm:p-3.5">

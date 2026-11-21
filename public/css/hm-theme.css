@@ -29,7 +29,7 @@
 /* ── Dasar ── */
 html{background:var(--hm-bg);}
 body{
-  background:linear-gradient(180deg,var(--hm-bg) 0%,var(--hm-bg-2) 55%,var(--hm-bg-3) 100%) fixed !important;
+  background:linear-gradient(180deg,var(--hm-bg) 0%,var(--hm-bg-2) 55%,var(--hm-bg-3) 100%) !important;
   color:var(--hm-text);
   -webkit-font-smoothing:antialiased;
 }
@@ -49,8 +49,8 @@ body::before,body::after{display:none !important;}               /* hilangkan gr
 
 /* ── Navbar (semua halaman) ── */
 #navbar{
-  background:rgba(6,10,31,.84) !important;
-  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  background:rgba(6,10,31,.97) !important;
+  backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
   border-bottom:1px solid var(--hm-line) !important;
   box-shadow:none !important;
 }
@@ -149,24 +149,32 @@ body::before,body::after{display:none !important;}               /* hilangkan gr
 
 /* ── Ribbon sambutan + pencarian + kategori ── */
 .hm-ribbon{
-  display:flex;align-items:center;gap:10px;overflow:hidden;white-space:nowrap;
-  background:var(--hm-surface);border:1px solid var(--hm-line);border-radius:14px;padding:11px 16px;
-  font-size:12px;color:var(--hm-muted);
+  display:flex;align-items:center;overflow:hidden;white-space:nowrap;
+  background:var(--hm-surface-2);border:1px solid var(--hm-line);border-radius:14px;padding:14px 18px;
+  font-size:12.5px;color:#d5daf5;
 }
 .hm-ribbon b{color:#fff;font-weight:800;}
 @keyframes hm-marquee{from{transform:translateX(100%);}to{transform:translateX(-100%);}}
-.hm-ribbon-text{display:inline-block;animation:hm-marquee 22s linear infinite;will-change:transform;}
+.hm-ribbon-text{display:inline-block;animation:hm-marquee 28s linear infinite;will-change:transform;}
 .hm-ribbon:hover .hm-ribbon-text{animation-play-state:paused;}
-@media(min-width:768px){.hm-ribbon-text{animation:none;transform:none;}}
+
 .hm-search{
-  display:flex;align-items:stretch;max-width:520px;margin:0 auto;border-radius:16px;overflow:hidden;
+  display:flex;align-items:stretch;max-width:770px;width:100%;margin:40px auto 0;height:56px;border-radius:16px;overflow:hidden;
   background:var(--hm-surface-2);border:1px solid var(--hm-line);transition:border-color .2s,box-shadow .2s;
 }
 .hm-search:focus-within{border-color:#6f7dff;box-shadow:0 0 0 3px rgba(111,125,255,.16);}
-.hm-search input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#fff;font-size:13px;padding:14px 18px;}
+.hm-search input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#fff;font-size:15px;padding:0 22px;cursor:text;}
 .hm-search input::placeholder{color:var(--hm-faint);}
-.hm-search button{width:54px;background:var(--hm-grad);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;transition:filter .2s;}
+.hm-search button{width:66px;font-size:20px;background:var(--hm-grad);color:#fff;display:flex;align-items:center;justify-content:center;transition:filter .2s;}
 .hm-search button:hover{filter:brightness(1.1);}
+
+/* ── Baris kategori di bawah search (tengah, scroll di HP) ── */
+.hm-pills{display:flex;gap:12px;overflow-x:auto;margin-top:28px;padding:6px 2px;scrollbar-width:none;}
+.hm-pills::-webkit-scrollbar{display:none;}
+.hm-pills::before,.hm-pills::after{content:'';margin:auto;}
+.hm-pills .prod-filter{padding:13px 24px !important;font-size:11px !important;border-radius:14px !important;flex-shrink:0;}
+.hm-pills .prod-filter.bg-violet-600{box-shadow:0 4px 18px rgba(66,100,232,.35) !important;}
+.hm-pop-sec{padding:56px 0 40px;}
 
 /* ── Filter kategori (pill) ── */
 .prod-filter,.cat-btn{
@@ -226,12 +234,23 @@ body::before,body::after{display:none !important;}               /* hilangkan gr
 .hm-page-title{text-align:center;font-size:18px;font-weight:800;font-style:italic;text-transform:uppercase;color:#fff;margin-bottom:22px;}
 @media(min-width:640px){.hm-page-title{font-size:22px;}}
 
-/* ── Footer ── */
-footer{
-  background:var(--hm-surface) !important;border-top:1px solid var(--hm-line) !important;
-  border-radius:32px 32px 0 0;margin-top:40px;
+/* ── Footer (gaya VIP Best Mods) ── */
+.hm-footer{
+  background:#0e1a4c !important;border:1px solid var(--hm-line);border-bottom:0;
+  border-radius:36px 36px 0 0;margin-top:56px;
 }
-footer a{transition:color .2s;}
+.hm-footer-inner{max-width:1180px;margin:0 auto;padding:56px 24px 28px;}
+.hm-footer-grid{display:grid;gap:36px;grid-template-columns:1fr;}
+@media(min-width:768px){.hm-footer-grid{grid-template-columns:2fr 1fr 1fr;gap:48px;}}
+.hm-footer-brand .brand-wordmark{font-size:26px;color:#fff;line-height:1;}
+.hm-footer-brand p{margin-top:22px;max-width:380px;font-size:12px;line-height:1.85;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6f79a8;}
+.hm-footer-social{display:flex;gap:12px;margin-top:24px;}
+.hm-footer-social a{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#070d2b;border:1px solid var(--hm-line);color:#c3caf0;font-size:19px;transition:color .2s,border-color .2s;}
+.hm-footer-social a:hover{color:#fff;border-color:var(--hm-line-strong);}
+.hm-footer-col h4{font-size:10px;font-weight:800;font-style:italic;letter-spacing:.28em;text-transform:uppercase;color:#a9b2e6;margin-bottom:22px;}
+.hm-footer-col a{display:block;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6f79a8;margin-bottom:18px;transition:color .2s;}
+.hm-footer-col a:hover{color:#fff;}
+.hm-footer-bottom{margin-top:36px;padding-top:26px;border-top:1px solid var(--hm-line);text-align:center;font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#4f5886;}
 
 /* ── Testimoni / leaderboard / badge ── */
 .testi-card,.trust-badge{background:var(--hm-surface) !important;border:1px solid var(--hm-line) !important;border-radius:var(--hm-radius) !important;box-shadow:none !important;}
@@ -290,7 +309,12 @@ section[id="leaderboard-home"],section[id="games"]{border-color:transparent !imp
 #paymentModal [style*="linear-gradient(90deg,#7c3aed"]{background:var(--hm-grad) !important;animation:none !important;}
 
 /* ── Auth & halaman lain: kartu form ikut tema ── */
-body.auth-page{background:linear-gradient(180deg,var(--hm-bg),var(--hm-bg-3)) fixed !important;}
+body.auth-page{background:linear-gradient(180deg,var(--hm-bg),var(--hm-bg-3)) !important;}
 
 /* ── Hormati preferensi gerak berkurang ── */
 @media(prefers-reduced-motion:reduce){*{animation-duration:.001ms !important;transition-duration:.001ms !important;}}
+
+/* ── Performa scroll ── */
+#leaderboard-home,#testimonials,#testimoni,.hm-features,.hm-footer{content-visibility:auto;contain-intrinsic-size:auto 700px;}
+.popular-card{content-visibility:auto;contain-intrinsic-size:auto 260px;}
+.popular-card,.hm-card-btn,.hm-pill-link,.prod-filter{will-change:auto;}

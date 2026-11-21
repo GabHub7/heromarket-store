@@ -237,9 +237,16 @@ const PRODUCTS_CACHE_TTL_MS = 3 * 60 * 1000; // 3 menit
 // baru ke provider.
 let inFlightFetch = null;
 
-async function getProductsCached(settings) {
+async function getProductsCached(settings, opts = {}) {
   const now = Date.now();
   if (productsCache.data && (now - productsCache.fetchedAt) < PRODUCTS_CACHE_TTL_MS) {
+    return { success: true, data: productsCache.data };
+  }
+  // PERFORMA (tampilan stok di beranda): cache sudah kedaluwarsa tapi masih ada data lama ->
+  // langsung pakai data lama, perbarui di belakang layar. Pengunjung tidak menunggu provider.
+  // (Checkout TIDAK memakai opsi ini, jadi tetap selalu data segar.)
+  if (opts.allowStale && productsCache.data) {
+    if (!inFlightFetch) getProductsCached(settings).catch(() => {});
     return { success: true, data: productsCache.data };
   }
   if (inFlightFetch) return inFlightFetch; // gabung ke fetch yang sedang jalan, jangan fetch baru
@@ -478,7 +485,11 @@ async function getRealStockForProduct(settings, product, selectedDays) {
     const resolved = await resolveItemId(settings, product, selectedDays);
     if (!resolved.itemId) return { stockMode: 'unknown' };
 
-    const listResult = await getProductsCached(settings);
+    // Maks 1,5 detik menunggu provider untuk tampilan kartu; lewat itu dianggap 'unknown' (= tersedia).
+    const listResult = await Promise.race([
+      getProductsCached(settings, { allowStale: true }),
+      new Promise(r => setTimeout(() => r({ success: false }), 1500))
+    ]);
     if (!listResult.success || !Array.isArray(listResult.data)) return { stockMode: 'unknown' };
 
     const item = listResult.data.find(i => i.id === resolved.itemId);
