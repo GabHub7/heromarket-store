@@ -21,18 +21,55 @@
     <script>
         window.openMenu = function(){
             var d = document.getElementById('menu-drawer');
-            if(!d) return;
+            if(!d || d.classList.contains('open')) return;
+            var path = location.pathname.replace(/\/+$/,'') || '/';
+            d.querySelectorAll('.mi[href]').forEach(function(a){
+                var h = (a.getAttribute('href')||'').split('#')[0].replace(/\/+$/,'') || '/';
+                a.classList.toggle('active', h === path);
+            });
             d.classList.add('open');
+            d.setAttribute('aria-hidden','false');
+            document.body.classList.add('menu-open');
             document.body.style.overflow = 'hidden';
         };
         window.closeMenu = function(){
             var d = document.getElementById('menu-drawer');
-            if(d) d.classList.remove('open');
+            if(d){ d.classList.remove('open'); d.setAttribute('aria-hidden','true'); var c=document.getElementById('menu-drawer-content'); if(c){c.style.transform='';c.style.transition='';} }
+            document.body.classList.remove('menu-open');
             document.body.style.overflow = '';
             document.querySelectorAll('.nav-item').forEach(function(el){el.classList.remove('active');});
             var home = document.getElementById('nav-home');
             if(home) home.classList.add('active');
         };
+        // Ripple saat disentuh/diklik (menu, tombol tutup, hamburger)
+        document.addEventListener('pointerdown', function(e){
+            var t = e.target.closest && e.target.closest('.mi,.menu-x,.hamburger-btn');
+            if(!t) return;
+            var r = t.getBoundingClientRect(), d = Math.max(r.width, r.height) * 1.7;
+            var s = document.createElement('span'); s.className = 'rip';
+            s.style.cssText = 'width:'+d+'px;height:'+d+'px;left:'+(e.clientX-r.left-d/2)+'px;top:'+(e.clientY-r.top-d/2)+'px';
+            t.appendChild(s); setTimeout(function(){ s.remove(); }, 650);
+        }, {passive:true});
+        // Geser ke kanan untuk menutup (HP)
+        (function(){
+            var x0 = null, dx = 0, c = null;
+            document.addEventListener('touchstart', function(e){
+                c = document.getElementById('menu-drawer-content');
+                if(!c || !c.contains(e.target) || !document.body.classList.contains('menu-open')) { x0 = null; return; }
+                x0 = e.touches[0].clientX; dx = 0; c.style.transition = 'none';
+            }, {passive:true});
+            document.addEventListener('touchmove', function(e){
+                if(x0 === null) return;
+                dx = Math.max(0, e.touches[0].clientX - x0);
+                c.style.transform = 'translateX(' + dx + 'px)';
+            }, {passive:true});
+            document.addEventListener('touchend', function(){
+                if(x0 === null) return;
+                var close = dx > 90; x0 = null;
+                c.style.transition = '';
+                if(close){ window.closeMenu(); } else { c.style.transform = ''; }
+            }, {passive:true});
+        })();
     </script>
     <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js" defer></script>
     <link rel="preconnect" href="https://api.iconify.design" crossorigin>
@@ -347,123 +384,90 @@
         </div>
     </div>
 
-    <!-- ══ MENU DRAWER ══ -->
-    <div id="menu-drawer">
+    <!-- ══ MENU DRAWER (glassmorphism) ══ -->
+    <% let _mi = 0; const _rt = (typeof user !== 'undefined' && user) ? getResellerTier(user) : 0; %>
+    <div id="menu-drawer" role="dialog" aria-modal="true" aria-label="Menu" aria-hidden="true">
         <div id="menu-drawer-overlay" onclick="closeMenu()"></div>
         <div id="menu-drawer-content">
+            <span class="gl-blob gl-b1" aria-hidden="true"></span>
+            <span class="gl-blob gl-b2" aria-hidden="true"></span>
 
-            <!-- Profile section -->
-            <% if (typeof user !== 'undefined' && user) { %>
-            <div class="p-4 border-b border-white/5">
-                <div class="flex items-center justify-between mb-3">
-                    <span class="brand-wordmark brand-wordmark-sm shimmer-text"><%= settings?.siteName || 'HERO MARKET' %></span>
-                    <button onclick="closeMenu()" class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400">
+            <div class="gl-in" style="--i:<%= _mi++ %>">
+                <div class="gl-head">
+                    <span class="brand-wordmark brand-wordmark-sm gl-brand"><%= settings?.siteName || 'HERO MARKET' %></span>
+                    <button type="button" onclick="closeMenu()" class="menu-x gl-x" aria-label="Tutup menu">
                         <iconify-icon icon="mdi:close"></iconify-icon>
                     </button>
                 </div>
-                <!-- Profile card compact -->
-                <div class="flex items-center gap-3 p-3 rounded-xl <%= isAdmin ? 'bg-orange-500/8 border border-orange-500/20' : 'bg-indigo-500/8 border border-indigo-500/18' %>">
+
+                <% if (typeof user !== 'undefined' && user) { %>
+                <div class="gl-profile <%= isAdmin ? 'is-admin' : '' %>">
                     <% if (!isAdmin) { %><input type="file" id="avatarInput" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="uploadAvatar(this)"><% } %>
                     <div class="<%= isAdmin ? '' : 'avatar-upload-wrap cursor-pointer' %>" onclick="<%= isAdmin ? '' : 'document.getElementById(\'avatarInput\').click()' %>">
-                        <div class="w-10 h-10 rounded-full overflow-hidden border-2 border-white/10 flex-shrink-0" id="profilePhotoWrap">
+                        <div class="gl-avatar" id="profilePhotoWrap">
                             <% if (user.photo) { %>
-                                <img src="<%= user.photo %>" class="w-full h-full object-cover" id="profilePhotoImg">
+                                <img src="<%= user.photo %>" class="w-full h-full object-cover" id="profilePhotoImg" alt="">
                             <% } else if (isAdmin) { %>
                                 <div class="w-full h-full flex items-center justify-center" style="background:linear-gradient(135deg,#ea580c,#f97316)"><iconify-icon icon="mdi:shield-crown" style="color:#fff;font-size:18px"></iconify-icon></div>
                             <% } else { %>
-                                <div class="w-full h-full flex items-center justify-center font-black text-sm text-white" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)" id="profilePhotoInitial"><%= user.username.charAt(0).toUpperCase() %></div>
+                                <div class="w-full h-full flex items-center justify-center font-black text-sm text-white" style="background:var(--hm-grad)" id="profilePhotoInitial"><%= user.username.charAt(0).toUpperCase() %></div>
                             <% } %>
                         </div>
                         <% if (!isAdmin) { %><div class="avatar-overlay"><iconify-icon icon="mdi:camera" class="text-white text-base"></iconify-icon></div><% } %>
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-1.5">
-                            <div class="text-sm font-bold text-white truncate"><%= user.username %></div>
+                            <div class="gl-name"><%= user.username %></div>
                             <% if (isAdmin) { %>
-                            <span class="text-[8px] font-black px-1.5 py-0.5 rounded" style="background:rgba(234,88,12,.25);color:#fb923c;border:1px solid rgba(234,88,12,.4)">ADMIN</span>
+                            <span class="gl-tag admin">ADMIN</span>
                             <% } else if (user.is_reseller) { %>
-                            <span class="text-[8px] font-black px-1.5 py-0.5 rounded" style="background:rgba(99,102,241,.2);color:#aab4ff;border:1px solid rgba(99,102,241,.35)">TIER <%= getResellerTier(user) %></span>
+                            <span class="gl-tag">TIER <%= getResellerTier(user) %></span>
                             <% } %>
                         </div>
-                        <div class="text-[10px] mt-0.5 <%= isAdmin ? 'text-orange-400' : 'text-zinc-500' %>">
-                            <%= isAdmin ? 'Administrator' : (user.is_reseller ? ('Reseller Tier ' + getResellerTier(user)) : 'Member') %>
-                        </div>
+                        <div class="gl-role"><%= isAdmin ? 'Administrator' : (user.is_reseller ? ('Reseller Tier ' + getResellerTier(user)) : 'Member') %></div>
                     </div>
                 </div>
-            </div>
-            <% } else { %>
-            <div class="p-4 border-b border-white/5 flex items-center justify-between">
-                <span class="brand-wordmark brand-wordmark-sm shimmer-text"><%= settings?.siteName || 'HERO MARKET' %></span>
-                <button onclick="closeMenu()" class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400">
-                    <iconify-icon icon="mdi:close"></iconify-icon>
-                </button>
-            </div>
-            <% } %>
-
-            <!-- ═══ MENU ITEMS — CLEAN & MINIMAL ═══ -->
-            <div class="p-3 space-y-0.5">
-                <a href="/" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium">
-                    <iconify-icon icon="mdi:home-variant" class="text-indigo-400 text-lg"></iconify-icon> Beranda
-                </a>
-                <% if (typeof user !== 'undefined' && user && !isAdmin) { %>
-                <a href="/dashboard" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium">
-                    <iconify-icon icon="mdi:view-dashboard" class="text-indigo-400 text-lg"></iconify-icon> Dashboard
-                </a>
-                <a href="/cek-pesanan" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium">
-                    <iconify-icon icon="mdi:receipt-text-check" class="text-indigo-400 text-lg"></iconify-icon> Cek Pesanan
-                </a>
                 <% } %>
+            </div>
+
+            <nav class="gl-nav" aria-label="Menu utama">
+                <div class="gl-sec gl-in" style="--i:<%= _mi++ %>">Menu</div>
+                <a href="/" onclick="closeMenu()" class="mi gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:home-variant"></iconify-icon></span><span class="mi-t">Beranda</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
+                <% if (typeof user !== 'undefined' && user && !isAdmin) { %>
+                <a href="/dashboard" onclick="closeMenu()" class="mi gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:view-dashboard"></iconify-icon></span><span class="mi-t">Dashboard</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
+                <a href="/cek-pesanan" onclick="closeMenu()" class="mi gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:receipt-text-check"></iconify-icon></span><span class="mi-t">Cek Pesanan</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
+                <% } %>
+
                 <% if (!isAdmin) { %>
-                <% const _rt = (typeof user !== 'undefined' && user) ? getResellerTier(user) : 0; %>
+                <div class="gl-sec gl-in" style="--i:<%= _mi++ %>">Reseller</div>
+                <a href="/reseller" onclick="closeMenu()" class="mi gl-in hl" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:crown-outline"></iconify-icon></span><span class="mi-t"><%= _rt >= 2 ? 'Paket Reseller' : (_rt === 1 ? 'Upgrade ke Tier 2' : 'Jadi Reseller') %></span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
                 <% if (_rt >= 1) { %>
-                <a href="/reseller/panel" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium">
-                    <iconify-icon icon="mdi:storefront-outline" class="text-indigo-400 text-lg"></iconify-icon> Panel Reseller
-                </a>
+                <a href="/reseller/panel" onclick="closeMenu()" class="mi gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:storefront-outline"></iconify-icon></span><span class="mi-t">Panel Reseller</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
                 <% } %>
                 <% if (_rt >= 2) { %>
-                <a href="/reseller/api" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium">
-                    <iconify-icon icon="mdi:api" class="text-indigo-400 text-lg"></iconify-icon> API Reseller
-                </a>
+                <a href="/reseller/api" onclick="closeMenu()" class="mi gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:api"></iconify-icon></span><span class="mi-t">API Reseller</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
+                <a href="/docs/api" onclick="closeMenu()" class="mi gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:book-open-variant"></iconify-icon></span><span class="mi-t">Dokumentasi API</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
                 <% } %>
-                <a href="/reseller" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium">
-                    <iconify-icon icon="mdi:crown-outline" class="text-indigo-400 text-lg"></iconify-icon> <%= _rt >= 2 ? 'Paket Reseller' : (_rt === 1 ? 'Upgrade ke Tier 2' : 'Jadi Reseller') %>
-                </a>
                 <% } %>
 
-                <div class="border-t border-white/5 my-1.5"></div>
-
+                <div class="gl-sec gl-in" style="--i:<%= _mi++ %>">Akun</div>
                 <% if (typeof user !== 'undefined' && user) { %>
-                    <a href="/logout" onclick="doLogout(event)" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all text-sm font-medium">
-                        <iconify-icon icon="mdi:logout" class="text-lg"></iconify-icon> Logout
-                    </a>
+                <a href="/logout" onclick="doLogout(event)" class="mi danger gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:logout"></iconify-icon></span><span class="mi-t">Logout</span></a>
                 <% } else { %>
-                    <a href="/login" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-all text-sm font-medium">
-                        <iconify-icon icon="mdi:login" class="text-lg"></iconify-icon> Login
-                    </a>
-                    <a href="/register" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-all text-sm font-medium">
-                        <iconify-icon icon="mdi:account-plus" class="text-lg"></iconify-icon> Daftar
-                    </a>
+                <a href="/login" onclick="closeMenu()" class="mi gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:login"></iconify-icon></span><span class="mi-t">Masuk</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
+                <a href="/register" onclick="closeMenu()" class="mi accent gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:account-plus"></iconify-icon></span><span class="mi-t">Daftar</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
                 <% } %>
 
-                <!-- ADMIN SHORTCUT — hanya admin -->
                 <% if (isAdmin) { %>
-                <div class="border-t border-orange-500/15 my-1.5 pt-1.5">
-                    <a href="/admin" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 transition-all text-sm font-bold">
-                        <iconify-icon icon="mdi:shield-crown" class="text-lg"></iconify-icon> Admin Panel
-                    </a>
-                </div>
+                <div class="gl-sec gl-in" style="--i:<%= _mi++ %>">Admin</div>
+                <a href="/admin" onclick="closeMenu()" class="mi admin gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:shield-crown"></iconify-icon></span><span class="mi-t">Admin Panel</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
                 <% } %>
 
-                <div class="border-t border-white/5 my-1.5"></div>
                 <% if (settings?.contact?.whatsapp) { %>
-                <a href="https://wa.me/<%= settings.contact.whatsapp %>" target="_blank" onclick="closeMenu()" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 transition-all text-sm">
-                    <iconify-icon icon="mdi:whatsapp" class="text-green-400 text-lg"></iconify-icon> Hubungi CS
-                </a>
+                <a href="https://wa.me/<%= settings.contact.whatsapp %>" target="_blank" rel="noopener" onclick="closeMenu()" class="mi wa gl-in" style="--i:<%= _mi++ %>;margin-top:10px"><span class="mi-ico"><iconify-icon icon="mdi:whatsapp"></iconify-icon></span><span class="mi-t">Hubungi CS</span><iconify-icon class="mi-go" icon="mdi:open-in-new"></iconify-icon></a>
                 <% } %>
-            </div>
-            <div class="px-4 pb-4 pt-1 text-center text-[10px] text-zinc-700">
-                &copy; 2026 <%= settings?.siteName || 'HERO MARKET' %>
-            </div>
+            </nav>
+            <div class="gl-foot gl-in" style="--i:<%= _mi++ %>">&copy; 2026 <%= settings?.siteName || 'HERO MARKET' %></div>
         </div>
     </div>
 

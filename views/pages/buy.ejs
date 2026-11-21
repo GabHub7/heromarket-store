@@ -304,13 +304,33 @@ const pageTitle = 'Beli ' + product.name;
     <div class="hm-buy-side">
     <!-- ── ORDER FORM ── -->
     <div class="glass-strong rounded-2xl p-5 space-y-4 fade-in-up">
+        <!-- RINGKASAN ORDER (gaya VIP) -->
+        <div class="hm-os-head"><iconify-icon icon="solar:cart-large-2-bold"></iconify-icon><span>Ringkasan Order</span></div>
+        <div class="hm-os-item">
+            <div class="hm-os-lbl">Item terpilih</div>
+            <div class="hm-os-name"><%= product.name %> <span id="selectedLabel"><%= product.items?.[0]?.l || '-' %></span></div>
+            <div class="hm-os-stock"><span class="hm-os-dot"></span><span class="text-emerald-400 font-semibold" id="stockLabel"><%= (product.items?.[0]?.stok === Infinity || (product.items?.[0]?.stok || 0) >= 999999) ? 'Tersedia' : ((product.items?.[0]?.stok || 0) + ' tersedia') %></span></div>
+        </div>
+        <div id="voucherRow" class="hidden flex justify-between hm-os-row">
+            <span>Diskon voucher</span>
+            <span class="text-emerald-400 font-semibold" id="discountShow">-</span>
+        </div>
+        <div class="hm-os-total">
+            <div>
+                <div class="hm-os-lbl blue">Total bayar</div>
+                <div id="originalPriceShow" class="hidden text-[10px] text-zinc-500 line-through"></div>
+            </div>
+            <span id="totalPrice">Rp <%= ((isReseller && product.items?.[0]?.reseller_price) ? product.items[0].reseller_price : (product.items?.[0]?.p||0)).toLocaleString('id-ID') %></span>
+        </div>
+
+        <div class="hm-os-sep"></div>
         <!-- WHATSAPP -->
         <div>
             <label class="text-[10px] font-bold uppercase tracking-[0.15em] text-white/40 mb-1.5 block">WHATSAPP</label>
             <input type="tel" id="waInput" required
                 class="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all"
                 style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);"
-                onfocus="this.style.borderColor='rgba(139,92,246,0.6)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
+                onfocus="this.style.borderColor='rgba(111,125,255,.75)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
                 placeholder="08xxxxxxxxxx"
                 value="<%= user?.wa || '' %>" maxlength="15">
         </div>
@@ -321,7 +341,7 @@ const pageTitle = 'Beli ' + product.name;
             <input type="email" id="customerName" required
                 class="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all"
                 style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);"
-                onfocus="this.style.borderColor='rgba(139,92,246,0.6)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
+                onfocus="this.style.borderColor='rgba(111,125,255,.75)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
                 placeholder="email@example.com"
                 value="<%= user?.email || '' %>" maxlength="60">
         </div>
@@ -333,7 +353,7 @@ const pageTitle = 'Beli ' + product.name;
                 <input type="text" id="voucherInput" placeholder="Masukkan kode voucher"
                     class="flex-1 px-4 py-3 rounded-xl text-sm text-white placeholder-white/25 outline-none uppercase font-mono transition-all"
                     style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);"
-                    onfocus="this.style.borderColor='rgba(139,92,246,0.6)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
+                    onfocus="this.style.borderColor='rgba(111,125,255,.75)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
                     maxlength="30" oninput="this.value=this.value.toUpperCase(); clearVoucher()">
                 <button onclick="applyVoucher()" id="voucherBtn"
                     class="px-4 py-3 rounded-xl text-xs font-bold transition-all flex-shrink-0"
@@ -380,36 +400,6 @@ const pageTitle = 'Beli ' + product.name;
         <% } %>
 
 
-        <!-- ORDER SUMMARY TABLE -->
-        <div class="rounded-xl p-4 space-y-2 text-xs" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
-            <div class="flex justify-between text-white/40">
-                <span>Produk</span>
-                <span class="text-white font-semibold"><%= product.name %></span>
-            </div>
-            <div class="flex justify-between text-white/40">
-                <span>Durasi</span>
-                <span class="text-white font-semibold" id="selectedLabel"><%= product.items?.[0]?.l || '-' %></span>
-            </div>
-            <div class="flex justify-between text-white/40">
-                <span>Stok Durasi</span>
-                <span class="text-emerald-400 font-semibold" id="stockLabel">
-                    <%= (product.items?.[0]?.stok === Infinity || (product.items?.[0]?.stok || 0) >= 999999) ? 'Tersedia' : ((product.items?.[0]?.stok || 0) + ' tersedia') %>
-                </span>
-            </div>
-            <div id="voucherRow" class="hidden flex justify-between text-white/40">
-                <span>Diskon</span>
-                <span class="text-emerald-400 font-semibold" id="discountShow">-</span>
-            </div>
-            <div class="h-px" style="background:rgba(255,255,255,0.06)"></div>
-            <div class="flex justify-between items-center">
-                <span class="text-white/50 text-sm font-semibold">Total</span>
-                <span class="text-2xl font-display font-black text-violet-300" id="totalPrice">
-                    Rp <%= ((isReseller && product.items?.[0]?.reseller_price) ? product.items[0].reseller_price : (product.items?.[0]?.p||0)).toLocaleString('id-ID') %>
-                </span>
-            </div>
-            <div id="originalPriceShow" class="hidden text-right text-[10px] text-zinc-500 line-through"></div>
-        </div>
-
         <!-- DOWNLOAD APK BUTTON -->
         <% if (product.downloadLink) { %>
         <a href="<%= product.downloadLink %>"
@@ -423,7 +413,7 @@ const pageTitle = 'Beli ' + product.name;
         <% if ((product.stock||0) > 0) { %>
             <button id="submitBtn" onclick="handleOrder()"
                 class="btn-primary w-full py-4 rounded-2xl text-sm font-black text-white flex items-center justify-center gap-2">
-                <iconify-icon icon="solar:bag-check-bold" class="text-lg"></iconify-icon>Konfirmasi
+                <iconify-icon icon="solar:bag-check-bold" class="text-lg"></iconify-icon>Beli Sekarang
             </button>
             <button onclick="addProductToCart()"
                 class="btn-ghost w-full py-3 rounded-xl text-sm font-medium text-white/60 flex items-center justify-center gap-2">
@@ -516,7 +506,7 @@ const pageTitle = 'Beli ' + product.name;
                 <textarea id="reviewText"
                     class="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-white/25 outline-none resize-none mb-2 transition-all"
                     style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);"
-                    onfocus="this.style.borderColor='rgba(139,92,246,0.6)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
+                    onfocus="this.style.borderColor='rgba(111,125,255,.75)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
                     rows="3" placeholder="Bagikan pengalaman kamu dengan produk ini..."></textarea>
                 <button onclick="submitReview()"
                     class="btn-ghost w-full py-2.5 rounded-xl text-xs font-bold text-violet-400 flex items-center justify-center gap-2">
@@ -813,7 +803,7 @@ const pageTitle = 'Beli ' + product.name;
         } catch(e) { showToast('Koneksi error: ' + e.message,'error'); }
         finally {
             btn.disabled = false;
-            btn.innerHTML = '<iconify-icon icon="solar:bag-check-bold" class="text-lg"></iconify-icon> Konfirmasi';
+            btn.innerHTML = '<iconify-icon icon="solar:bag-check-bold" class="text-lg"></iconify-icon> Beli Sekarang';
         }
     }
 

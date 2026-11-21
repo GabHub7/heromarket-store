@@ -56,35 +56,18 @@ const pageTitle = 'Beranda';
     <div class="max-w-7xl mx-auto px-3 sm:px-6 pt-3 sm:pt-5">
     <!-- Banner dengan margin, gap & border penuh, responsive di semua device -->
     <div id="carousel-wrap" class="group relative overflow-hidden select-none rounded-2xl sm:rounded-3xl transition-shadow duration-300 hover:shadow-[0_8px_50px_rgba(99,102,241,.22)]"
-         style="height:clamp(168px,35vw,260px);background:#07071a;border:1px solid rgba(99,102,241,.3);box-shadow:0 8px 40px rgba(99,102,241,.12);">
+         style="aspect-ratio:16/9;max-width:960px;margin-left:auto;margin-right:auto;background:#07071a;border:1px solid rgba(99,102,241,.3);box-shadow:0 8px 40px rgba(99,102,241,.12);">
 
         <div id="carousel-track" class="flex h-full" style="transition:transform .52s cubic-bezier(.4,0,.2,1);will-change:transform;">
 
-            <!-- DEFAULT SLIDE -->
-            <div class="c-slide flex-shrink-0 relative" id="c-slide-default"
-                 style="background:linear-gradient(135deg,#07071a 0%,#130929 55%,#07071a 100%);">
-                <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 70% 60% at 15% 50%,rgba(139,92,246,.22) 0%,transparent 70%);animation:bannerPulse 4s ease-in-out infinite;z-index:1;"></div>
-                <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 50% 80% at 85% 50%,rgba(99,102,241,.12) 0%,transparent 70%);animation:bannerPulse 4s 2s ease-in-out infinite;z-index:1;"></div>
-                <div class="absolute inset-0 pointer-events-none" style="background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.04) 3px,rgba(0,0,0,.04) 4px);z-index:2;"></div>
-                <div class="relative z-10 h-full flex flex-col justify-center px-5 sm:px-10 max-w-2xl">
-                    <div class="flex items-center gap-2 mb-2.5" style="animation:slideUpIn .45s ease-out both;">
-                        <span class="text-[10px] font-bold tracking-[2px] uppercase" style="color:#aab4ff;">Premium Store</span>
-                    </div>
-                    <div class="font-orbitron font-black text-white leading-none mb-2"
-                         style="font-size:clamp(22px,6vw,44px);text-shadow:0 0 32px rgba(139,92,246,.65);animation:slideUpIn .45s .08s ease-out both;">
-                        <%= settings.siteName %>
-                    </div>
-                    <div class="text-violet-300 mb-4" style="font-size:clamp(10px,2vw,13px);line-height:1.5;animation:slideUpIn .45s .16s ease-out both;">
-                        <%= settings.marqueeText || 'Layanan Game Mod Menu & Key Premium Terpercaya' %>
-                    </div>
-                    <div class="flex items-center gap-2 flex-wrap" style="animation:slideUpIn .45s .24s ease-out both;">
-                        <a href="#games" class="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-[11px] font-black text-white transition-all hover:scale-105 active:scale-95"
-                           style="background:#fff;color:#0b1450;">
-                            <iconify-icon icon="mdi:shopping" style="font-size:12px;"></iconify-icon> Lihat Produk
-                        </a>
-                    </div>
-                </div>
-            </div>
+            <!-- DEFAULT SLIDE: banner HERO MARKET (gambar) -->
+            <a class="c-slide flex-shrink-0 relative" id="c-slide-default" href="#popular-products" aria-label="<%= settings.siteName %> — Buy Key Game Paling Murah & Aman" style="background:#07071a;display:block;">
+                <img class="c-img" src="/banner-hero-1600.webp"
+                     srcset="/banner-hero-800.webp 800w, /banner-hero-1600.webp 1600w"
+                     sizes="(max-width:1000px) 100vw, 960px"
+                     alt="<%= settings.siteName %> — Buy Key Game Paling Murah & Aman" width="1600" height="900"
+                     fetchpriority="high" decoding="async">
+            </a>
             <!-- admin slides injected by JS -->
         </div>
 
