@@ -3154,7 +3154,11 @@ app.get('/buy/:id', async (req, res) => {
   // settings sudah di-load via Promise.all di atas
   const user = getSessionUser(req);
 
-  const isReseller = !!(user?.is_reseller);
+  // TOKO LUAR vs AREA SELLER (permintaan owner): halaman beli publik memperlakukan SEMUA akun (termasuk seller)
+  // sebagai pembeli biasa -> harga normal, bayar QRIS/USDT, tanpa opsi saldo. Harga reseller + bayar saldo
+  // hanya lewat Panel Seller (/reseller/panel), yang mengirim sellerMode:true saat membuat order.
+  const resellerAccount = !!(user?.is_reseller);
+  const isReseller = false;
   const resellerDiscount = settings.resellerDiscount || 20;
   const allKeys = product.keys || [];
   const genericKeys = allKeys.filter(k => !k.includes(':'));
@@ -3238,7 +3242,7 @@ app.get('/buy/:id', async (req, res) => {
   // saldo, non-seller balik ke QRIS/USDT). userBalance dikirim eksklusif
   // untuk isReseller lagi seperti semula -- non-reseller tidak butuh nomor
   // ini karena tombol Saldo di buy.ejs juga hanya muncul utk isReseller.
-  res.render('pages/buy', { product: productSafe, settings, user, isReseller, userBalance: isReseller ? (user?.balance || 0) : 0,
+  res.render('pages/buy', { product: productSafe, settings, user, isReseller, resellerAccount, userBalance: 0,
     coinInfo,
     usdtManualConfigured: Boolean(
       (settings.binanceSpotManual?.apiKey && settings.binanceSpotManual?.secretKey && settings.binanceSpotManual?.walletAddress)
@@ -3310,7 +3314,9 @@ app.post('/create-order', requireAuth, async (req, res) => {
     const settings = readDB('settings.json');
     // Terapkan harga reseller: pakai harga custom per-paket kalau admin sudah set, kalau belum fallback ke diskon global
     const orderUser = getSessionUser(req);
-    if (orderUser?.is_reseller) {
+    // Mode seller hanya sah kalau akunnya reseller DAN order datang dari Panel Seller (sellerMode:true).
+    const sellerMode = !!(orderUser?.is_reseller && req.body.sellerMode === true);
+    if (sellerMode) {
       const matchedOpt = selectedDays ? product.pricingOptions?.find(o => getOptionDurationMinutes(o) === selectedDays) : null;
       if (matchedOpt && matchedOpt.resellerPrice !== undefined) {
         price = matchedOpt.resellerPrice;
@@ -3435,7 +3441,7 @@ app.post('/create-order', requireAuth, async (req, res) => {
         // is_reseller di sini seperti semula: cuma Seller/Reseller VIP yang
         // boleh bayar pakai saldo. Non-seller balik pakai QRIS/USDT (lihat
         // penolakan di bawah yang juga sudah direvert).
-        if (!orderUser?.is_reseller) return res.json({ success: false, message: 'Bayar pakai saldo hanya untuk Reseller VIP' });
+        if (!sellerMode) return res.json({ success: false, message: 'Bayar pakai saldo hanya lewat Panel Seller. Buka menu Reseller → Panel Reseller.' });
         const usersBal = await readFresh('users.json'); // preview awal, buat pesan error yang informatif -- angka final tetap dicek ulang di adjustUserBalance terhadap data paling baru
         const uBalPreview = usersBal.find(u => u.id === req.session.userId);
         if (!uBalPreview) return res.json({ success: false, message: 'User tidak ditemukan' });
@@ -3597,7 +3603,7 @@ app.post('/create-order', requireAuth, async (req, res) => {
     // jangan yang non seller juga" -- BUKAN semua user). Seller/Reseller VIP
     // TETAP wajib pakai Saldo (keputusan sebelumnya tidak berubah untuk
     // mereka), tapi non-seller balik ke QRIS/USDT langsung seperti semula.
-    if (orderUser?.is_reseller) {
+    if (sellerMode) {
       // Reseller sampai ke titik ini berarti kirim paymentMethod selain
       // 'balance' (mis. tombolnya di-bypass lewat API) -- tolak dengan jelas,
       // JANGAN buatkan order QRIS untuk reseller.
@@ -6220,12 +6226,27 @@ async function touchPartnerUsage(partnerId) {
 }
 
 // ══════════ RESELLER TIER 2: dashboard API key + dokumentasi + API v1 ══════════
-const requireTier2 = (req, res, next) => {
-  const user = getSessionUser(req);
-  if (!user || req.session?.isAdmin) return res.redirect('/login?redirect=' + encodeURIComponent(req.originalUrl));
-  if (getResellerTier(user) < 2) return res.redirect('/reseller?need=2');
-  req.tier2User = user;
-  next();
+// Cek akses Tier 2 pakai data SEGAR (bukan cache readDB): di serverless tiap instance punya cache sendiri, jadi
+// akun yang baru di-upgrade bisa "terlihat Tier 2" di satu instance tapi belum di instance lain (tombol gagal).
+// Untuk POST (fetch dari halaman) balasannya JSON, bukan redirect HTML.
+const requireTier2 = async (req, res, next) => {
+  const wantsJson = req.method !== 'GET';
+  const deny = (message, redirect) => wantsJson
+    ? res.json({ success: false, message, redirect })
+    : res.redirect(redirect);
+  try {
+    if (req.session?.isAdmin || !req.session?.userId) return deny('Sesi habis, silakan login ulang.', '/login?redirect=' + encodeURIComponent(req.originalUrl));
+    const users = await readFresh('users.json');
+    const user = users.find(u => u.id === req.session.userId);
+    if (!user) return deny('Akun tidak ditemukan, silakan login ulang.', '/login');
+    if (getResellerTier(user) < 2) return deny('Akun ini belum Reseller Tier 2.', '/reseller?need=2');
+    req.tier2User = user;
+    next();
+  } catch (e) {
+    console.error('[requireTier2]', e.message);
+    if (wantsJson) return res.json({ success: false, message: 'Server sedang sibuk, coba lagi.' });
+    return res.status(500).send('Terjadi kesalahan, coba lagi.');
+  }
 };
 
 app.get('/reseller/api', requireTier2, async (req, res) => {
@@ -6255,7 +6276,8 @@ app.post('/reseller/api/key', requireTier2, async (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json({ success: true, key: k.key, prefix: k.prefix });
   } catch (e) {
-    res.json({ success: false, message: 'Gagal membuat API key.' });
+    console.error('[reseller/api/key] gagal:', e.message);
+    res.json({ success: false, message: 'Gagal membuat API key, coba lagi sebentar.' });
   }
 });
 

@@ -417,3 +417,17 @@ body.menu-open .hamburger-btn{background:var(--hm-grad) !important;border-color:
 #submitBtn{border-radius:999px !important;padding:17px 20px !important;font-size:12px !important;font-weight:800 !important;font-style:italic;letter-spacing:.2em;text-transform:uppercase;transition:filter .2s,transform .15s;}
 #submitBtn:active{transform:scale(.98);}
 .hm-buy-side .btn-ghost{border-radius:999px !important;}
+
+/* Menu hamburger: ukuran lebih ringkas (pas di HP) */
+#menu-drawer-content{width:min(300px,calc(100vw - 24px));top:8px;right:8px;bottom:8px;border-radius:26px;padding:14px 12px calc(14px + env(safe-area-inset-bottom));}
+.gl-head{margin-bottom:10px;}
+.gl-x{width:34px;height:34px;border-radius:11px;font-size:16px;}
+.gl-profile{padding:9px 10px;gap:10px;border-radius:18px;}
+.gl-avatar{width:40px;height:40px;}
+.gl-name{font-size:13px;}.gl-role{font-size:10px;}
+.gl-sec{margin:12px 6px 6px;font-size:9px;}
+.mi{padding:6px 10px 6px 6px;margin-bottom:4px;gap:10px;border-radius:15px;font-size:12.5px;}
+.mi-ico{width:32px;height:32px;border-radius:10px;font-size:16px;}
+.mi-go{font-size:14px;}
+.gl-foot{margin-top:12px;font-size:9.5px;}
+@media(max-width:380px){#menu-drawer-content{width:calc(100vw - 20px);}}

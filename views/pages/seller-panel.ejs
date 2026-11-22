@@ -10,64 +10,65 @@
 <script>tailwind.config={theme:{extend:{fontFamily:{inter:['Inter','sans-serif'],orbitron:['Orbitron','sans-serif']}}}}</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Inter',sans-serif;background:#0a0a0f;color:#e0e0e0;min-height:100dvh;}
-body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(234,179,8,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(234,179,8,.02) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+body{font-family:'Inter',sans-serif;color:#e0e0e0;min-height:100dvh;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(111,125,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(111,125,255,.02) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
 body>*{position:relative;z-index:1;}
 @keyframes shimmerGold{0%{background-position:0% 50%}100%{background-position:200% 50%}}
 @keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 @keyframes spin{to{transform:rotate(360deg)}}
-.shimmer-gold{background:linear-gradient(90deg,#fbbf24,#f59e0b,#fde68a,#f59e0b,#fbbf24);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmerGold 2.5s linear infinite;}
+.shimmer-gold{background:linear-gradient(90deg,#a9b6ff,#3558dc,#c9d0ff,#3558dc,#a9b6ff);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmerGold 2.5s linear infinite;}
 .fade-in-up{animation:fadeInUp .3s ease-out both;}
 .animate-spin{animation:spin 1s linear infinite;}
-.panel-card{background:#12121a;border:1px solid rgba(234,179,8,.15);border-radius:16px;}
+.panel-card{background:#0d1536;border:1px solid rgba(111,125,255,.15);border-radius:16px;}
 .hm-input{width:100%;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);color:#fff;font-size:13px;transition:all .2s;font-family:'Inter',sans-serif;}
-.hm-input:focus{outline:none;border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.05);}
-.btn-gold{background:linear-gradient(135deg,#d97706,#fbbf24);box-shadow:0 4px 20px rgba(251,191,36,.3);color:#000;}
+.hm-input:focus{outline:none;border-color:rgba(111,125,255,.5);background:rgba(111,125,255,.05);}
+.btn-gold{background:linear-gradient(135deg,#46309f,#a9b6ff);box-shadow:0 4px 20px rgba(111,125,255,.3);color:#000;}
 .btn-gold:disabled{opacity:.5;cursor:not-allowed;}
 
 /* Sidebar */
 #sidebarOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;opacity:0;pointer-events:none;transition:opacity .25s;}
 #sidebarOverlay.open{opacity:1;pointer-events:auto;}
-#sidebar{position:fixed;top:0;left:0;bottom:0;width:280px;background:#0d0d13;border-right:1px solid rgba(234,179,8,.15);z-index:50;transform:translateX(-100%);transition:transform .3s ease;overflow-y:auto;}
+#sidebar{position:fixed;top:0;left:0;bottom:0;width:280px;background:#0a1030;border-right:1px solid rgba(111,125,255,.15);z-index:50;transform:translateX(-100%);transition:transform .3s ease;overflow-y:auto;}
 #sidebar.open{transform:translateX(0);}
 .menu-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;color:#a1a1aa;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
 .menu-item:hover{background:rgba(255,255,255,.04);color:#fff;}
-.menu-item.active{background:rgba(234,179,8,.12);color:#fbbf24;border:1px solid rgba(234,179,8,.25);}
+.menu-item.active{background:rgba(111,125,255,.12);color:#a9b6ff;border:1px solid rgba(111,125,255,.25);}
 .menu-icon-wrap{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.menu-item.active .menu-icon-wrap{background:rgba(234,179,8,.18);}
+.menu-item.active .menu-icon-wrap{background:rgba(111,125,255,.18);}
 
 /* Panels */
 .panel-pane{display:none;}
 .panel-pane.active{display:block;}
 
 /* Topup package card */
-.pkg-card{background:#12121a;border:1px solid rgba(59,130,246,.2);border-radius:16px;padding:16px;transition:all .15s;}
+.pkg-card{background:#0d1536;border:1px solid rgba(59,130,246,.2);border-radius:16px;padding:16px;transition:all .15s;}
 .pkg-card:hover{border-color:rgba(59,130,246,.4);}
 
 /* Toast */
 #toast-wrap{position:fixed;top:66px;right:14px;left:14px;z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none;}
-.toast-item{pointer-events:auto;padding:10px 14px;border-radius:12px;background:#151520;font-size:12px;max-width:320px;border:1px solid;animation:fadeInUp .3s ease-out both;}
+.toast-item{pointer-events:auto;padding:10px 14px;border-radius:12px;background:#0d1536;font-size:12px;max-width:320px;border:1px solid;animation:fadeInUp .3s ease-out both;}
 .toast-success{border-color:rgba(16,185,129,.4);color:#34d399;}
 .toast-error{border-color:rgba(239,68,68,.4);color:#f87171;}
 
 /* Payment modal */
 #payModal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:60;display:flex;align-items:flex-end;justify-content:center;}
 #payModal.hidden{display:none;}
-#payModalBox{background:#12121a;border-top:1px solid rgba(234,179,8,.25);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:20px;}
+#payModalBox{background:#0d1536;border-top:1px solid rgba(111,125,255,.25);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:20px;}
 </style>
+<link rel="stylesheet" href="/css/hm-theme.css?v=<%= assetV('css/hm-theme.css') %>">
 </head>
 <body>
 
 <div id="toast-wrap"></div>
 
 <!-- TOP BAR -->
-<div class="fixed top-0 left-0 right-0 z-30 bg-[#0a0a0f]/95 backdrop-blur-md border-b border-white/5">
+<div class="fixed top-0 left-0 right-0 z-30 bg-[#060a1f]/95 backdrop-blur-md border-b border-white/5">
     <div class="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
         <button onclick="toggleSidebar(true)" class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(255,255,255,.05)">
             <iconify-icon icon="mdi:menu" class="text-lg text-white"></iconify-icon>
         </button>
         <div>
-            <div class="text-[9px] font-bold uppercase tracking-[0.15em] text-yellow-500/70">Seller Panel</div>
+            <div class="text-[9px] font-bold uppercase tracking-[0.15em] text-indigo-300/70">Seller Panel</div>
             <div class="text-sm font-bold text-white" id="panelTitle">Generate Key</div>
         </div>
         <a href="/" class="ml-auto text-[10px] text-zinc-500 flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-white/10">
@@ -80,7 +81,7 @@ body>*{position:relative;z-index:1;}
 <div id="sidebarOverlay" onclick="toggleSidebar(false)"></div>
 <div id="sidebar">
     <div class="p-4 flex items-center gap-2 border-b border-white/5">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#d97706,#fbbf24)">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#46309f,#a9b6ff)">
             <iconify-icon icon="mdi:lightning-bolt" class="text-black text-base"></iconify-icon>
         </div>
         <span class="font-orbitron text-sm font-black text-white">Seller<span class="shimmer-gold">Panel</span></span>
@@ -92,14 +93,14 @@ body>*{position:relative;z-index:1;}
                 <% if(user.photo){ %>
                     <img src="<%= user.photo %>" class="w-11 h-11 rounded-full object-cover border border-white/10">
                 <% } else { %>
-                    <div class="w-11 h-11 rounded-full flex items-center justify-center text-black font-black text-sm" style="background:linear-gradient(135deg,#d97706,#fbbf24)"><%= user.username.charAt(0).toUpperCase() %></div>
+                    <div class="w-11 h-11 rounded-full flex items-center justify-center text-black font-black text-sm" style="background:linear-gradient(135deg,#46309f,#a9b6ff)"><%= user.username.charAt(0).toUpperCase() %></div>
                 <% } %>
                 <div class="min-w-0">
                     <div class="text-sm font-bold text-white truncate">@<%= user.username %></div>
-                    <div class="text-[10px] text-yellow-500 flex items-center gap-1"><iconify-icon icon="mdi:cart"></iconify-icon> <%= isReseller ? 'Reseller VIP' : 'Seller' %></div>
+                    <div class="text-[10px] text-indigo-300 flex items-center gap-1"><iconify-icon icon="mdi:cart"></iconify-icon> <%= isReseller ? ('Reseller Tier ' + resellerTier) : 'Seller' %></div>
                 </div>
             </div>
-            <div class="rounded-xl p-3" style="background:rgba(234,179,8,.06);border:1px solid rgba(234,179,8,.15)">
+            <div class="rounded-xl p-3" style="background:rgba(111,125,255,.06);border:1px solid rgba(111,125,255,.15)">
                 <div class="text-[9px] font-bold uppercase tracking-wide text-zinc-500 mb-1">Saldo</div>
                 <div class="font-orbitron text-lg font-black shimmer-gold" id="sidebarBalance">Rp <%= (user.balance||0).toLocaleString('id-ID') %></div>
             </div>
@@ -138,7 +139,7 @@ body>*{position:relative;z-index:1;}
                 <div class="text-[10px] text-zinc-500 uppercase tracking-wide">Saldo Kamu</div>
                 <div class="font-orbitron text-xl font-black shimmer-gold" id="genBalance">Rp <%= (user.balance||0).toLocaleString('id-ID') %></div>
             </div>
-            <iconify-icon icon="mdi:wallet" class="text-3xl text-yellow-500/40"></iconify-icon>
+            <iconify-icon icon="mdi:wallet" class="text-3xl text-indigo-300/40"></iconify-icon>
         </div>
         <p class="text-[11px] text-zinc-500 mb-3">Pilih produk & paket, key langsung keluar begitu saldo dipotong — tanpa QRIS.</p>
         <div class="space-y-3">
@@ -163,7 +164,7 @@ body>*{position:relative;z-index:1;}
                     <button onclick='generateKey("<%= p.id %>", <%- JSON.stringify(label) %>, <%= rp %>, <%- JSON.stringify(p.name) %>)'
                         class="text-left p-2.5 rounded-xl" style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
                         <div class="text-[11px] text-zinc-400"><%= o.days %> Hari</div>
-                        <div class="text-xs font-black text-yellow-400">Rp <%= rp.toLocaleString('id-ID') %></div>
+                        <div class="text-xs font-black text-indigo-300">Rp <%= rp.toLocaleString('id-ID') %></div>
                     </button>
                     <% }) %>
                 </div>
@@ -185,7 +186,7 @@ body>*{position:relative;z-index:1;}
                     <div class="text-[10px] text-zinc-500"><%= b.count %> key dibuat</div>
                 </div>
                 <div class="text-right">
-                    <div class="text-xs font-black text-yellow-400">Rp <%= b.total.toLocaleString('id-ID') %></div>
+                    <div class="text-xs font-black text-indigo-300">Rp <%= b.total.toLocaleString('id-ID') %></div>
                     <div class="text-[9px] text-zinc-600">total belanja</div>
                 </div>
             </div>
@@ -216,13 +217,13 @@ body>*{position:relative;z-index:1;}
                         const durLabel = sd % 1440 === 0 ? (sd/1440) + ' Hari' : (sd % 60 === 0 ? (sd/60) + ' Jam' : sd + ' Menit');
                     %> · <span><%= durLabel %></span><% } %>
                 </div>
-                <button onclick="toggleKey('<%= t.id %>')" class="text-[10px] font-semibold text-yellow-400 flex items-center gap-1">
+                <button onclick="toggleKey('<%= t.id %>')" class="text-[10px] font-semibold text-indigo-300 flex items-center gap-1">
                     <iconify-icon icon="mdi:key-variant" class="text-xs"></iconify-icon> <span id="key-toggle-label-<%= t.id %>">Lihat Key</span>
                 </button>
-                <div id="key-box-<%= t.id %>" class="hidden mt-2 p-2.5 rounded-lg bg-black/30 border border-yellow-500/25">
+                <div id="key-box-<%= t.id %>" class="hidden mt-2 p-2.5 rounded-lg bg-black/30 border border-indigo-400/25">
                     <div class="flex items-center gap-2">
-                        <code class="text-[11px] text-yellow-400 font-mono break-all font-black flex-1" id="key-display-<%= t.id %>"><%= t.key %></code>
-                        <button onclick="copyKey('<%= t.id %>')" style="flex-shrink:0;padding:5px 8px;border-radius:8px;background:rgba(234,179,8,.15);border:1px solid rgba(234,179,8,.35);color:#fbbf24;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                        <code class="text-[11px] text-indigo-300 font-mono break-all font-black flex-1" id="key-display-<%= t.id %>"><%= t.key %></code>
+                        <button onclick="copyKey('<%= t.id %>')" style="flex-shrink:0;padding:5px 8px;border-radius:8px;background:rgba(111,125,255,.15);border:1px solid rgba(111,125,255,.35);color:#a9b6ff;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">
                             <span id="copy-label-<%= t.id %>">📋 Salin</span>
                         </button>
                     </div>
@@ -295,7 +296,7 @@ body>*{position:relative;z-index:1;}
             <div class="grid grid-cols-2 gap-2">
                 <button type="button" id="topupMethodQris" onclick="selectTopupMethod('qris')"
                     class="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all border"
-                    style="background:rgba(234,179,8,.15);border-color:rgba(234,179,8,.4);color:#fbbf24;">
+                    style="background:rgba(111,125,255,.15);border-color:rgba(111,125,255,.4);color:#a9b6ff;">
                     <iconify-icon icon="mdi:qrcode-scan" class="text-base"></iconify-icon> QRIS
                 </button>
                 <button type="button" id="topupMethodCrypto" onclick="selectTopupMethod('crypto')"
@@ -324,7 +325,7 @@ body>*{position:relative;z-index:1;}
     <div id="payModalBox">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                <iconify-icon icon="mdi:wallet" class="text-yellow-400"></iconify-icon> Pembayaran Topup Saldo
+                <iconify-icon icon="mdi:wallet" class="text-indigo-300"></iconify-icon> Pembayaran Topup Saldo
             </h3>
             <button onclick="closePayment()" class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:rgba(255,255,255,.05)">
                 <iconify-icon icon="mdi:close" class="text-zinc-400"></iconify-icon>
@@ -332,7 +333,7 @@ body>*{position:relative;z-index:1;}
         </div>
         <div class="text-center mb-3">
             <div class="text-[10px] text-zinc-500">Kode Order</div>
-            <div class="text-sm font-mono font-bold text-yellow-400" id="orderCodeShow">-</div>
+            <div class="text-sm font-mono font-bold text-indigo-300" id="orderCodeShow">-</div>
             <div class="text-xs text-zinc-400 mt-1" id="payAmountShow">Total: Rp 0</div>
         </div>
         <div id="qrCodeWrap" class="flex justify-center mb-4"></div>
@@ -344,7 +345,7 @@ body>*{position:relative;z-index:1;}
             </div>
         </div>
         <div id="payStatusRow" class="flex items-center justify-center gap-2 mb-2">
-            <iconify-icon icon="mdi:clock-outline" class="text-yellow-400 animate-spin text-lg"></iconify-icon>
+            <iconify-icon icon="mdi:clock-outline" class="text-indigo-300 animate-spin text-lg"></iconify-icon>
             <span class="text-xs text-zinc-400">Menunggu pembayaran...</span>
         </div>
         <p class="text-[10px] text-zinc-600 text-center">Saldo otomatis masuk begitu pembayaran terverifikasi.</p>
@@ -392,7 +393,8 @@ async function generateKey(productId, duration, price, productName) {
                 productId, duration,
                 customerName: '<%= user.username %>',
                 wa: '<%= user.wa || "" %>',
-                paymentMethod: 'balance'
+                paymentMethod: 'balance',
+                sellerMode: true
             })
         });
         const data = await res.json();
@@ -443,10 +445,10 @@ function selectTopupMethod(method) {
     const qBtn = document.getElementById('topupMethodQris');
     const pBtn = document.getElementById('topupMethodCrypto');
     if (method === 'qris') {
-        qBtn.style.background = 'rgba(234,179,8,.15)'; qBtn.style.borderColor = 'rgba(234,179,8,.4)'; qBtn.style.color = '#fbbf24';
+        qBtn.style.background = 'rgba(111,125,255,.15)'; qBtn.style.borderColor = 'rgba(111,125,255,.4)'; qBtn.style.color = '#a9b6ff';
         pBtn.style.background = 'rgba(255,255,255,.05)'; pBtn.style.borderColor = 'rgba(255,255,255,.1)'; pBtn.style.color = '#a1a1aa';
     } else {
-        pBtn.style.background = 'rgba(234,179,8,.15)'; pBtn.style.borderColor = 'rgba(234,179,8,.4)'; pBtn.style.color = '#fbbf24';
+        pBtn.style.background = 'rgba(111,125,255,.15)'; pBtn.style.borderColor = 'rgba(111,125,255,.4)'; pBtn.style.color = '#a9b6ff';
         qBtn.style.background = 'rgba(255,255,255,.05)'; qBtn.style.borderColor = 'rgba(255,255,255,.1)'; qBtn.style.color = '#a1a1aa';
     }
 }
@@ -482,13 +484,13 @@ function showPaymentModal(qrString, code, refId, isStatic, staticImg, amount) {
     document.getElementById('qrCodeWrap').classList.remove('hidden');
     document.getElementById('orderCodeShow').textContent = code;
     document.getElementById('payAmountShow').textContent = 'Total masuk: Rp ' + (amount||0).toLocaleString('id-ID');
-    document.getElementById('payStatusRow').innerHTML = '<iconify-icon icon="mdi:clock-outline" class="text-yellow-400 animate-spin text-lg"></iconify-icon><span class="text-xs text-zinc-400">Menunggu pembayaran...</span>';
+    document.getElementById('payStatusRow').innerHTML = '<iconify-icon icon="mdi:clock-outline" class="text-indigo-300 animate-spin text-lg"></iconify-icon><span class="text-xs text-zinc-400">Menunggu pembayaran...</span>';
 
     const wrap = document.getElementById('qrCodeWrap');
     if (isStatic && staticImg) {
-        wrap.innerHTML = `<img src="${staticImg}" class="w-56 h-56 rounded-xl border border-yellow-500/25 object-contain bg-white p-2">`;
+        wrap.innerHTML = `<img src="${staticImg}" class="w-56 h-56 rounded-xl border border-indigo-400/25 object-contain bg-white p-2">`;
     } else if (qrString) {
-        wrap.innerHTML = `<img src="${/^(https?:\/\/|data:image)/i.test(qrString) ? qrString : 'https://api.qrserver.com/v1/create-qr-code/?size=210x210&color=000000&bgcolor=ffffff&qzone=1&data=' + encodeURIComponent(qrString)}" class="w-56 h-56 rounded-xl border border-yellow-500/25 bg-white p-2 object-contain">`;
+        wrap.innerHTML = `<img src="${/^(https?:\/\/|data:image)/i.test(qrString) ? qrString : 'https://api.qrserver.com/v1/create-qr-code/?size=210x210&color=000000&bgcolor=ffffff&qzone=1&data=' + encodeURIComponent(qrString)}" class="w-56 h-56 rounded-xl border border-indigo-400/25 bg-white p-2 object-contain">`;
     } else {
         wrap.innerHTML = `<div class="text-xs text-zinc-500 text-center py-6">QRIS belum dikonfigurasi. Hubungi admin.</div>`;
     }
@@ -508,7 +510,7 @@ async function showCryptoTopupModal(refId, code, amountIdr) {
     document.getElementById('cryptoSection').classList.remove('hidden');
     document.getElementById('orderCodeShow').textContent = code;
     document.getElementById('payAmountShow').textContent = 'Total masuk: Rp ' + (amountIdr||0).toLocaleString('id-ID');
-    document.getElementById('payStatusRow').innerHTML = '<iconify-icon icon="mdi:clock-outline" class="text-yellow-400 animate-spin text-lg"></iconify-icon><span class="text-xs text-zinc-400">Menunggu pembayaran...</span>';
+    document.getElementById('payStatusRow').innerHTML = '<iconify-icon icon="mdi:clock-outline" class="text-indigo-300 animate-spin text-lg"></iconify-icon><span class="text-xs text-zinc-400">Menunggu pembayaran...</span>';
     if (payInterval) clearInterval(payInterval);
 
     const wrap = document.getElementById('cryptoWrap');

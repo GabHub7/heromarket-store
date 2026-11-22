@@ -205,7 +205,7 @@ const pageTitle = 'Beli ' + product.name;
         <div id="tab-panel-info" class="glass-strong rounded-2xl p-4 space-y-4 <%= hasShowcase ? 'hidden' : '' %>">
             <% if (compatList.length) { %>
             <div>
-                <p class="text-xs font-black text-yellow-400 mb-2">System Compatibility:</p>
+                <p class="text-xs font-black text-indigo-300 mb-2">System Compatibility:</p>
                 <ul class="space-y-1.5">
                     <% compatList.forEach(function(item) { %>
                     <li class="flex items-start gap-2 text-xs text-white/75 leading-relaxed">
@@ -218,7 +218,7 @@ const pageTitle = 'Beli ' + product.name;
             <% } %>
             <% if (featureList.length) { %>
             <div>
-                <p class="text-xs font-black text-yellow-400 mb-2">Feature List:</p>
+                <p class="text-xs font-black text-indigo-300 mb-2">Feature List:</p>
                 <ul class="space-y-1.5">
                     <% featureList.forEach(function(item) { %>
                     <li class="flex items-start gap-2 text-xs text-white/75 leading-relaxed">
@@ -285,7 +285,7 @@ const pageTitle = 'Beli ' + product.name;
                             <iconify-icon icon="mdi:check" style="color:#fff;font-size:14px;"></iconify-icon>
                         </div>
                         <div class="pkg-label"><%= item.l %></div>
-                        <div class="pkg-price <%= isReseller && item.reseller_price ? 'text-yellow-400' : '' %>">Rp<%= displayPrice.toLocaleString('id-ID') %></div>
+                        <div class="pkg-price <%= isReseller && item.reseller_price ? 'text-indigo-300' : '' %>">Rp<%= displayPrice.toLocaleString('id-ID') %></div>
                         <% if (isReseller && item.reseller_price) { %>
                             <div class="text-[9px] text-zinc-500 line-through -mt-2 mb-2">Rp <%= item.p.toLocaleString('id-ID') %></div>
                         <% } %>
@@ -304,6 +304,12 @@ const pageTitle = 'Beli ' + product.name;
     <div class="hm-buy-side">
     <!-- ── ORDER FORM ── -->
     <div class="glass-strong rounded-2xl p-5 space-y-4 fade-in-up">
+        <% if (typeof resellerAccount !== 'undefined' && resellerAccount) { %>
+        <div class="text-[11px] leading-relaxed rounded-2xl p-3" style="background:rgba(111,125,255,.08);border:1px solid rgba(111,125,255,.25);color:#c4ccff;">
+            Kamu login sebagai <b>Reseller</b>. Halaman toko ini untuk pembelian biasa (QRIS/USDT, harga normal).
+            Untuk harga reseller dan bayar pakai saldo, beli lewat <a href="/reseller/panel" style="text-decoration:underline;color:#fff;font-weight:700;">Panel Reseller</a>.
+        </div>
+        <% } %>
         <!-- RINGKASAN ORDER (gaya VIP) -->
         <div class="hm-os-head"><iconify-icon icon="solar:cart-large-2-bold"></iconify-icon><span>Ringkasan Order</span></div>
         <div class="hm-os-item">
@@ -447,12 +453,12 @@ const pageTitle = 'Beli ' + product.name;
     <div class="glass-strong rounded-2xl p-5 fade-in-up">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-sm font-bold text-white flex items-center gap-2">
-                <iconify-icon icon="solar:star-bold" class="text-yellow-400 text-base"></iconify-icon>
+                <iconify-icon icon="solar:star-bold" class="text-indigo-300 text-base"></iconify-icon>
                 Ulasan & Rating
             </h2>
             <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style="background:rgba(234,179,8,.1);border:1px solid rgba(234,179,8,.2);">
-                <iconify-icon icon="solar:star-bold" class="text-yellow-400 text-xs"></iconify-icon>
-                <span class="text-xs font-black text-yellow-400" id="avgRatingDisplay">—</span>
+                <iconify-icon icon="solar:star-bold" class="text-indigo-300 text-xs"></iconify-icon>
+                <span class="text-xs font-black text-indigo-300" id="avgRatingDisplay">—</span>
                 <span class="text-[10px] text-white/30" id="reviewCountDisplay"></span>
             </div>
         </div>
@@ -462,7 +468,7 @@ const pageTitle = 'Beli ' + product.name;
             <% for(let s=5;s>=1;s--) { %>
             <div class="flex items-center gap-2">
                 <span class="text-[10px] text-white/30 w-3"><%= s %></span>
-                <iconify-icon icon="solar:star-bold" class="text-yellow-400 text-[10px] flex-shrink-0"></iconify-icon>
+                <iconify-icon icon="solar:star-bold" class="text-indigo-300 text-[10px] flex-shrink-0"></iconify-icon>
                 <div class="flex-1 h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,0.06)">
                     <div class="h-full rounded-full bg-gradient-to-r from-yellow-500 to-yellow-400 transition-all duration-700"
                          id="bar-<%= s %>" style="width:0%"></div>
@@ -498,7 +504,7 @@ const pageTitle = 'Beli ' + product.name;
                 <div class="flex gap-1 mb-3">
                     <% for(let i=1;i<=5;i++) { %>
                         <button type="button" onclick="setRating(<%= i %>)" id="rstar-<%= i %>"
-                            class="text-2xl text-white/15 transition-colors hover:text-yellow-400">
+                            class="text-2xl text-white/15 transition-colors hover:text-indigo-300">
                             <iconify-icon icon="solar:star-bold"></iconify-icon>
                         </button>
                     <% } %>
@@ -608,10 +614,10 @@ const pageTitle = 'Beli ' + product.name;
                 <!-- TIMER -->
                 <div id="timerWrap" class="hidden rounded-xl p-3 text-center" style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2)">
                     <div class="text-[10px] text-zinc-500 mb-0.5 flex items-center justify-center gap-1">
-                        <iconify-icon icon="mdi:clock-outline" class="text-yellow-400 text-xs"></iconify-icon>
+                        <iconify-icon icon="mdi:clock-outline" class="text-indigo-300 text-xs"></iconify-icon>
                         Batas Waktu Pembayaran
                     </div>
-                    <div class="text-xl font-black font-orbitron text-yellow-400" id="timerDisplay">--:--</div>
+                    <div class="text-xl font-black font-orbitron text-indigo-300" id="timerDisplay">--:--</div>
                 </div>
 
                 <!-- STATUS -->
@@ -844,10 +850,10 @@ const pageTitle = 'Beli ' + product.name;
 
         if (data.paidWithBalance) {
             document.getElementById('qrisSection').classList.remove('hidden');
-            document.getElementById('paymentModalTitle').innerHTML = '<iconify-icon icon="mdi:wallet" class="text-yellow-400"></iconify-icon> Bayar via Saldo';
+            document.getElementById('paymentModalTitle').innerHTML = '<iconify-icon icon="mdi:wallet" class="text-indigo-300"></iconify-icon> Bayar via Saldo';
             document.getElementById('qrCodeWrap').innerHTML = `
                 <div class="text-center py-4">
-                    <iconify-icon icon="mdi:wallet-outline" class="text-5xl text-yellow-400 block mb-2"></iconify-icon>
+                    <iconify-icon icon="mdi:wallet-outline" class="text-5xl text-indigo-300 block mb-2"></iconify-icon>
                     <p class="text-xs text-zinc-400">Memproses pembayaran dari saldo...</p>
                 </div>`;
             return;

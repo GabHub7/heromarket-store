@@ -85,13 +85,18 @@ function copyText(id) {
     const r = document.createRange(); r.selectNode(document.getElementById(id)); getSelection().removeAllRanges(); getSelection().addRange(r); toast('Tekan Ctrl+C untuk menyalin');
   });
 }
+async function readJson(r) {
+  try { return await r.json(); }
+  catch (e) { return { success: false, message: 'Sesi atau akses berubah. Muat ulang halaman lalu coba lagi.' }; }
+}
 async function genKey() {
   const has = <%= hasKey ? 'true' : 'false' %> || document.getElementById('keyStatus').textContent === 'Aktif';
   if (has && !confirm('Ganti API key? Key lama langsung berhenti bekerja, pastikan web yang terhubung segera memakai key baru.')) return;
   const b = document.getElementById('genBtn'); b.disabled = true;
   try {
     const r = await fetch('/reseller/api/key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    const d = await r.json();
+    const d = await readJson(r);
+    if (d.redirect && !d.success) { toast(d.message || 'Akses berubah', 'err'); setTimeout(() => location.href = d.redirect, 1400); b.disabled = false; return; }
     if (d.success) {
       document.getElementById('newKey').textContent = d.key;
       document.getElementById('newKeyBox').style.display = 'block';
@@ -100,14 +105,14 @@ async function genKey() {
       b.textContent = 'Ganti API Key';
       toast('API key dibuat. Salin sekarang!', 'ok');
     } else toast(d.message || 'Gagal', 'err');
-  } catch (e) { toast('Koneksi error', 'err'); }
+  } catch (e) { toast('Koneksi terputus, coba lagi.', 'err'); }
   b.disabled = false;
 }
 async function revokeKey() {
   if (!confirm('Cabut API key? Web yang memakai key ini akan langsung ditolak (401).')) return;
   try {
     const r = await fetch('/reseller/api/key/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    const d = await r.json();
+    const d = await readJson(r);
     if (d.success) { toast('API key dicabut', 'ok'); setTimeout(() => location.reload(), 800); } else toast(d.message || 'Gagal', 'err');
   } catch (e) { toast('Koneksi error', 'err'); }
 }
