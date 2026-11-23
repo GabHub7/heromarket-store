@@ -1,0 +1,6 @@
+Perbaikan v7 (menu hamburger ringkas + kategori ala VIP)
+Timpa 3 file ini ke project dengan path yang sama, lalu deploy:
+  server.js
+  public/css/hm-theme.css
+  views/pages/home.ejs
+Catatan: ini hanya selisih dari versi v6. Kalau project kamu masih di versi lebih lama, pakai zip lengkap.

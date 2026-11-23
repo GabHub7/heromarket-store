@@ -973,15 +973,38 @@ const initDB = async () => {
 };
 
 // Vercel: export app langsung (Vercel tidak pakai app.listen)
+// Kategori ala VIP Best Mods (8 Ball, Free Fire, Free Fire Root, Sertifikat iOS): ditambahkan SEKALI saja ke
+// daftar kategori yang sudah ada (tidak menimpa, tidak dobel kalau labelnya sudah ada). Flag
+// settings.vipCategoriesSeeded mencegah kategori yang sengaja dihapus admin muncul lagi di cold start berikutnya.
+async function seedVipCategories() {
+  try {
+    const settings = await readFresh('settings.json');
+    if (!settings || settings.vipCategoriesSeeded) return;
+    const wanted = [['8ball', '8 BALL'], ['freefire', 'FREE FIRE'], ['freefire-root', 'FREE FIRE ROOT'], ['sertifikat-ios', 'SERTIFIKAT IOS']];
+    const norm = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    settings.categories = Array.isArray(settings.categories) ? settings.categories : [];
+    settings.categoryLabels = settings.categoryLabels || {};
+    const have = new Set(settings.categories.map(c => norm(settings.categoryLabels[c] || c)));
+    for (const [id, label] of wanted) {
+      if (have.has(norm(label)) || settings.categories.includes(id)) continue;
+      settings.categories.push(id);
+      settings.categoryLabels[id] = label;
+    }
+    settings.vipCategoriesSeeded = true;
+    await writeDB('settings.json', settings);
+  } catch (e) { console.error('seedVipCategories gagal:', e.message); }
+}
+
 // Lokal: jalankan server setelah DB siap
 if (isVercel) {
   // Di Vercel, DB diinit per-request (cold start) - export app dulu
-  db.initializeDB().then(() => initDB()).catch(err => console.error('DB init error:', err));
+  db.initializeDB().then(() => initDB()).then(() => seedVipCategories()).catch(err => console.error('DB init error:', err));
   module.exports = app;
 } else {
   // Lokal / VPS: tunggu DB siap baru listen
   db.initializeDB().then(() => {
     initDB(); // seed defaults only if missing
+    seedVipCategories();
     app.listen(PORT, () => {
       console.log(`✅ Server berjalan di http://localhost:${PORT}`);
       console.log(`📁 Database: ${dbPath}`);

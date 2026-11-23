@@ -431,3 +431,24 @@ body.menu-open .hamburger-btn{background:var(--hm-grad) !important;border-color:
 .mi-go{font-size:14px;}
 .gl-foot{margin-top:12px;font-size:9.5px;}
 @media(max-width:380px){#menu-drawer-content{width:calc(100vw - 20px);}}
+
+/* Kategori: pill ala VIP (besar, huruf renggang, aktif menyala) */
+.hm-pills{gap:10px;}
+.hm-pills .prod-filter{padding:13px 22px !important;font-size:11px !important;letter-spacing:.14em !important;border-radius:15px !important;}
+.hm-pills .prod-filter.bg-violet-600{box-shadow:0 6px 22px rgba(53,88,220,.45) !important;}
+.hm-empty{text-align:center;padding:40px 12px;font-size:12px;color:var(--hm-muted);border:1px dashed var(--hm-line-strong);border-radius:18px;margin-bottom:12px;}
+
+/* Menu hamburger: SANGAT ringkas — tinggi menyesuaikan isi, tidak memenuhi layar */
+#menu-drawer-content{width:min(250px,74vw);top:8px;right:8px;bottom:auto;max-height:calc(100dvh - 16px);border-radius:22px;padding:10px 9px calc(10px + env(safe-area-inset-bottom));}
+.gl-head{margin-bottom:6px;}
+.gl-x{width:30px;height:30px;border-radius:10px;font-size:15px;}
+.gl-brand{font-size:15px !important;}
+.gl-profile{padding:7px 9px;gap:9px;border-radius:15px;}
+.gl-avatar{width:34px;height:34px;}
+.gl-name{font-size:12.5px;}.gl-role{font-size:9.5px;}
+.gl-sec{margin:9px 5px 4px;font-size:8.5px;}
+.mi{padding:4px 8px 4px 4px;margin-bottom:2px;gap:9px;border-radius:13px;font-size:12px;}
+.mi-ico{width:28px;height:28px;border-radius:9px;font-size:14px;}
+.mi-go{display:none;}
+.gl-foot{display:none;}
+.mi.wa{margin-top:6px !important;}

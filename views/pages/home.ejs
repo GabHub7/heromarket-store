@@ -218,6 +218,7 @@ const pageTitle = 'Beranda';
             <div class="hm-section-title"><span class="hm-bar"></span><div><h2>Produk Populer</h2><p>Koleksi pilihan terbaik khusus untukmu</p></div></div>
             <a href="#games" class="hm-pill-link">Semua &rsaquo;</a>
         </div>
+        <div id="cat-empty" class="hm-empty" style="display:none;">Belum ada produk di kategori ini.</div>
         <div id="popular-track" class="grid grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-5">
             <!-- skeletons -->
             <div class="glass rounded-xl border border-white/[0.04] overflow-hidden animate-pulse">
@@ -481,9 +482,14 @@ window.addEventListener('load', function () {
             }
         });
 
+        let anyShown = false;
         cards.forEach(card => {
-            card.style.display = (norm(category) === 'all' || norm(card.dataset.category) === norm(category)) ? '' : 'none';
+            const show = (norm(category) === 'all' || norm(card.dataset.category) === norm(category));
+            card.style.display = show ? '' : 'none';
+            if (show) anyShown = true;
         });
+        const emptyEl = document.getElementById('cat-empty');
+        if (emptyEl) emptyEl.style.display = (anyShown || !cards.length) ? 'none' : '';
     }
 
     async function loadTestimonials() {
