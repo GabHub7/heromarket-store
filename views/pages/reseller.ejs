@@ -83,12 +83,25 @@
         </div>
     </div>
 
+    <% if (joinMode === 'manual') { %>
+    <div class="rs-card">
+        <div class="rs-label">Cara daftar seller</div>
+        <ul class="rs-list">
+            <li><span class="rs-tick">1</span><span><b>Hubungi admin</b> lewat WhatsApp dan sebutkan tier yang kamu mau.</span></li>
+            <li><span class="rs-tick">2</span><span><b>Kirim email atau username akunmu.</b> Admin yang mendaftarkannya di panel admin.</span></li>
+            <li><span class="rs-tick">3</span><span>Setelah didaftarkan, masuk lewat <b>Login Seller</b> (terpisah dari login biasa) untuk membuka Panel Seller.</span></li>
+        </ul>
+    </div>
+    <a class="rs-pay" id="waBtn" href="#" target="_blank" rel="noopener">Hubungi Admin via WhatsApp</a>
+    <a href="/seller/login" class="rs-ghost" style="margin-top:12px;">Sudah didaftarkan? Login Seller</a>
+    <% } else { %>
     <% if (user) { %>
     <button type="button" class="rs-pay" id="payBtn" onclick="handleJoin()" <%= enabled ? '' : 'disabled' %>>Bayar Sekarang</button>
     <% } else { %>
     <a href="/login?redirect=/reseller" class="rs-pay">Login untuk Daftar</a>
     <% } %>
     <p class="rs-sub" style="margin:14px 0 0;font-size:11px;text-align:center;">Pembayaran lewat QRIS. Status aktif otomatis setelah pembayaran terkonfirmasi.</p>
+    <% } %>
     <% } %>
 </main>
 
@@ -106,7 +119,7 @@
 <div class="rs-toast" id="toast"></div>
 
 <script>
-const P = <%- JSON.stringify({ tier1: pricing.tier1, tier2: pricing.tier2, upgrade2: pricing.upgrade2, current: pricing.current, discount: pricing.discount }) %>;
+const P = <%- JSON.stringify({ tier1: pricing.tier1, tier2: pricing.tier2, upgrade2: pricing.upgrade2, current: pricing.current, discount: pricing.discount, manual: joinMode === 'manual', wa: String((settings.contact && settings.contact.whatsapp) || '').replace(/\D/g, ''), who: user ? user.username : '' }) %>;
 let tier = P.current === 1 ? 2 : (P.current === 0 ? 1 : 2);
 let payInterval = null;
 
@@ -135,6 +148,11 @@ function render() {
   const price = tier === 1 ? P.tier1 : P.upgrade2;
   document.getElementById('totalPrice').textContent = 'Rp ' + price.toLocaleString('id-ID');
   document.getElementById('totalNote').textContent = (tier === 2 && P.current === 1) ? 'Selisih upgrade' : 'Sekali bayar';
+  const wab = document.getElementById('waBtn');
+  if (wab) {
+    const msg = 'Halo admin, saya mau daftar Reseller Tier ' + tier + (P.who ? '. Akun: ' + P.who : '. Email/username akun: ');
+    wab.href = P.wa ? 'https://wa.me/' + P.wa + '?text=' + encodeURIComponent(msg) : '#';
+  }
   const btn = document.getElementById('payBtn');
   if (btn) {
     const already = P.current >= tier;

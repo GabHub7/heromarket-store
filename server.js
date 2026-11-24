@@ -885,6 +885,9 @@ app.use(async (req, res, next) => {
     res.locals.settings = readDB('settings.json'); // fallback cache lama kalau Supabase lagi down
   }
   res.locals.isAdmin = req.session?.isAdmin || false;
+  // Segarkan cache users.json (maks 30 dtk basi) untuk sesi yang login. Tanpa ini, getSessionUser() membaca cache
+  // instance yang bisa sangat lama, jadi akun yang SUDAH dicabut seller-nya masih terlihat Tier 2 di menu.
+  if (req.session?.userId && !req.session?.isAdmin) { try { await readSmart('users.json'); } catch (e) { /* pakai cache */ } }
   // Tombol "Masuk dengan Google" muncul kalau Client ID ada di pengaturan admin ATAU di env GOOGLE_CLIENT_ID
   // (sebelumnya hanya cek pengaturan admin, padahal flow OAuth-nya mendukung env juga).
   res.locals.googleEnabled = !!(res.locals.settings?.google?.clientId || process.env.GOOGLE_CLIENT_ID);
@@ -2346,6 +2349,63 @@ app.get('/', async (req, res) => {
 });
 
 // Auth routes
+
+// Update users.json: pakai penulisan atomik (versi) kalau tersedia; kalau kolom `version` belum ada di Supabase
+// (migrasi 0002 belum dijalankan) atau konflik terus, jatuh ke baca-segar + tulis biasa.
+async function updateUsersSafe(mutator) {
+  try {
+    return await updateCollectionAtomic('users.json', mutator);
+  } catch (e) {
+    console.warn('[updateUsersSafe] atomik gagal, pakai tulis biasa:', e.message);
+    const users = await readFresh('users.json');
+    const out = mutator(users);
+    if (out) await writeDB('users.json', out);
+    return out;
+  }
+}
+
+// ── Undangan seller (admin mendaftarkan email / username di panel admin) ──
+function grantSellerTier(user, tier) {
+  const t = Number(tier) === 2 ? 2 : 1;
+  user.is_reseller = true;
+  user.role = 'reseller';
+  user.reseller_tier = Math.max(getResellerTier(user) || 0, t);
+  user.reseller_since = user.reseller_since || new Date().toISOString();
+  user.reseller_code = user.reseller_code || ('RSL-' + String(user.username || 'USER').toUpperCase().slice(0, 4) + '-' + crypto.randomBytes(2).toString('hex').toUpperCase());
+}
+// Kalau email/username user cocok dengan undangan -> jadikan seller & hapus undangan. Mengembalikan true kalau user diubah
+// (pemanggil yang menyimpan users.json).
+async function consumeSellerInvite(user) {
+  try {
+    const settings = await readFresh('settings.json');
+    const list = Array.isArray(settings.sellerInvites) ? settings.sellerInvites : [];
+    if (!list.length || !user) return false;
+    const email = String(user.email || '').toLowerCase();
+    const uname = String(user.username || '').toLowerCase();
+    const inv = list.find(i => i.identifier && (i.identifier === email || i.identifier === uname));
+    if (!inv) return false;
+    grantSellerTier(user, inv.tier);
+    settings.sellerInvites = list.filter(i => i.id !== inv.id);
+    await writeDB('settings.json', settings);
+    return true;
+  } catch (e) {
+    console.error('[consumeSellerInvite]', e.message);
+    return false;
+  }
+}
+
+// ── LOGIN SELLER (halaman login terpisah) ──
+app.get('/seller/login', async (req, res) => {
+  if (req.session?.isAdmin) return res.redirect('/admin');
+  if (req.session?.userId) {
+    try {
+      const u = (await readFresh('users.json')).find(x => x.id === req.session.userId);
+      if (u && getResellerTier(u) >= 1) return res.redirect('/reseller/panel');
+    } catch (e) { /* tampilkan form saja */ }
+  }
+  res.render('pages/login', { error: req.query.error || null, redirect: '/reseller/panel', settings: res.locals.settings, sellerLogin: true });
+});
+
 app.get('/login', async (req, res) => {
   if (req.session?.isAdmin) return res.redirect('/admin');
   if (req.session?.userId) {
@@ -2422,6 +2482,15 @@ app.post('/login', async (req, res) => {
 
   if (user && await bcrypt.compare(password, user.password)) {
     clearLoginFail(ip);
+    if (await consumeSellerInvite(user)) await writeDB('users.json', users);
+    if (req.body.seller === '1') {
+      // Login Seller: hanya akun seller yang boleh masuk lewat sini (cek data SEGAR)
+      let fresh = user;
+      try { fresh = (await readFresh('users.json')).find(x => x.id === user.id) || user; } catch (e) { /* pakai cache */ }
+      if (getResellerTier(fresh) < 1) {
+        return res.render('pages/login', { error: 'Akun ini belum terdaftar sebagai seller. Hubungi admin untuk didaftarkan.', redirect: '/reseller/panel', settings, sellerLogin: true });
+      }
+    }
     req.session.userId = user.id;
     req.session.isAdmin = (user.role === 'admin');
     return res.redirect(req.body.redirect || (req.session.isAdmin ? '/admin' : '/'));
@@ -2432,7 +2501,7 @@ app.post('/login', async (req, res) => {
   const errMsg = remaining > 0
     ? `Username atau password salah. Sisa percobaan: ${remaining}`
     : `Terlalu banyak percobaan login. Coba lagi dalam 15 menit.`;
-  res.render('pages/login', { error: errMsg, redirect: req.body.redirect || '/', settings });
+  res.render('pages/login', { error: errMsg, redirect: req.body.redirect || '/', settings, sellerLogin: req.body.seller === '1' });
 });
 
 app.get('/register', (req, res) => {
@@ -2504,6 +2573,7 @@ app.post('/register', async (req, res) => {
   };
 
   users.push(newUser);
+  await consumeSellerInvite(newUser); // kalau username ini sudah didaftarkan admin sebagai seller
   await writeDB('users.json', users);
 
   req.session.userId = newUser.id;
@@ -2662,6 +2732,8 @@ app.get('/auth/google/callback', async (req, res) => {
       users.push(user);
       await writeDB('users.json', users);
     }
+    // Email Google ini sudah didaftarkan admin sebagai seller?
+    if (await consumeSellerInvite(user)) await writeDB('users.json', users);
 
     req.session.userId = user.id;
     req.session.isAdmin = false;
@@ -2694,22 +2766,24 @@ app.get('/reseller', (req, res) => {
     layout: false, settings, user: isAdminSess ? null : user,
     pricing: getResellerPricing(settings, isAdminSess ? null : user),
     enabled: settings.resellerEnabled !== false,
-    need: req.query.need === '2'
+    need: req.query.need === '2',
+    joinMode: settings.resellerJoinMode === 'auto' ? 'auto' : 'manual'
   });
 });
 
-app.get('/reseller/panel', requireAuth, (req, res) => {
+app.get('/reseller/panel', requireAuth, async (req, res) => {
   // FIX: sama seperti /reseller -- pakai settings yang sudah fresh dari
   // res.locals (readSmart), bukan readDB() mentah. Ini halaman yang punya
   // tombol topup saldo & NOWPayments (crypto), jadi kalau admin baru ganti
   // API Key NOWPayments atau QRIS, harus langsung kepakai di sini.
   const settings = res.locals.settings;
-  const user = getSessionUser(req);
+  let user = getSessionUser(req);
+  try { const fu = (await readFresh('users.json')).find(u => u.id === req.session.userId); if (fu) user = fu; } catch (e) { /* pakai cache */ }
   // REVERT (klien klarifikasi: yang wajib saldo cuma Seller/Reseller VIP,
   // BUKAN semua user -- lihat chat "yang bayar pake saldo cuma seller aja
   // jangan yang non seller juga"). Balikin Seller Panel jadi khusus
   // is_reseller lagi seperti semula.
-  if (!user || !user.is_reseller) return res.redirect('/reseller');
+  if (!user || getResellerTier(user) < 1) return res.redirect('/reseller');
 
   const transactions = readDB('transactions.json');
   const myTx = transactions.filter(t => t.userId === user.id).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -2763,6 +2837,7 @@ app.post('/reseller/join', requireAuth, async (req, res) => {
     if (!user) return res.json({ success: false, message: 'User tidak ditemukan' });
     const settings = readDB('settings.json');
     if (settings.resellerEnabled === false) return res.json({ success: false, message: 'Pendaftaran reseller sedang ditutup.' });
+    if (settings.resellerJoinMode !== 'auto') return res.json({ success: false, message: 'Pendaftaran seller dilakukan lewat admin. Hubungi admin untuk didaftarkan.' });
     const wantTier = parseInt(req.body && req.body.tier, 10) === 2 ? 2 : 1;
     const curTier = getResellerTier(user);
     if (curTier >= wantTier) {
@@ -3336,9 +3411,13 @@ app.post('/create-order', requireAuth, async (req, res) => {
 
     const settings = readDB('settings.json');
     // Terapkan harga reseller: pakai harga custom per-paket kalau admin sudah set, kalau belum fallback ke diskon global
-    const orderUser = getSessionUser(req);
+    let orderUser = getSessionUser(req);
     // Mode seller hanya sah kalau akunnya reseller DAN order datang dari Panel Seller (sellerMode:true).
-    const sellerMode = !!(orderUser?.is_reseller && req.body.sellerMode === true);
+    // Status seller dicek pada data SEGAR supaya akun yang baru dicabut tidak bisa lagi bayar saldo/harga reseller.
+    if (req.body.sellerMode === true && orderUser) {
+      try { const fu = (await readFresh('users.json')).find(u => u.id === orderUser.id); if (fu) orderUser = fu; } catch (e) { /* pakai cache */ }
+    }
+    const sellerMode = !!(orderUser && getResellerTier(orderUser) >= 1 && req.body.sellerMode === true);
     if (sellerMode) {
       const matchedOpt = selectedDays ? product.pricingOptions?.find(o => getOptionDurationMinutes(o) === selectedDays) : null;
       if (matchedOpt && matchedOpt.resellerPrice !== undefined) {
@@ -6288,7 +6367,7 @@ app.post('/reseller/api/key', requireTier2, async (req, res) => {
   try {
     const k = resellerV1.generateApiKey();
     let found = false;
-    await updateCollectionAtomic('users.json', (users) => {
+    await updateUsersSafe((users) => {
       const u = users.find(x => x.id === req.tier2User.id);
       if (!u || getResellerTier(u) < 2) return null;
       u.apiKeyHash = k.hash; u.apiKeyPrefix = k.prefix; u.apiKeyCreatedAt = new Date().toISOString();
@@ -6306,7 +6385,7 @@ app.post('/reseller/api/key', requireTier2, async (req, res) => {
 
 app.post('/reseller/api/key/revoke', requireTier2, async (req, res) => {
   try {
-    await updateCollectionAtomic('users.json', (users) => {
+    await updateUsersSafe((users) => {
       const u = users.find(x => x.id === req.tier2User.id);
       if (!u) return null;
       delete u.apiKeyHash; delete u.apiKeyPrefix; delete u.apiKeyCreatedAt;
@@ -6889,7 +6968,7 @@ app.post('/admin/settings/coin', requireAdmin, async (req, res) => {
 
 app.post('/admin/settings/reseller', requireAdmin, async (req, res) => {
   try {
-    const { resellerEnabled, resellerPrice, resellerTier2Price, resellerV1Enabled, resellerDiscount, resellerNote, resellerTopupMin } = req.body;
+    const { resellerEnabled, resellerPrice, resellerTier2Price, resellerV1Enabled, resellerJoinMode, resellerDiscount, resellerNote, resellerTopupMin } = req.body;
     const settings = await readFresh('settings.json');
     settings.resellerEnabled = resellerEnabled === 'true' || resellerEnabled === true;
     if (resellerPrice !== undefined && resellerPrice !== '') {
@@ -6903,6 +6982,7 @@ app.post('/admin/settings/reseller', requireAdmin, async (req, res) => {
       settings.resellerTier2Price = p2;
     }
     if (resellerV1Enabled !== undefined) settings.resellerV1Enabled = resellerV1Enabled === 'true' || resellerV1Enabled === true;
+    if (resellerJoinMode !== undefined) settings.resellerJoinMode = resellerJoinMode === 'auto' ? 'auto' : 'manual';
     if (resellerDiscount !== undefined && resellerDiscount !== '') {
       const discount = parseInt(resellerDiscount);
       if (isNaN(discount) || discount < 0 || discount > 100) return res.json({ success: false, message: 'Diskon harus antara 0-100%' });
@@ -6948,6 +7028,40 @@ app.post('/admin/user/adjust-balance/:id', requireAdmin, async (req, res) => {
     await writeDB('transactions.json', transactions);
 
     res.json({ success: true, balance: user.balance });
+  } catch (e) {
+    res.json({ success: false, message: e.message });
+  }
+});
+
+// Admin: daftarkan seller lewat email / username. Akun sudah ada -> langsung aktif; belum ada -> disimpan sebagai
+// undangan dan otomatis aktif saat akun itu daftar / login (Google cocok lewat email, daftar biasa lewat username).
+app.post('/admin/seller-invite/add', requireAdmin, async (req, res) => {
+  try {
+    const identifier = String(req.body.identifier || '').trim().toLowerCase();
+    const tier = parseInt(req.body.tier, 10) === 2 ? 2 : 1;
+    if (!identifier || identifier.length > 120) return res.json({ success: false, message: 'Isi email atau username yang valid.' });
+    const users = await readFresh('users.json');
+    const u = users.find(x => String(x.email || '').toLowerCase() === identifier || String(x.username || '').toLowerCase() === identifier);
+    if (u) {
+      grantSellerTier(u, tier);
+      await writeDB('users.json', users);
+      return res.json({ success: true, status: 'active', message: `${u.username} langsung aktif sebagai Reseller Tier ${getResellerTier(u)}.` });
+    }
+    const settings = await readFresh('settings.json');
+    settings.sellerInvites = (Array.isArray(settings.sellerInvites) ? settings.sellerInvites : []).filter(i => i.identifier !== identifier);
+    settings.sellerInvites.push({ id: uuidv4(), identifier, tier, createdAt: new Date().toISOString() });
+    await writeDB('settings.json', settings);
+    res.json({ success: true, status: 'pending', message: 'Tersimpan. Otomatis jadi seller saat akun dengan email/username ini daftar atau login.' });
+  } catch (e) {
+    res.json({ success: false, message: e.message });
+  }
+});
+app.post('/admin/seller-invite/remove/:id', requireAdmin, async (req, res) => {
+  try {
+    const settings = await readFresh('settings.json');
+    settings.sellerInvites = (Array.isArray(settings.sellerInvites) ? settings.sellerInvites : []).filter(i => i.id !== req.params.id);
+    await writeDB('settings.json', settings);
+    res.json({ success: true });
   } catch (e) {
     res.json({ success: false, message: e.message });
   }

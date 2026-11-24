@@ -1,6 +1,8 @@
-Perbaikan v7 (menu hamburger ringkas + kategori ala VIP)
-Timpa 3 file ini ke project dengan path yang sama, lalu deploy:
+Perbaikan v8 — timpa file berikut (path sama), lalu deploy:
   server.js
-  public/css/hm-theme.css
-  views/pages/home.ejs
-Catatan: ini hanya selisih dari versi v6. Kalau project kamu masih di versi lebih lama, pakai zip lengkap.
+  views/layout.ejs
+  views/pages/login.ejs
+  views/pages/reseller.ejs
+  views/pages/admin.ejs
+Ini hanya selisih dari v7. Kalau belum pasang v7, pasang v7 dulu (atau pakai zip lengkap).
+Opsional tapi disarankan: jalankan supabase-migration-0002-version.sql di Supabase (kolom version) kalau belum.

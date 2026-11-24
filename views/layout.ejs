@@ -439,15 +439,17 @@
                 <% } %>
 
                 <% if (!isAdmin) { %>
-                <div class="gl-sec gl-in" style="--i:<%= _mi++ %>">Reseller</div>
-                <a href="/reseller" onclick="closeMenu()" class="mi gl-in hl" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:crown-outline"></iconify-icon></span><span class="mi-t"><%= _rt >= 2 ? 'Paket Reseller' : (_rt === 1 ? 'Upgrade ke Tier 2' : 'Jadi Reseller') %></span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
+                <div class="gl-sec gl-in" style="--i:<%= _mi++ %>">Seller</div>
                 <% if (_rt >= 1) { %>
-                <a href="/reseller/panel" onclick="closeMenu()" class="mi gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:storefront-outline"></iconify-icon></span><span class="mi-t">Panel Reseller</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
+                <a href="/reseller/panel" onclick="closeMenu()" class="mi gl-in hl" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:storefront-outline"></iconify-icon></span><span class="mi-t">Panel Seller</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
+                <% } else { %>
+                <a href="/seller/login" onclick="closeMenu()" class="mi gl-in hl" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:login-variant"></iconify-icon></span><span class="mi-t">Login Seller</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
                 <% } %>
                 <% if (_rt >= 2) { %>
                 <a href="/reseller/api" onclick="closeMenu()" class="mi gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:api"></iconify-icon></span><span class="mi-t">API Reseller</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
                 <a href="/docs/api" onclick="closeMenu()" class="mi gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:book-open-variant"></iconify-icon></span><span class="mi-t">Dokumentasi API</span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
                 <% } %>
+                <a href="/reseller" onclick="closeMenu()" class="mi gl-in" style="--i:<%= _mi++ %>"><span class="mi-ico"><iconify-icon icon="mdi:crown-outline"></iconify-icon></span><span class="mi-t"><%= _rt >= 2 ? 'Paket Seller' : (_rt === 1 ? 'Upgrade ke Tier 2' : 'Daftar Seller') %></span><iconify-icon class="mi-go" icon="mdi:chevron-right"></iconify-icon></a>
                 <% } %>
 
                 <div class="gl-sec gl-in" style="--i:<%= _mi++ %>">Akun</div>

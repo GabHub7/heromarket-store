@@ -1504,19 +1504,19 @@ textarea.hm-input{resize:vertical;min-height:80px;}
     </div>
 
     <!-- Reseller VIP -->
-    <div class="neon-card p-5 mb-3" style="border-color:rgba(234,179,8,.2)">
-        <div class="text-xs font-bold mb-4 flex items-center gap-2" style="color:#fbbf24">
-            <iconify-icon icon="mdi:crown"></iconify-icon> Program Reseller VIP
+    <div class="neon-card p-5 mb-3" style="border-color:rgba(111,125,255,.2)">
+        <div class="text-xs font-bold mb-4 flex items-center gap-2" style="color:#a9b6ff">
+            <iconify-icon icon="mdi:crown"></iconify-icon> Program Reseller (Tier 1 &amp; Tier 2)
         </div>
         <form id="resellerSettingsForm" class="space-y-3">
-            <div class="flex items-center justify-between p-3 rounded-xl" style="background:rgba(234,179,8,.06);border:1px solid rgba(234,179,8,.15)">
+            <div class="flex items-center justify-between p-3 rounded-xl" style="background:rgba(111,125,255,.06);border:1px solid rgba(111,125,255,.15)">
                 <div>
                     <div class="text-xs font-semibold text-white">Aktifkan Program Reseller</div>
                     <div class="text-[10px] text-zinc-500 mt-0.5">Tampilkan banner upgrade reseller di halaman utama</div>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" name="resellerEnabled" id="resellerEnabledToggle" class="sr-only peer" <%= (settings.resellerEnabled !== false) ? 'checked' : '' %>>
-                    <div class="w-9 h-5 bg-zinc-700 peer-focus:ring-2 peer-focus:ring-yellow-500/30 rounded-full peer peer-checked:bg-yellow-500 transition-all after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                    <div class="w-9 h-5 bg-zinc-700 peer-focus:ring-2 peer-focus:ring-indigo-400/30 rounded-full peer peer-checked:bg-indigo-500 transition-all after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
                 </label>
             </div>
             <div class="grid grid-cols-2 gap-3">
@@ -1544,6 +1544,13 @@ textarea.hm-input{resize:vertical;min-height:80px;}
                 </label>
             </div>
             <div>
+                <div class="setting-row-label">Cara Daftar Seller</div>
+                <select name="resellerJoinMode" class="hm-input">
+                    <option value="manual" <%= (settings.resellerJoinMode || 'manual') === 'manual' ? 'selected' : '' %>>Manual — admin yang mendaftarkan email/username</option>
+                    <option value="auto" <%= settings.resellerJoinMode === 'auto' ? 'selected' : '' %>>Otomatis — pembeli bayar sendiri lewat QRIS</option>
+                </select>
+            </div>
+            <div>
                 <div class="setting-row-label">Minimal Topup Saldo (Rp)</div>
                 <input type="number" name="resellerTopupMin" value="<%= settings.resellerTopupMin || 50000 %>" min="1000" class="hm-input" placeholder="50000">
             </div>
@@ -1551,17 +1558,51 @@ textarea.hm-input{resize:vertical;min-height:80px;}
                 <div class="setting-row-label">Catatan / Tagline</div>
                 <input type="text" name="resellerNote" value="<%= settings.resellerNote || 'Dapatkan diskon eksklusif untuk semua produk!' %>" class="hm-input">
             </div>
-            <div class="p-3 rounded-xl text-[11px]" style="background:rgba(234,179,8,.06);border:1px solid rgba(234,179,8,.12);color:#a1a1aa">
-                <iconify-icon icon="mdi:information-outline" class="text-yellow-400 align-middle mr-1"></iconify-icon>
-                Preview: User hemat <strong class="text-yellow-400" id="discPreview"><%= settings.resellerDiscount || 20 %>%</strong> otomatis di semua produk saat login sebagai reseller.
+            <div class="p-3 rounded-xl text-[11px]" style="background:rgba(111,125,255,.06);border:1px solid rgba(111,125,255,.12);color:#a1a1aa">
+                <iconify-icon icon="mdi:information-outline" class="text-indigo-300 align-middle mr-1"></iconify-icon>
+                Preview: User hemat <strong class="text-indigo-300" id="discPreview"><%= settings.resellerDiscount || 20 %>%</strong> otomatis di semua produk saat login sebagai reseller.
             </div>
-            <button type="submit" class="w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2" style="background:linear-gradient(135deg,#d97706,#fbbf24);color:#000">
+            <button type="submit" class="w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2" style="background:linear-gradient(135deg,#d97706,#a9b6ff);color:#000">
                 <iconify-icon icon="mdi:crown"></iconify-icon> Simpan Pengaturan Reseller
             </button>
         </form>
     </div>
 
-    <!-- Kredensial Admin -->
+    
+    <!-- Daftarkan Seller (manual) -->
+    <div class="neon-card p-5 mb-3" style="border-color:rgba(111,125,255,.2)">
+        <div class="text-xs font-bold mb-1 flex items-center gap-2" style="color:#a9b6ff">
+            <iconify-icon icon="mdi:account-star"></iconify-icon> Daftarkan Seller
+        </div>
+        <div class="text-[10px] text-zinc-500 mb-3">Masukkan email (akun Google) atau username. Kalau akunnya sudah ada, langsung jadi seller. Kalau belum, otomatis jadi seller saat akun itu daftar atau login.</div>
+        <div class="flex gap-2 mb-3">
+            <input type="text" id="sellerInviteInput" class="hm-input flex-1" placeholder="email atau username" autocomplete="off">
+            <select id="sellerInviteTier" class="hm-input" style="width:104px;flex:none;">
+                <option value="1">Tier 1</option>
+                <option value="2">Tier 2 (API)</option>
+            </select>
+        </div>
+        <button type="button" onclick="addSellerInvite()" class="w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2" style="background:linear-gradient(135deg,#3558dc,#46309f);color:#fff">
+            <iconify-icon icon="mdi:account-plus"></iconify-icon> Daftarkan
+        </button>
+        <div class="mt-4">
+            <div class="setting-row-label">Menunggu akun mendaftar (<%= (settings.sellerInvites || []).length %>)</div>
+            <% if (!(settings.sellerInvites || []).length) { %>
+            <div class="text-[11px] text-zinc-600">Belum ada.</div>
+            <% } %>
+            <% (settings.sellerInvites || []).forEach(inv => { %>
+            <div class="flex items-center justify-between gap-2 py-2 border-b border-white/5">
+                <div class="min-w-0">
+                    <div class="text-xs text-white truncate"><%= inv.identifier %></div>
+                    <div class="text-[10px] text-zinc-500">Tier <%= inv.tier %></div>
+                </div>
+                <button type="button" onclick="removeSellerInvite('<%= inv.id %>')" class="text-[10px] font-bold px-2.5 py-1 rounded-lg text-red-400" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25)">Hapus</button>
+            </div>
+            <% }) %>
+        </div>
+    </div>
+
+<!-- Kredensial Admin -->
     <div class="neon-card p-5 mb-3">
         <div class="text-xs font-bold text-red-400 mb-4 flex items-center gap-2">
             <iconify-icon icon="mdi:shield-account"></iconify-icon> Kredensial Admin
@@ -3159,6 +3200,22 @@ async function saveTopupPackages() {
     else toast(d.message, 'error');
 }
 
+// ── DAFTARKAN SELLER LEWAT EMAIL / USERNAME ──
+async function addSellerInvite() {
+    const v = document.getElementById('sellerInviteInput').value.trim();
+    const tier = document.getElementById('sellerInviteTier').value;
+    if (!v) { toast('Isi email atau username dulu', 'error'); return; }
+    const d = await api('/admin/seller-invite/add', { identifier: v, tier });
+    if (d.success) { toast(d.message, 'success'); setTimeout(() => location.reload(), 1200); }
+    else toast(d.message || 'Gagal', 'error');
+}
+async function removeSellerInvite(id) {
+    if (!confirm('Hapus undangan ini?')) return;
+    const d = await api('/admin/seller-invite/remove/' + id, {});
+    if (d.success) { toast('Dihapus', 'success'); setTimeout(() => location.reload(), 600); }
+    else toast(d.message || 'Gagal', 'error');
+}
+
 // ── ATUR TIER RESELLER (0 / 1 / 2) ──
 async function setResellerTier(id, username, tier) {
     const label = tier === '2' ? 'Tier 2 (API)' : tier === '1' ? 'Tier 1' : 'Member biasa (cabut reseller)';
@@ -3327,6 +3384,7 @@ document.getElementById('resellerSettingsForm').addEventListener('submit', async
     const data = {
         resellerEnabled: document.getElementById('resellerEnabledToggle').checked ? 'true' : 'false',
         resellerPrice: fd.get('resellerPrice'),
+        resellerJoinMode: fd.get('resellerJoinMode'),
         resellerTier2Price: fd.get('resellerTier2Price'),
         resellerV1Enabled: document.getElementById('resellerV1Toggle').checked ? 'true' : 'false',
         resellerDiscount: fd.get('resellerDiscount'),

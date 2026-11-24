@@ -17,7 +17,7 @@ if (typeof window !== 'undefined') {
     <div class="w-full max-w-md">
         <div class="text-center mb-8">
             <h1 class="brand-wordmark brand-wordmark-lg mb-2" style="font-size:28px;background:linear-gradient(135deg,#7b2cbf,#9d4edd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">HERO MARKET</h1>
-            <p class="text-sm text-zinc-500">Masuk ke akun Anda</p>
+            <p class="text-sm text-zinc-500"><%= (typeof sellerLogin !== 'undefined' && sellerLogin) ? 'Login Seller — masuk dengan akun seller yang didaftarkan admin' : 'Masuk ke akun Anda' %></p>
         </div>
 
         <div class="bg-[#151520] rounded-xl border-2 border-purple-500/25 shadow-2xl overflow-hidden" style="box-shadow:0 0 30px rgba(157,78,221,.15);">
@@ -31,6 +31,7 @@ if (typeof window !== 'undefined') {
 
                 <form method="POST" action="/login" class="space-y-4">
                     <input type="hidden" name="redirect" value="<%= redirect %>">
+                    <% if (typeof sellerLogin !== 'undefined' && sellerLogin) { %><input type="hidden" name="seller" value="1"><% } %>
 
                     <div>
                         <label class="block text-xs font-semibold text-zinc-400 mb-2">Username</label>
@@ -86,10 +87,14 @@ if (typeof window !== 'undefined') {
                 <% } %>
 
                 <div class="mt-6 text-center">
+                    <% if (typeof sellerLogin !== 'undefined' && sellerLogin) { %>
+                    <p class="text-xs text-zinc-500">Belum jadi seller? <a href="/reseller" class="text-indigo-400 hover:text-indigo-300 font-semibold">Lihat cara daftar seller</a> &middot; <a href="/login" class="text-indigo-400 hover:text-indigo-300 font-semibold">Login biasa</a></p>
+                    <% } else { %>
                     <p class="text-xs text-zinc-500">
                         Belum punya akun?
                         <a href="/register" class="text-indigo-400 hover:text-indigo-300 font-semibold">Daftar sekarang</a>
                     </p>
+                    <% } %>
                 </div>
 
                 <div class="mt-4 text-center">
