@@ -1,8 +1,3 @@
-Perbaikan v8 — timpa file berikut (path sama), lalu deploy:
-  server.js
-  views/layout.ejs
-  views/pages/login.ejs
-  views/pages/reseller.ejs
-  views/pages/admin.ejs
-Ini hanya selisih dari v7. Kalau belum pasang v7, pasang v7 dulu (atau pakai zip lengkap).
-Opsional tapi disarankan: jalankan supabase-migration-0002-version.sql di Supabase (kolom version) kalau belum.
+Perbaikan v9 (tombol kategori lebih kecil)
+Timpa file: public/css/hm-theme.css, lalu deploy.
+Selisih dari v8.
