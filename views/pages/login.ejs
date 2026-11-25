@@ -17,7 +17,7 @@ if (typeof window !== 'undefined') {
     <div class="w-full max-w-md">
         <div class="text-center mb-8">
             <h1 class="brand-wordmark brand-wordmark-lg mb-2" style="font-size:28px;background:linear-gradient(135deg,#7b2cbf,#9d4edd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">HERO MARKET</h1>
-            <p class="text-sm text-zinc-500"><%= (typeof sellerLogin !== 'undefined' && sellerLogin) ? 'Login Seller — masuk dengan akun seller yang didaftarkan admin' : 'Masuk ke akun Anda' %></p>
+            <p class="text-sm text-zinc-500"><%= (typeof sellerLogin !== 'undefined' && sellerLogin) ? 'Login Seller — masuk dengan username atau email dan password dari admin' : 'Masuk ke akun Anda' %></p>
         </div>
 
         <div class="bg-[#151520] rounded-xl border-2 border-purple-500/25 shadow-2xl overflow-hidden" style="box-shadow:0 0 30px rgba(157,78,221,.15);">
@@ -34,10 +34,10 @@ if (typeof window !== 'undefined') {
                     <% if (typeof sellerLogin !== 'undefined' && sellerLogin) { %><input type="hidden" name="seller" value="1"><% } %>
 
                     <div>
-                        <label class="block text-xs font-semibold text-zinc-400 mb-2">Username</label>
+                        <label class="block text-xs font-semibold text-zinc-400 mb-2"><%= (typeof sellerLogin !== 'undefined' && sellerLogin) ? 'Username / Email' : 'Username' %></label>
                         <div class="relative">
                             <iconify-icon icon="mdi:account" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"></iconify-icon>
-                            <input type="text" name="username" required class="form-input pl-10" placeholder="Masukkan username" autofocus>
+                            <input type="text" name="username" required class="form-input pl-10" placeholder="<%= (typeof sellerLogin !== 'undefined' && sellerLogin) ? 'Username atau email seller' : 'Masukkan username' %>" autofocus>
                         </div>
                     </div>
 

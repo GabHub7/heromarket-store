@@ -1574,7 +1574,8 @@ textarea.hm-input{resize:vertical;min-height:80px;}
         <div class="text-xs font-bold mb-1 flex items-center gap-2" style="color:#a9b6ff">
             <iconify-icon icon="mdi:account-star"></iconify-icon> Daftarkan Seller
         </div>
-        <div class="text-[10px] text-zinc-500 mb-3">Masukkan email (akun Google) atau username. Kalau akunnya sudah ada, langsung jadi seller. Kalau belum, otomatis jadi seller saat akun itu daftar atau login.</div>
+        <div class="text-[10px] text-zinc-500 mb-3">Masukkan email atau username. <b>Isi password</b> untuk langsung membuatkan akun seller (atau mengganti password akun yang sudah ada), lalu berikan username/email + password itu ke seller. Kosongkan password kalau seller akan daftar sendiri (otomatis jadi seller saat daftar atau login Google).</div>
+        <input type="text" id="sellerInvitePass" class="hm-input mb-2" placeholder="Password seller (min. 6 karakter, opsional)" autocomplete="off">
         <div class="flex gap-2 mb-3">
             <input type="text" id="sellerInviteInput" class="hm-input flex-1" placeholder="email atau username" autocomplete="off">
             <select id="sellerInviteTier" class="hm-input" style="width:104px;flex:none;">
@@ -3205,8 +3206,9 @@ async function addSellerInvite() {
     const v = document.getElementById('sellerInviteInput').value.trim();
     const tier = document.getElementById('sellerInviteTier').value;
     if (!v) { toast('Isi email atau username dulu', 'error'); return; }
-    const d = await api('/admin/seller-invite/add', { identifier: v, tier });
-    if (d.success) { toast(d.message, 'success'); setTimeout(() => location.reload(), 1200); }
+    const password = document.getElementById('sellerInvitePass').value;
+    const d = await api('/admin/seller-invite/add', { identifier: v, tier, password });
+    if (d.success) { toast(d.message, 'success'); setTimeout(() => location.reload(), 4500); }
     else toast(d.message || 'Gagal', 'error');
 }
 async function removeSellerInvite(id) {

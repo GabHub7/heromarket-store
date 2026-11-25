@@ -1,3 +1,8 @@
-Perbaikan v9 (tombol kategori lebih kecil)
-Timpa file: public/css/hm-theme.css, lalu deploy.
-Selisih dari v8.
+Perbaikan v10 — admin bisa membuat akun seller + password
+Timpa file (path sama), lalu deploy:
+  server.js
+  views/pages/admin.ejs
+  views/pages/login.ejs
+Selisih dari v8/v9. Pastikan v8 sudah terpasang.
+Cara pakai: Admin -> Reseller -> Daftarkan Seller -> isi email/username + Password + Tier -> Daftarkan.
+Beri username (atau email) + password itu ke seller, lalu seller masuk lewat menu "Login Seller".

@@ -2477,10 +2477,14 @@ app.post('/login', async (req, res) => {
   }
 
   // Check user
-  const users = readDB('users.json');
-  const user = users.find(u => u.username === username);
+  // readSmart (bukan readDB): akun baru yang dibuat admin di instance lain harus bisa langsung login.
+  const users = await readSmart('users.json');
+  let user = users.find(u => u.username === username);
+  // Seller boleh login dengan email (akun yang dibuat admin lewat email)
+  const idLower = String(username || '').trim().toLowerCase();
+  if (!user && idLower.includes('@')) user = users.find(u => String(u.email || '').toLowerCase() === idLower);
 
-  if (user && await bcrypt.compare(password, user.password)) {
+  if (user && user.password && await bcrypt.compare(password, user.password)) {
     clearLoginFail(ip);
     if (await consumeSellerInvite(user)) await writeDB('users.json', users);
     if (req.body.seller === '1') {
@@ -7038,15 +7042,40 @@ app.post('/admin/user/adjust-balance/:id', requireAdmin, async (req, res) => {
 app.post('/admin/seller-invite/add', requireAdmin, async (req, res) => {
   try {
     const identifier = String(req.body.identifier || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
     const tier = parseInt(req.body.tier, 10) === 2 ? 2 : 1;
     if (!identifier || identifier.length > 120) return res.json({ success: false, message: 'Isi email atau username yang valid.' });
+    const isEmail = identifier.includes('@');
+    if (isEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) return res.json({ success: false, message: 'Format email tidak valid.' });
+    if (password && (password.length < 6 || password.length > 100)) return res.json({ success: false, message: 'Password minimal 6 karakter.' });
+    if (identifier === 'admin') return res.json({ success: false, message: 'Username tidak diizinkan.' });
+
     const users = await readFresh('users.json');
     const u = users.find(x => String(x.email || '').toLowerCase() === identifier || String(x.username || '').toLowerCase() === identifier);
     if (u) {
       grantSellerTier(u, tier);
+      if (password) u.password = await bcrypt.hash(password, 10);
       await writeDB('users.json', users);
-      return res.json({ success: true, status: 'active', message: `${u.username} langsung aktif sebagai Reseller Tier ${getResellerTier(u)}.` });
+      return res.json({ success: true, status: 'active', username: u.username,
+        message: `${u.username} langsung aktif sebagai Reseller Tier ${getResellerTier(u)}.` + (password ? ' Password diganti.' : '') });
     }
+
+    // Akun belum ada + password diisi -> buat akun seller sekarang (admin yang memberi password)
+    if (password) {
+      let base = (isEmail ? identifier.split('@')[0] : identifier).replace(/[^a-z0-9_.-]/g, '').slice(0, 20);
+      if (base.length < 3) base = (base + 'seller').slice(0, 20);
+      let username = base, n = 0;
+      while (users.some(x => String(x.username || '').toLowerCase() === username)) { n++; username = base.slice(0, 16) + Math.floor(100 + Math.random() * 900); if (n > 20) break; }
+      const newUser = { id: uuidv4(), username, password: await bcrypt.hash(password, 10), wa: '', photo: null, createdAt: new Date().toISOString(), createdByAdmin: true };
+      if (isEmail) newUser.email = identifier;
+      grantSellerTier(newUser, tier);
+      users.push(newUser);
+      await writeDB('users.json', users);
+      return res.json({ success: true, status: 'created', username,
+        message: `Akun seller dibuat. Login Seller dengan username "${username}"${isEmail ? ' (atau email ' + identifier + ')' : ''} dan password yang kamu isi.` });
+    }
+
+    // Tanpa password: simpan sebagai undangan (aktif otomatis saat akun itu daftar / login Google)
     const settings = await readFresh('settings.json');
     settings.sellerInvites = (Array.isArray(settings.sellerInvites) ? settings.sellerInvites : []).filter(i => i.identifier !== identifier);
     settings.sellerInvites.push({ id: uuidv4(), identifier, tier, createdAt: new Date().toISOString() });
